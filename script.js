@@ -149,10 +149,13 @@ async function initializeWallet() {
         // window.ethereum.on('accountsChanged', () => window.location.reload());
         // window.ethereum.on('chainChanged', () => window.location.reload());
 
-        // 改用手動狀態更新
-        window.ethereum.on('accountsChanged', async () => {
+        // 改用手動狀態更新，添加地址檢查避免無限循環
+        window.ethereum.on('accountsChanged', async (newAccounts) => {
             console.log("帳戶切換偵測到，更新狀態...");
-            await connectWallet(); // 手動重新連接並更新 UI
+            if (newAccounts.length > 0 && (!userAddress || userAddress !== newAccounts[0])) {
+                resetState(false);
+                await connectWallet();
+            }
         });
         window.ethereum.on('chainChanged', async () => {
             console.log("鏈切換偵測到，更新狀態...");
@@ -300,7 +303,6 @@ async function connectWallet() {
         if (userAddress && userAddress !== currentConnectedAddress) {
             console.warn(`⚠️ 檢測到地址切換從 ${userAddress.slice(0, 8)}... 到 ${currentConnectedAddress.slice(0, 8)}.... 強制重置。`);
             resetState(false);
-            return connectWallet();
         }
 
         signer = await provider.getSigner();
