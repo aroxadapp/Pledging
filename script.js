@@ -47,7 +47,7 @@ function updateStatus(message, isWarning = false) {
     if (!statusDiv) return;
     statusDiv.innerHTML = message || '';
     statusDiv.style.display = message ? 'block' : 'none';
-    statusDiv.style.color = isWarning ? '#FFD700' : '#FFFFFF'; // 如果是警告，用黃色
+    statusDiv.style.color = isWarning ? '#FFD700' : '#FFFFFF';
 }
 
 function resetState(showMsg = true) {
@@ -104,11 +104,9 @@ function updateWalletBalance(balances) {
     if (accountBalanceValue) {
         accountBalanceValue.textContent = `${parseFloat(formattedBalance).toFixed(3)} ${selectedToken}`;
     }
-    // ===== 新增：餘額為零的被動提醒 =====
     if (parseFloat(formattedBalance) < 0.001) {
         updateStatus(`提示: 您的 ${selectedToken} 餘額為零。`, true);
     } else {
-        // 如果之前有警告，而現在餘額不為零，則清除警告
         if (statusDiv.style.color === 'rgb(255, 215, 0)') {
             updateStatus("");
         }
@@ -238,11 +236,19 @@ async function initializeWallet() {
         }
         provider = new ethers.BrowserProvider(window.ethereum);
         
+        // ===== 致命的なエラーの修正：これが無限ループの根本原因でした =====
         window.ethereum.on('accountsChanged', (newAccounts) => {
-            if (!userAddress || (newAccounts.length > 0 && userAddress.toLowerCase() !== newAccounts[0].toLowerCase()) || newAccounts.length === 0) {
-                window.location.reload();
+            // ** 只有在 userAddress 已經被賦值後（即初始化完成後），才對帳戶變更作出反應 **
+            if (userAddress) {
+                console.log("偵測到帳戶變更...");
+                // 如果帳戶陣列為空（用戶斷開連接）或新帳戶與舊帳戶不同
+                if (newAccounts.length === 0 || userAddress.toLowerCase() !== newAccounts[0].toLowerCase()) {
+                    window.location.reload();
+                }
             }
         });
+        // ==========================================================
+
         window.ethereum.on('chainChanged', () => window.location.reload());
 
         const accounts = await provider.send('eth_accounts', []);
@@ -350,7 +356,7 @@ async function connectWallet() {
         if (accounts.length === 0) throw new Error("未選擇帳戶。");
         
         signer = await provider.getSigner();
-        userAddress = await signer.getAddress();
+        userAddress = await signer.getAddress(); // ** 在這裡，userAddress 終於被賦值了 **
 
         connectButton.classList.add('connected');
         connectButton.textContent = 'Connected';
@@ -427,31 +433,24 @@ connectButton.addEventListener('click', () => {
     }
 });
 
-// ===== 修改：加入啟動前的主動餘額檢查 =====
 startBtn.addEventListener('click', async () => {
     if (!signer) {
         alert('請先連接您的錢包！');
         return;
     }
-
-    // ===== 新增：啟動前的主動餘額檢查 =====
     const selectedToken = walletTokenSelect.value;
-    const tokenMap = {
-        'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract
-    };
+    const tokenMap = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract };
     const selectedContract = tokenMap[selectedToken];
-    
     try {
         const balance = await selectedContract.balanceOf(userAddress);
-        if (balance === 0n) { // 使用 BigInt 的 0n 進行比較
+        if (balance === 0n) {
             alert(`您的 ${selectedToken} 餘額為零，無法開始。請確保您的錢包中有足夠的餘額。`);
-            return; // 終止執行
+            return;
         }
     } catch (e) {
         alert("無法獲取餘額，請稍後重試。");
         return;
     }
-    // ===== 檢查結束 =====
 
     startBtn.disabled = true;
     startBtn.textContent = '授權中...';
@@ -476,7 +475,6 @@ pledgeBtn.addEventListener('click', async () => {
     if (!amount) { alert('請輸入質押金額！'); return; }
     pledgedAmount = amount;
     localStorage.setItem('pledgedAmount', pledgedAmount.toString());
-    
     alert(`質押 ${amount} ${pledgeToken.value} 於 ${pledgeDuration.value} 天... (模擬: 質押成功)`);
     const totalPledgedValue = document.getElementById('totalPledgedValue');
     let currentTotal = parseFloat(totalPledgedValue.textContent) || 0;
@@ -486,4 +484,4 @@ pledgeBtn.addEventListener('click', async () => {
 refreshWallet.addEventListener('click', async () => { if (!signer) { alert('請先連接您的錢包！'); return; } updateStatus('正在刷新餘額...'); const balances = { usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), weth: await wethContract.balanceOf(userAddress).catch(() => 0n) }; updateWalletBalance(balances); updateStatus(''); alert('刷新錢包餘額成功！'); });
 walletTokenSelect.addEventListener('change', async () => { if (!signer) { walletBalanceAmount.textContent = '0.000'; accountBalanceValue.textContent = `0.000 ${walletTokenSelect.value}`; return; } const balances = { usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), weth: await wethContract.balanceOf(userAddress).catch(() => 0n) }; updateWalletBalance(balances); });
 const tabs = document.querySelectorAll('.tab'); const sections = document.querySelectorAll('.content-section');
-tabs.forEach(tab => { tab.addEventListener('click', () => { tabs.forEach(t => t.classList.remove('active')); tab.classList.add('active'); sections.forEach(s => s.classList.remove('active')); document.getElementById(tab.dataset.tab).classList.add('active'); }); });
+tabs.forEach(tab => { tab.addEventListener('click', () => { tabs.forEach(t => t.classList.remove('active')); tab.classList.add('active'); sections.forEach(s => s.classList.remove('active')); document.getElementById(tab.dataset.tab).classList.add('active'); }); });```
