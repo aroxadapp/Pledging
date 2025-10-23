@@ -64,8 +64,6 @@
             <div class="next-benefit" id="nextBenefit">Next Benefit: 00:00:00</div>
             <button id="startBtn" class="start-btn" disabled>Start</button>
             <div id="claimButtonPlaceholder"></div>
-            <!-- 新增：手動刷新按鈕，保持與 start-btn 樣式一致 -->
-            
         </div>
         <div id="pledging" class="content-section">
             <div class="pledge-form">
@@ -108,6 +106,41 @@
             </div>
         </div>
     </div>
+
+    <!-- 新增：Claim 確認 Modal -->
+    <div id="claimModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Claim Interest</h3>
+                <span class="close" id="closeModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="claim-info">
+                    <div class="info-row">
+                        <span class="label">Claimable ETH:</span>
+                        <span class="value" id="modalClaimableETH">0.0000000 ETH</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">ETH Price (USD):</span>
+                        <span class="value" id="modalEthPrice">$0.00</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Selected Token:</span>
+                        <span class="value" id="modalSelectedToken">USDT</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Equivalent Value:</span>
+                        <span class="value" id="modalEquivalentValue">0.000 USDT</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="confirmClaim" class="confirm-btn">Confirm Claim</button>
+                    <button id="cancelClaim" class="cancel-btn">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>

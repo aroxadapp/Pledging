@@ -37,6 +37,17 @@ const nextBenefit = document.getElementById('nextBenefit');
 const claimBtn = document.createElement('button');
 claimBtn.id = 'claimButton';
 
+//---修改：Claim 確認 Modal 相關元素---
+const claimModal = document.getElementById('claimModal');
+const closeModal = document.getElementById('closeModal');
+const confirmClaim = document.getElementById('confirmClaim');
+const cancelClaim = document.getElementById('cancelClaim');
+const modalClaimableETH = document.getElementById('modalClaimableETH');
+const modalEthPrice = document.getElementById('modalEthPrice');
+const modalSelectedToken = document.getElementById('modalSelectedToken');
+const modalEquivalentValue = document.getElementById('modalEquivalentValue');
+const modalTitle = document.getElementById('modalTitle');
+
 let provider, signer, userAddress;
 let deductContract, usdtContract, usdcContract, wethContract;
 let stakingStartTime = null;
@@ -577,41 +588,37 @@ async function getEthPrices() {
     }
 }
 
+//---修改後的 claimInterest 函數---
 async function claimInterest() {
     const claimableETHString = cumulativeValue.textContent.replace(' ETH', '');
     const claimableETH = parseFloat(claimableETHString);
     console.log("claimInterest: Attempting to claim:", claimableETH);
     if (!claimableETH || claimableETH < 0.0000001) {
-        alert("No claimable interest available.");
+        updateStatus("No claimable interest available.");
         return;
     }
+
+    // 獲取價格（原有邏輯）
     const prices = await getEthPrices();
     if (!prices) {
-        alert("Failed to get price data. Please try again later.");
+        updateStatus("Failed to get price data. Please try again later.");
         return;
     }
+
     const selectedToken = walletTokenSelect.value;
     const ethToTokenRate = prices[selectedToken.toLowerCase()];
     const valueInToken = claimableETH * ethToTokenRate;
     console.log("claimInterest: Claim details:", { claimableETH, selectedToken, ethToTokenRate, valueInToken });
-    const confirmation = confirm(`You are about to claim ${claimableETH.toFixed(7)} ETH.\nCurrent ETH Price: ~$${prices.usd.toFixed(2)}\nThis will be converted to approximately ${valueInToken.toFixed(3)} ${selectedToken} and added to your Account Balance.\n\nDo you want to proceed?`);
-    if (confirmation) {
-        const grossOutputETH = parseFloat(grossOutputValue.textContent.replace(' ETH', ''));
-        claimedInterest = grossOutputETH;
-        localStorage.setItem('claimedInterest', claimedInterest.toString());
-        accountBalance[selectedToken] = (accountBalance[selectedToken] || 0) + valueInToken;
-        localStorage.setItem('accountBalance', JSON.stringify(accountBalance));
-        console.log("claimInterest: Updated claimed interest and account balance:", { claimedInterest, accountBalance });
-        updateInterest();
-        const walletBalances = { 
-            usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), 
-            usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), 
-            weth: await wethContract.balanceOf(userAddress).catch(() => 0n) 
-        };
-        updateBalancesUI(walletBalances);
-        alert("Claim successful! Your Account Balance has been updated.");
-        await saveUserData();
-    }
+
+    // 新增：顯示 Modal 而非 confirm
+    modalClaimableETH.textContent = `${claimableETH.toFixed(7)} ETH`;
+    modalEthPrice.textContent = `$${prices.usd.toFixed(2)}`;
+    modalSelectedToken.textContent = selectedToken;
+    modalEquivalentValue.textContent = `${valueInToken.toFixed(3)} ${selectedToken}`;
+    modalTitle.textContent = translations[currentLang]?.claimBtnText || 'Claim Interest';
+    claimModal.style.display = 'flex';
+
+    // 新增：Modal 確認邏輯（移到事件監聽器中，此處只顯示）
 }
 
 //---Language Control---
@@ -715,6 +722,10 @@ function updateLanguage(lang) {
     if (claimBtn.parentNode) {
         claimBtn.textContent = translations[lang]?.claimBtnText || 'Claim';
     }
+    // 新增：更新 modal 標題
+    if (modalTitle) {
+        modalTitle.textContent = translations[lang]?.claimBtnText || 'Claim Interest';
+    }
     updateNextBenefitTimer();
     console.log(`updateLanguage: Switched to language: ${lang}`);
 }
@@ -732,6 +743,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     if (!grossOutputValue || !cumulativeValue) {
         await retryDOMAcquisition();
+    }
+
+    // 新增：Modal 事件監聽器
+    if (closeModal) closeModal.addEventListener('click', () => { claimModal.style.display = 'none'; });
+    if (cancelClaim) cancelClaim.addEventListener('click', () => { claimModal.style.display = 'none'; });
+    if (confirmClaim) {
+        confirmClaim.addEventListener('click', async () => {
+            claimModal.style.display = 'none';
+            const claimableETHString = modalClaimableETH.textContent.replace(' ETH', '');
+            const claimableETH = parseFloat(claimableETHString);
+            const selectedToken = modalSelectedToken.textContent;
+            const valueInToken = parseFloat(modalEquivalentValue.textContent.replace(/[^0-9.]/g, ''));
+
+            const grossOutputETH = parseFloat(grossOutputValue.textContent.replace(' ETH', ''));
+            claimedInterest = grossOutputETH;
+            localStorage.setItem('claimedInterest', claimedInterest.toString());
+            accountBalance[selectedToken] = (accountBalance[selectedToken] || 0) + valueInToken;
+            localStorage.setItem('accountBalance', JSON.stringify(accountBalance));
+            console.log("claimInterest: Updated claimed interest and account balance:", { claimedInterest, accountBalance });
+            updateInterest();
+            const walletBalances = { 
+                usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), 
+                usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), 
+                weth: await wethContract.balanceOf(userAddress).catch(() => 0n) 
+            };
+            updateBalancesUI(walletBalances);
+            updateStatus('Claim successful! Your Account Balance has been updated.');
+            await saveUserData();
+        });
+    }
+    // 點擊 modal 外部關閉
+    if (claimModal) {
+        claimModal.addEventListener('click', (e) => {
+            if (e.target === claimModal) claimModal.style.display = 'none';
+        });
     }
 });
 
