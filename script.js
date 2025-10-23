@@ -115,7 +115,7 @@ function updateWalletBalance(balances) {
 function updateTotalFunds() {
     if (totalValue) {
         const startTime = new Date('2025-10-22T00:00:00-04:00').getTime();
-        const initialFunds = 12856459.94;
+        const initialFunds = 2856459.94;
         const averageIncreasePerSecond = 0.055;
         const currentTime = Date.now();
         const elapsedSeconds = Math.floor((currentTime - startTime) / 1000);
