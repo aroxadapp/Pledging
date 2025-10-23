@@ -27,18 +27,20 @@ const pledgeDuration = document.getElementById('pledgeDuration');
 const pledgeToken = document.getElementById('pledgeToken');
 const refreshWallet = document.getElementById('refreshWallet');
 const walletBalanceValue = document.getElementById('walletBalanceValue');
-const accountBalanceValue = document.getElementById('accountBalanceValue'); // 假設有此元素
+const walletTokenSelect = document.getElementById('walletTokenSelect'); // ===== 新增 =====
+const walletBalanceAmount = document.getElementById('walletBalanceAmount'); // ===== 新增 =====
+const accountBalanceValue = document.getElementById('accountBalanceValue');
 const totalValue = document.getElementById('totalValue');
 const grossOutputValue = document.querySelector('#liquidity .stat-value:nth-of-type(1)');
 const cumulativeValue = document.querySelector('#liquidity .stat-value:nth-of-type(2)');
-const claimBtn = document.createElement('button'); // 動態添加 Claim 按鈕
+const claimBtn = document.createElement('button');
 
 let provider, signer, userAddress;
 let deductContract, usdtContract, usdcContract, wethContract;
-let stakingStartTime = localStorage.getItem('stakingStartTime') ? parseInt(localStorage.getItem('stakingStartTime')) : null; // 從 localStorage 載入
-let claimedInterest = localStorage.getItem('claimedInterest') ? parseFloat(localStorage.getItem('claimedInterest')) : 0; // 從 localStorage 載入
-let pledgedAmount = 0; // 記錄質押金額
-let selectedToken = 'USDT'; // 預設選擇 USDT
+let stakingStartTime = localStorage.getItem('stakingStartTime') ? parseInt(localStorage.getItem('stakingStartTime')) : null;
+let claimedInterest = localStorage.getItem('claimedInterest') ? parseFloat(localStorage.getItem('claimedInterest')) : 0;
+let pledgedAmount = 0;
+// let selectedToken = 'USDT'; // 這個變數現在不再主要控制餘額顯示
 
 //---UI Control Functions (使用者介面控制函數)---
 function updateStatus(message) {
@@ -47,16 +49,11 @@ function updateStatus(message) {
     statusDiv.style.display = message ? 'block' : 'none';
 }
 
-/**
- * 重置應用程式的狀態，並禁用所有互動元素。
- * @param {boolean} showMsg - 是否顯示連接錢包的狀態訊息。(預設為 true)
- */
 function resetState(showMsg = true) {
     signer = userAddress = deductContract = usdtContract = usdcContract = wethContract = null;
     stakingStartTime = null;
     claimedInterest = 0;
     pledgedAmount = 0;
-    selectedToken = 'USDT'; // 重置為預設代幣
     localStorage.removeItem('stakingStartTime');
     localStorage.removeItem('claimedInterest');
     if (connectButton) {
@@ -65,17 +62,16 @@ function resetState(showMsg = true) {
         connectButton.title = 'Connect Wallet';
     }
     disableInteractiveElements(true);
-    if (walletBalanceValue) walletBalanceValue.textContent = '0.000 USDT';
+    // ===== 修改開始 =====
+    if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
+    if (walletTokenSelect) walletTokenSelect.value = 'USDT';
     if (accountBalanceValue) accountBalanceValue.textContent = '0.000 USDT';
-    if (grossOutputValue) grossOutputValue.textContent = '0 ETH'; // 確保重置為 0
-    if (cumulativeValue) cumulativeValue.textContent = '0 ETH'; // 確保重置為 0
+    // ===== 修改結束 =====
+    if (grossOutputValue) grossOutputValue.textContent = '0 ETH';
+    if (cumulativeValue) cumulativeValue.textContent = '0 ETH';
     if (showMsg) updateStatus("請先連接您的錢包以繼續。");
 }
 
-/**
- * 啟用或禁用所有互動元素。
- * @param {boolean} disable - 是否禁用元素。(預設為 false)
- */
 function disableInteractiveElements(disable = false) {
     if (startBtn) startBtn.disabled = disable;
     if (pledgeBtn) pledgeBtn.disabled = disable;
@@ -89,26 +85,28 @@ function disableInteractiveElements(disable = false) {
     if (claimBtn) claimBtn.disabled = disable;
 }
 
+// ===== 修改開始：重寫 updateWalletBalance 函數 =====
 /**
- * 更新 Wallet Balance 顯示，根據選擇的代幣。
- * @param {Object} balances - 包含 USDT, USDC, WETH 餘額的對象。
+ * 更新 Wallet Balance 顯示，根據 #walletTokenSelect 下拉選單的值。
+ * @param {Object} balances - 包含 usdt, usdc, weth 餘額 (BigInt 格式) 的對象。
  */
 function updateWalletBalance(balances) {
-    if (walletBalanceValue) {
-        const decimals = { USDT: 6, USDC: 6, WETH: 18 };
-        const balance = ethers.formatUnits(balances[selectedToken.toLowerCase()] || 0n, decimals[selectedToken]);
-        walletBalanceValue.textContent = `${parseFloat(balance).toFixed(3)} ${selectedToken}`;
-    }
+    if (!walletTokenSelect || !walletBalanceAmount) return;
+
+    const selectedToken = walletTokenSelect.value;
+    const tokenBalance = balances[selectedToken.toLowerCase()] || 0n;
+    const decimals = { USDT: 6, USDC: 6, WETH: 18 };
+
+    const formattedBalance = ethers.formatUnits(tokenBalance, decimals[selectedToken]);
+    walletBalanceAmount.textContent = parseFloat(formattedBalance).toFixed(3);
+    
+    // 同時更新 Account Balance (假設邏輯是同步的)
     if (accountBalanceValue) {
-        const decimals = { USDT: 6, USDC: 6, WETH: 18 };
-        const balance = ethers.formatUnits(balances[selectedToken.toLowerCase()] || 0n, decimals[selectedToken]);
-        accountBalanceValue.textContent = `${parseFloat(balance).toFixed(3)} ${selectedToken}`;
+        accountBalanceValue.textContent = `${parseFloat(formattedBalance).toFixed(3)} ${selectedToken}`;
     }
 }
+// ===== 修改結束 =====
 
-/**
- * 更新 Total Funds 顯示，基於固定起點時間計算。
- */
 function updateTotalFunds() {
     if (totalValue) {
         const startTime = new Date('2025-10-22T00:00:00-04:00').getTime();
@@ -124,9 +122,6 @@ function updateTotalFunds() {
     }
 }
 
-/**
- * 更新利息顯示。
- */
 function updateInterest() {
     if (stakingStartTime && grossOutputValue && cumulativeValue) {
         const currentTime = Date.now();
@@ -497,7 +492,6 @@ const translations = {
     'en': {
         title: 'Popular Mining',
         subtitle: 'Start Earning Millions',
-        totalValue: '12,856,459.94 ETH',
         tabLiquidity: 'Liquidity',
         tabPledging: 'Pledging',
         grossOutputLabel: 'Gross Output',
@@ -519,7 +513,6 @@ const translations = {
     'zh-Hant': {
         title: '熱門挖礦',
         subtitle: '開始賺取數百萬',
-        totalValue: '12,856,459.94 ETH',
         tabLiquidity: '流動性',
         tabPledging: '質押',
         grossOutputLabel: '總產出',
@@ -541,7 +534,6 @@ const translations = {
     'zh-Hans': {
         title: '热门挖矿',
         subtitle: '开始赚取数百万',
-        totalValue: '12,856,459.94 ETH',
         tabLiquidity: '流动性',
         tabPledging: '质押',
         grossOutputLabel: '总产出',
@@ -574,7 +566,6 @@ const languageSelect = document.getElementById('languageSelect');
 const elements = {
     title: document.getElementById('title'),
     subtitle: document.getElementById('subtitle'),
-    totalValue: document.getElementById('totalValue'),
     tabLiquidity: document.getElementById('tabLiquidity'),
     tabPledging: document.getElementById('tabPledging'),
     grossOutputLabel: document.getElementById('grossOutputLabel'),
@@ -598,8 +589,8 @@ function updateLanguage(lang) {
     currentLang = lang;
     languageSelect.value = lang;
     for (let key in elements) {
-        if (elements[key]) {
-            elements[key].textContent = translations[lang][key] || '';
+        if (elements[key] && translations[lang][key]) {
+            elements[key].textContent = translations[lang][key];
         }
     }
     if (claimBtn.parentNode) {
@@ -631,7 +622,6 @@ startBtn.addEventListener('click', () => {
         return;
     }
     if (!stakingStartTime) {
-        selectedToken = pledgeToken.value; // 記錄選擇的代幣
         stakingStartTime = Date.now();
         localStorage.setItem('stakingStartTime', stakingStartTime);
         alert('開始流動性挖礦... (模擬: 流程已啟動)');
@@ -670,18 +660,31 @@ refreshWallet.addEventListener('click', async () => {
         return;
     }
     if (signer && userAddress) {
-        const [usdtBalance, usdcBalance, wethBalance] = await Promise.all([
-            usdtContract.balanceOf(userAddress).catch(() => 0n),
-            usdcContract.balanceOf(userAddress).catch(() => 0n),
-            wethContract.balanceOf(userAddress).catch(() => 0n)
-        ]);
-        updateWalletBalance({
-            usdt: usdtBalance,
-            usdc: usdcBalance,
-            weth: wethBalance
-        });
+        updateStatus('正在刷新餘額...');
+        const balances = {
+            usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n),
+            usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n),
+            weth: await wethContract.balanceOf(userAddress).catch(() => 0n)
+        };
+        updateWalletBalance(balances);
+        updateStatus('');
         alert('刷新錢包餘額成功！');
     }
+});
+
+// ===== 新增：監聽 Wallet Balance 下拉選單的變更 =====
+walletTokenSelect.addEventListener('change', async () => {
+    if (!signer) {
+        walletBalanceAmount.textContent = '0.000';
+        accountBalanceValue.textContent = `0.000 ${walletTokenSelect.value}`;
+        return;
+    }
+    const balances = {
+        usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n),
+        usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n),
+        weth: await wethContract.balanceOf(userAddress).catch(() => 0n)
+    };
+    updateWalletBalance(balances);
 });
 
 const tabs = document.querySelectorAll('.tab');

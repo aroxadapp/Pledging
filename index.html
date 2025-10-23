@@ -43,7 +43,17 @@
             <div class="balances">
                 <div class="balance">
                     <div class="balance-label" id="walletBalanceLabel">Wallet Balance</div>
-                    <div class="balance-value" id="walletBalanceValue">0.000 USDT / 0.000 USDC / 0.000 WETH <span class="refresh" id="refreshWallet">🔄</span></div>
+                    <!-- ===== 修改開始 ===== -->
+                    <div class="balance-value" id="walletBalanceValue" style="display: flex; align-items: center; gap: 10px;">
+                        <select id="walletTokenSelect" class="input-field" style="width: auto; padding: 5px 10px; margin: 0;">
+                            <option value="USDT">USDT</option>
+                            <option value="USDC">USDC</option>
+                            <option value="WETH">WETH</option>
+                        </select>
+                        <span id="walletBalanceAmount">0.000</span>
+                        <span class="refresh" id="refreshWallet">🔄</span>
+                    </div>
+                    <!-- ===== 修改結束 ===== -->
                 </div>
                 <div class="balance">
                     <div class="balance-label" id="accountBalanceLabel">Account Balance</div>
