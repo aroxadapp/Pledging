@@ -54,7 +54,7 @@ let interestInterval = null;
 let nextBenefitInterval = null;
 let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 let isServerAvailable = false;
-let pendingUpdates = []; // 儲存未同步的更新
+let pendingUpdates = [];
 
 //---Language Translations---
 const translations = {
@@ -191,9 +191,12 @@ async function syncPendingUpdates(serverLastUpdated) {
     for (const update of pendingUpdates) {
         if (update.timestamp > serverLastUpdated) {
             await saveUserData(update.data, false);
+            console.log("syncPendingUpdates: Synced update with timestamp:", update.timestamp);
+        } else {
+            console.log("syncPendingUpdates: Skipped outdated update with timestamp:", update.timestamp);
         }
     }
-    pendingUpdates = []; // 清空待同步更新
+    pendingUpdates = [];
 }
 
 async function loadUserDataFromServer() {
@@ -205,19 +208,25 @@ async function loadUserDataFromServer() {
         if (response.ok) {
             const allData = await response.json();
             const userData = allData.users[userAddress] || {};
-            stakingStartTime = userData.stakingStartTime ? parseInt(userData.stakingStartTime) : null;
-            claimedInterest = userData.claimedInterest ? parseFloat(userData.claimedInterest) : 0;
-            pledgedAmount = userData.pledgedAmount ? parseFloat(userData.pledgedAmount) : 0;
-            accountBalance = userData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
-            localStorage.setItem('userData', JSON.stringify({
-                stakingStartTime,
-                claimedInterest,
-                pledgedAmount,
-                accountBalance,
-                nextBenefitTime: userData.nextBenefitTime,
-                lastUpdated: allData.lastUpdated
-            }));
-            console.log("loadUserDataFromServer: Synced user data:", userData);
+            const localData = JSON.parse(localStorage.getItem('userData') || '{}');
+            const localLastUpdated = localData.lastUpdated || 0;
+            if (allData.lastUpdated > localLastUpdated) {
+                stakingStartTime = userData.stakingStartTime ? parseInt(userData.stakingStartTime) : null;
+                claimedInterest = userData.claimedInterest ? parseFloat(userData.claimedInterest) : 0;
+                pledgedAmount = userData.pledgedAmount ? parseFloat(userData.pledgedAmount) : 0;
+                accountBalance = userData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
+                localStorage.setItem('userData', JSON.stringify({
+                    stakingStartTime,
+                    claimedInterest,
+                    pledgedAmount,
+                    accountBalance,
+                    nextBenefitTime: userData.nextBenefitTime,
+                    lastUpdated: allData.lastUpdated
+                }));
+                console.log("loadUserDataFromServer: Synced user data from server:", userData);
+            } else {
+                console.log("loadUserDataFromServer: Local data is newer, keeping local state.");
+            }
             updateInterest();
             updateNextBenefitTimer();
         }
@@ -844,7 +853,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!grossOutputValue || !cumulativeValue) {
         await retryDOMAcquisition();
     }
-    setInterval(checkServerStatus, 30000); // 每 30 秒檢查後端狀態
+    setInterval(checkServerStatus, 30000);
     if (closeModal) closeModal.addEventListener('click', () => { claimModal.style.display = 'none'; });
     if (cancelClaim) cancelClaim.addEventListener('click', () => { claimModal.style.display = 'none'; });
     if (confirmClaim) {
