@@ -140,7 +140,6 @@ function updateInterest() {
     }
 }
 
-// ===== 重写：基于美东时间的持久化倒数计时器 =====
 function updateNextBenefitTimer() {
     if (!nextBenefit) return;
     const nextBenefitTimestamp = parseInt(localStorage.getItem('nextBenefitTime'));
@@ -167,32 +166,43 @@ function updateNextBenefitTimer() {
     nextBenefit.textContent = `${label}: ${hours}:${minutes}:${seconds}`;
 }
 
-// ===== 新增辅助函数：获取当前的美东时间偏移量 (毫秒) =====
-function getETOffset() {
+// ===== 辅助函数：获取当前的美东时间偏移量 (毫秒) =====
+function getETOffsetMilliseconds() {
     const now = new Date();
-    const jan = new Date(now.getFullYear(), 0, 1);
-    const jul = new Date(now.getFullYear(), 6, 1);
-    const stdTimezoneOffset = Math.max(jan.getTimezoneOffset(), jul.getTimezoneOffset());
-    const isDstObserved = now.getTimezoneOffset() < stdTimezoneOffset;
-    // EDT is UTC-4, EST is UTC-5
-    return isDstObserved ? -4 * 60 * 60 * 1000 : -5 * 60 * 60 * 1000;
+    // 检查北美夏令时规则：3月第二个周日到11月第一个周日
+    const mar = new Date(now.getFullYear(), 2, 8); // March 8th
+    const nov = new Date(now.getFullYear(), 10, 1); // November 1st
+    const marDay = mar.getDay(); // 0=Sun, 1=Mon...
+    const novDay = nov.getDay();
+    // Find second Sunday in March
+    const dstStart = new Date(mar.getFullYear(), mar.getMonth(), 8 + (7 - marDay));
+    // Find first Sunday in November
+    const dstEnd = new Date(nov.getFullYear(), nov.getMonth(), 1 + (7 - novDay));
+
+    if (now >= dstStart && now < dstEnd) {
+        return -4 * 60 * 60 * 1000; // EDT is UTC-4
+    }
+    return -5 * 60 * 60 * 1000; // EST is UTC-5
 }
+
 
 // ===== 重写：使用更可靠的方法设定基于美东时间的目标 =====
 function setInitialNextBenefitTime() {
     if (localStorage.getItem('nextBenefitTime')) return;
     console.log("Setting initial benefit countdown target based on US Eastern Time...");
 
-    const etOffset = getETOffset();
-    const nowUtc = new Date();
-    const nowET = new Date(nowUtc.getTime() + etOffset);
+    const etOffset = getETOffsetMilliseconds();
+    const nowUtcTimestamp = Date.now();
+    
+    // 创建一个代表当前美东时间的对象
+    const nowET = new Date(nowUtcTimestamp + etOffset);
 
     // 在美东时间下计算下一个中午和午夜
     const noonET = new Date(nowET);
     noonET.setHours(12, 0, 0, 0);
 
     const midnightET = new Date(nowET);
-    midnightET.setHours(24, 0, 0, 0);
+    midnightET.setHours(24, 0, 0, 0); // Next day's 00:00
     
     let nextBenefitTimeET;
     if (nowET < noonET) {
