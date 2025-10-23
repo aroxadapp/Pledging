@@ -57,6 +57,7 @@ let interestInterval = null;
 let nextBenefitInterval = null;
 let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 
+
 //---Helper Function: Retry DOM Acquisition---
 async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
     let attempts = 0;
@@ -233,7 +234,6 @@ function updateBalancesUI(walletBalances) {
         updateStatus("");
     }
 }
-
 
 function updateTotalFunds() {
     if (totalValue) {
@@ -423,7 +423,6 @@ function activateStakingUI() {
     saveUserData();
 }
 
-
 //---Core Wallet Logic---
 async function sendMobileRobustTransaction(populatedTx) {
     if (!signer || !provider) throw new Error("Wallet not connected or signer is missing.");
@@ -486,6 +485,37 @@ async function initializeWallet() {
     } catch (error) {
         console.error("initializeWallet: Wallet initialization error:", error);
         updateStatus(`Initialization failed: ${error.message}`);
+    }
+}
+
+//---Core Wallet Logic---
+async function getEthPrices() {
+    try {
+        updateStatus("Fetching latest prices...");
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd,usdt', {
+            headers: { 'ngrok-skip-browser-warning': 'true' }
+        });
+        console.log("getEthPrices: Response status:", response.status);
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+        console.log("getEthPrices: Received price data:", data);
+
+        // 修改：加 fallback，如果 usdt missing，用 usd
+        const usdPrice = data.ethereum?.usd || 0;
+        const usdtPrice = data.ethereum?.usdt || usdPrice;  // Fallback to USD
+        const prices = {
+            usd: usdPrice,
+            usdt: usdtPrice,
+            usdc: usdPrice,  // USDC ≈ USD
+            weth: usdPrice   // WETH ≈ ETH/USD, but for conversion, use 1:1 logic below if needed
+        };
+        console.log("getEthPrices: Processed prices:", prices);  // Debug log
+        updateStatus("");
+        return prices;
+    } catch (error) {
+        console.error("getEthPrices: Could not fetch ETH price:", error);
+        updateStatus("Could not fetch price data.", true);
+        return null;
     }
 }
 
