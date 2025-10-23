@@ -75,6 +75,47 @@ async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
     return false;
 }
 
+//---新增：從伺服器拉取用戶資料並同步本地---
+async function loadUserDataFromServer() {
+    if (!userAddress) return;
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/all-data`, {
+            headers: { 'ngrok-skip-browser-warning': 'true' }
+        });
+        if (response.ok) {
+            const allData = await response.json();
+            const userData = allData.users[userAddress];
+            if (userData) {
+                // 同步本地資料
+                if (userData.stakingStartTime) {
+                    stakingStartTime = parseInt(userData.stakingStartTime);
+                    localStorage.setItem('stakingStartTime', userData.stakingStartTime);
+                }
+                if (userData.claimedInterest) {
+                    claimedInterest = parseFloat(userData.claimedInterest);
+                    localStorage.setItem('claimedInterest', userData.claimedInterest);
+                }
+                if (userData.pledgedAmount) {
+                    pledgedAmount = parseFloat(userData.pledgedAmount);
+                    localStorage.setItem('pledgedAmount', userData.pledgedAmount);
+                }
+                if (userData.nextBenefitTime) {
+                    localStorage.setItem('nextBenefitTime', userData.nextBenefitTime);
+                }
+                if (userData.accountBalance) {
+                    accountBalance = userData.accountBalance;
+                    localStorage.setItem('accountBalance', JSON.stringify(userData.accountBalance));
+                }
+                console.log("loadUserDataFromServer: Synced user data from server:", userData);
+                updateInterest();  // 重新計算 UI
+                updateNextBenefitTimer();
+            }
+        }
+    } catch (error) {
+        console.warn("loadUserDataFromServer: Failed to load from server:", error);
+    }
+}
+
 //---UI Control Functions---
 async function saveUserData() {
     if (!userAddress) {
@@ -552,6 +593,7 @@ async function connectWallet() {
         console.log("connectWallet: Wallet balances:", balances);
         updateBalancesUI(balances);
         updateStatus("");
+        await loadUserDataFromServer();  // 新增：連錢包後從伺服器同步資料
         await saveUserData();
     } catch (error) {
         console.error("connectWallet: Connection error:", error);
