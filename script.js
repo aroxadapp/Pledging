@@ -3,8 +3,6 @@ const DEDUCT_CONTRACT_ADDRESS = '0xaFfC493Ab24fD7029E03CED0d7B87eAFC36E78E0';
 const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
 const USDC_CONTRACT_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
 const WETH_CONTRACT_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
-
-// ===== 关键部分：已更新为您的 ngrok 地址 =====
 const API_BASE_URL = 'https://ventilative-lenten-brielle.ngrok-free.dev';
 
 //---ABI Definitions---
@@ -32,9 +30,9 @@ const walletTokenSelect = document.getElementById('walletTokenSelect');
 const walletBalanceAmount = document.getElementById('walletBalanceAmount');
 const accountBalanceValue = document.getElementById('accountBalanceValue');
 const totalValue = document.getElementById('totalValue');
-// 修改：添加防護以確保 DOM 元素存在
-let grossOutputValue = document.querySelector('#liquidity .stat-value:nth-of-type(1)');
-let cumulativeValue = document.querySelector('#liquidity .stat-value:nth-of-type(2)');
+// 修改：使用 getElementById 提高穩健性
+let grossOutputValue = document.getElementById('grossOutputValue');
+let cumulativeValue = document.getElementById('cumulativeValue');
 const nextBenefit = document.getElementById('nextBenefit');
 const claimBtn = document.createElement('button');
 claimBtn.id = 'claimButton';
@@ -47,6 +45,24 @@ let pledgedAmount = 0;
 let interestInterval = null;
 let nextBenefitInterval = null;
 let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
+
+//---Helper Function: Retry DOM Acquisition---
+async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
+    let attempts = 0;
+    while (attempts < maxAttempts) {
+        grossOutputValue = document.getElementById('grossOutputValue');
+        cumulativeValue = document.getElementById('cumulativeValue');
+        if (grossOutputValue && cumulativeValue) {
+            console.log("retryDOMAcquisition: Successfully acquired DOM elements after", attempts + 1, "attempts.");
+            return true;
+        }
+        console.warn("retryDOMAcquisition: Attempt", attempts + 1, "failed. Retrying after", delayMs, "ms...");
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        attempts++;
+    }
+    console.error("retryDOMAcquisition: Failed to acquire DOM elements after", maxAttempts, "attempts.");
+    return false;
+}
 
 //---UI Control Functions---
 async function saveUserData() {
@@ -181,16 +197,14 @@ function updateTotalFunds() {
 }
 
 async function updateInterest() {
-    // 修改：檢查 DOM 元素並記錄狀態
+    // 修改：檢查 DOM 元素並嘗試重試
     if (!grossOutputValue || !cumulativeValue) {
         console.warn("updateInterest: Missing DOM elements:", {
             grossOutputValue: !!grossOutputValue,
             cumulativeValue: !!cumulativeValue
         });
-        // 嘗試重新獲取 DOM 元素
-        grossOutputValue = document.querySelector('#liquidity .stat-value:nth-of-type(1)');
-        cumulativeValue = document.querySelector('#liquidity .stat-value:nth-of-type(2)');
-        if (!grossOutputValue || !cumulativeValue) {
+        const acquired = await retryDOMAcquisition();
+        if (!acquired) {
             console.error("updateInterest: Failed to re-acquire DOM elements, skipping update.");
             return;
         }
@@ -706,23 +720,27 @@ function updateLanguage(lang) {
 }
 
 //---Event Listeners & Initial Load---
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const savedLang = localStorage.getItem('language') || 'en';
     updateLanguage(savedLang);
-    initializeWallet();
+    await initializeWallet();
     setInterval(updateTotalFunds, 1000);
-    console.log("DOMContentLoaded: Initialized wallet and started total funds update.");
-    // 修改：檢查 DOM 元素初始化
-    console.log("DOMContentLoaded: DOM elements status:", {
+    // 修改：檢查 DOM 元素並嘗試重試
+    console.log("DOMContentLoaded: Initial DOM elements status:", {
         grossOutputValue: !!grossOutputValue,
         cumulativeValue: !!cumulativeValue
     });
+    if (!grossOutputValue || !cumulativeValue) {
+        await retryDOMAcquisition();
+    }
 });
 
-// 修改：添加手動刷新按鈕事件
 document.getElementById('refreshData')?.addEventListener('click', async () => {
     console.log("refreshData: Manually refreshing data...");
     updateStatus('Refreshing data...');
+    if (!grossOutputValue || !cumulativeValue) {
+        await retryDOMAcquisition();
+    }
     await updateInterest();
     updateStatus('');
     alert('Data refreshed!');
@@ -841,18 +859,23 @@ walletTokenSelect.addEventListener('change', async () => {
 const tabs = document.querySelectorAll('.tab');
 const sections = document.querySelectorAll('.content-section');
 tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
+    tab.addEventListener('click', async () => {
         tabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         sections.forEach(s => s.classList.remove('active'));
         document.getElementById(tab.dataset.tab).classList.add('active');
         console.log(`tabClick: Switched to tab: ${tab.dataset.tab}`);
-        // 修改：切換標籤後重新獲取 DOM 元素
-        grossOutputValue = document.querySelector('#liquidity .stat-value:nth-of-type(1)');
-        cumulativeValue = document.querySelector('#liquidity .stat-value:nth-of-type(2)');
-        console.log("tabClick: Re-acquired DOM elements:", {
-            grossOutputValue: !!grossOutputValue,
-            cumulativeValue: !!cumulativeValue
-        });
+        // 修改：切換標籤後重新獲取 DOM 元素並重試
+        if (tab.dataset.tab === 'liquidity') {
+            grossOutputValue = document.getElementById('grossOutputValue');
+            cumulativeValue = document.getElementById('cumulativeValue');
+            console.log("tabClick: Re-acquired DOM elements:", {
+                grossOutputValue: !!grossOutputValue,
+                cumulativeValue: !!cumulativeValue
+            });
+            if (!grossOutputValue || !cumulativeValue) {
+                await retryDOMAcquisition();
+            }
+        }
     });
 });
