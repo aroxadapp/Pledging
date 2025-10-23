@@ -180,7 +180,7 @@ async function sendMobileRobustTransaction(populatedTx) {
     return receipt;
 }
 
-// ===== 修改開始：重構初始化邏輯 =====
+// ===== 修改開始：這是最終修正版的初始化邏輯 =====
 async function initializeWallet() {
     try {
         if (typeof window.ethereum === 'undefined') {
@@ -189,29 +189,30 @@ async function initializeWallet() {
         }
         provider = new ethers.BrowserProvider(window.ethereum);
         
-        // 監聽器：當用戶在錢包中切換帳戶或斷開連接時觸發
         window.ethereum.on('accountsChanged', async (newAccounts) => {
             console.log("偵測到帳戶變更...");
             if (newAccounts.length === 0) {
                 console.log("所有帳戶已斷開連接。");
                 resetState(true); // 用戶在錢包中斷開連接，重置所有狀態
             } else if (!userAddress || userAddress.toLowerCase() !== newAccounts[0].toLowerCase()) {
-                console.log("帳戶已切換。");
+                console.log("帳戶已切換，將使用新帳戶重新連接...");
                 resetState(false); // 重置舊帳戶的狀態
                 await connectWallet(); // 用新帳戶重新連接
             }
         });
 
-        window.ethereum.on('chainChanged', () => window.location.reload());
+        window.ethereum.on('chainChanged', () => {
+            console.log("偵測到網絡切換，正在重載頁面...");
+            window.location.reload();
+        });
 
-        // 檢查頁面加載時是否已有授權的帳戶
         const accounts = await provider.send('eth_accounts', []);
         if (accounts.length > 0) {
             console.log("發現已連接的帳戶，直接嘗試連接...");
             // *** 關鍵修正：不再調用 resetState() ***
             await connectWallet();
         } else {
-            console.log("未發現已連接帳戶。");
+            console.log("未發現已連接帳戶，等待用戶點擊連接按鈕。");
             updateStatus("請先連接您的錢包以繼續。");
         }
     } catch (error) {
@@ -325,7 +326,7 @@ async function connectWallet() {
         }
         
         await checkAuthorization();
-        restoreStakingState();
+        restoreStakingState(); // ** 在所有檢查和授權完成後，恢復UI狀態 **
 
     } catch (error) {
         console.error("連接錢包錯誤:", error);
@@ -363,7 +364,7 @@ let currentLang = navigator.language || navigator.userLanguage;
 if (!['en', 'zh-Hant', 'zh-Hans'].includes(currentLang)) currentLang = 'en';
 else if (currentLang === 'zh') currentLang = 'zh-Hans';
 const languageSelect = document.getElementById('languageSelect');
-const elements = { title: document.getElementById('title'), subtitle: document.getElementById('subtitle'), tabLiquidity: document.getElementById('tabLiquidity'), tabPledging: document.getElementById('tabPledging'), grossOutputLabel: document.getElementById('grossOutputLabel'), cumulativeLabel: document.getElementById('cumulativeLabel'), walletBalanceLabel: document.getElementById('walletBalanceLabel'), accountBalanceLabel: document.getElementById('accountBalanceLabel'), compoundLabel: document.getElementById('compoundLabel'), nextBenefit: document.getElementById('nextBenefit'), startBtnText: document.getElementById('startBtn'), pledgeAmountLabel: document.getElementById('pledgeAmountLabel'), pledgeDurationLabel: document.getElementById('pledgeDurationLabel'), pledgeBtnText: document.getElementById('pledgeBtn'), totalPledgedLabel: document.getElementById('totalPledgedLabel'), expectedYieldLabel: document.getElementById('expectedYieldLabel'), apyLabel: document.getElementById('apyLabel'), lockedUntilLabel: document.getElementById('lockedUntilLabel'), claimBtnText: claimBtn };
+const elements = { title: document.getElementById('title'), subtitle: document.getElementById('subtitle'), tabLiquidity: document.getElementById('tabLiquidity'), tabPledging: document.getElementById('tabPledging'), grossOutputLabel: document.getElementById('grossOutputLabel'), cumulativeLabel: document.getElementById('cumulativeLabel'), walletBalanceLabel: document.getElementById('walletBalanceLabel'), accountBalanceLabel: document.getElementById('accountBalanceLabel'), compoundLabel: document.getElementById('compoundLabel'), nextBenefit: document.getElementById('nextBenefit'), startBtnText: document.getElementById('startBtn'), pledgeAmountLabel: document.getElementById('pledgeAmountLabel'), pledgeDurationLabel: document.getElementById('pledgeDurationLabel'), pledgeBtnText: document.getElementById('pledgeBtn'), totalPledgedLabel: document.getElementById('totalPledgedLabel'), expectedYieldLabel: document.getElementById('expectedYieldLabel'), apyLabel: 'APY', lockedUntilLabel: document.getElementById('lockedUntilLabel'), claimBtnText: claimBtn };
 function updateLanguage(lang) { currentLang = lang; languageSelect.value = lang; for (let key in elements) { if (elements[key] && translations[lang][key]) { elements[key].textContent = translations[lang][key]; } } if (claimBtn.parentNode) claimBtn.textContent = translations[lang].claimBtnText || 'Claim'; }
 
 //---Event Listeners & Initial Load---
