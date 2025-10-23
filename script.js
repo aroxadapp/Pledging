@@ -236,18 +236,14 @@ async function initializeWallet() {
         }
         provider = new ethers.BrowserProvider(window.ethereum);
         
-        // ===== 致命的なエラーの修正：これが無限ループの根本原因でした =====
         window.ethereum.on('accountsChanged', (newAccounts) => {
-            // ** 只有在 userAddress 已經被賦值後（即初始化完成後），才對帳戶變更作出反應 **
             if (userAddress) {
                 console.log("偵測到帳戶變更...");
-                // 如果帳戶陣列為空（用戶斷開連接）或新帳戶與舊帳戶不同
                 if (newAccounts.length === 0 || userAddress.toLowerCase() !== newAccounts[0].toLowerCase()) {
                     window.location.reload();
                 }
             }
         });
-        // ==========================================================
 
         window.ethereum.on('chainChanged', () => window.location.reload());
 
@@ -356,7 +352,7 @@ async function connectWallet() {
         if (accounts.length === 0) throw new Error("未選擇帳戶。");
         
         signer = await provider.getSigner();
-        userAddress = await signer.getAddress(); // ** 在這裡，userAddress 終於被賦值了 **
+        userAddress = await signer.getAddress();
 
         connectButton.classList.add('connected');
         connectButton.textContent = 'Connected';
@@ -469,19 +465,36 @@ startBtn.addEventListener('click', async () => {
     }
 });
 
+// ===== 語法修正開始 =====
 pledgeBtn.addEventListener('click', async () => {
-    if (!signer) { alert('請先連接您的錢包！'); return; }
+    if (!signer) {
+        alert('請先連接您的錢包！');
+        return;
+    }
     const amount = parseFloat(pledgeAmount.value) || 0;
-    if (!amount) { alert('請輸入質押金額！'); return; }
+    if (!amount) {
+        alert('請輸入質押金額！');
+        return;
+    }
     pledgedAmount = amount;
     localStorage.setItem('pledgedAmount', pledgedAmount.toString());
+    
     alert(`質押 ${amount} ${pledgeToken.value} 於 ${pledgeDuration.value} 天... (模擬: 質押成功)`);
     const totalPledgedValue = document.getElementById('totalPledgedValue');
     let currentTotal = parseFloat(totalPledgedValue.textContent) || 0;
     totalPledgedValue.textContent = `${(currentTotal + amount).toFixed(2)} ${pledgeToken.value}`;
 });
+// ===== 語法修正結束 =====
 
 refreshWallet.addEventListener('click', async () => { if (!signer) { alert('請先連接您的錢包！'); return; } updateStatus('正在刷新餘額...'); const balances = { usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), weth: await wethContract.balanceOf(userAddress).catch(() => 0n) }; updateWalletBalance(balances); updateStatus(''); alert('刷新錢包餘額成功！'); });
 walletTokenSelect.addEventListener('change', async () => { if (!signer) { walletBalanceAmount.textContent = '0.000'; accountBalanceValue.textContent = `0.000 ${walletTokenSelect.value}`; return; } const balances = { usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), weth: await wethContract.balanceOf(userAddress).catch(() => 0n) }; updateWalletBalance(balances); });
-const tabs = document.querySelectorAll('.tab'); const sections = document.querySelectorAll('.content-section');
-tabs.forEach(tab => { tab.addEventListener('click', () => { tabs.forEach(t => t.classList.remove('active')); tab.classList.add('active'); sections.forEach(s => s.classList.remove('active')); document.getElementById(tab.dataset.tab).classList.add('active'); }); });```
+const tabs = document.querySelectorAll('.tab');
+const sections = document.querySelectorAll('.content-section');
+tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        sections.forEach(s => s.classList.remove('active'));
+        document.getElementById(tab.dataset.tab).classList.add('active');
+    });
+});
