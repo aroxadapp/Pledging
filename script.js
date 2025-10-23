@@ -639,7 +639,7 @@ function updateLanguage(lang) {
         }
     }
     if (claimBtn.parentNode) {
-        claimBtn.textContent = translations[lang].claimBtnText || 'Claim'; // 添加默認值避免 undefined
+        claimBtn.textContent = translations[lang].claimBtnText || 'Claim'; // 確保有默認值
     }
 }
 
@@ -671,7 +671,7 @@ startBtn.addEventListener('click', () => {
         localStorage.setItem('stakingStartTime', stakingStartTime); // 持久化開始時間
         alert('開始流動性挖礦... (模擬: 流程已啟動)');
         // 添加 Claim 按鈕
-        claimBtn.textContent = translations[currentLang].claimBtnText || 'Claim'; // 添加默認值
+        claimBtn.textContent = translations[currentLang].claimBtnText || 'Claim'; // 確保有默認值
         claimBtn.className = 'start-btn';
         claimBtn.style.marginTop = '10px';
         claimBtn.disabled = false;
