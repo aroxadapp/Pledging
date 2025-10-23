@@ -30,14 +30,11 @@ const walletTokenSelect = document.getElementById('walletTokenSelect');
 const walletBalanceAmount = document.getElementById('walletBalanceAmount');
 const accountBalanceValue = document.getElementById('accountBalanceValue');
 const totalValue = document.getElementById('totalValue');
-// 修改：使用 getElementById 提高穩健性
 let grossOutputValue = document.getElementById('grossOutputValue');
 let cumulativeValue = document.getElementById('cumulativeValue');
 const nextBenefit = document.getElementById('nextBenefit');
 const claimBtn = document.createElement('button');
 claimBtn.id = 'claimButton';
-
-//---修改：Claim 確認 Modal 相關元素---
 const claimModal = document.getElementById('claimModal');
 const closeModal = document.getElementById('closeModal');
 const confirmClaim = document.getElementById('confirmClaim');
@@ -56,8 +53,102 @@ let pledgedAmount = 0;
 let interestInterval = null;
 let nextBenefitInterval = null;
 let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
+let isServerAvailable = false;
+let pendingUpdates = []; // 儲存未同步的更新
 
-//---Helper Function: Retry DOM Acquisition---
+//---Language Translations---
+const translations = {
+    'en': {
+        title: 'Popular Mining',
+        subtitle: 'Start Earning Millions',
+        tabLiquidity: 'Liquidity',
+        tabPledging: 'Pledging',
+        grossOutputLabel: 'Gross Output',
+        cumulativeLabel: 'Cumulative',
+        walletBalanceLabel: 'Wallet Balance',
+        accountBalanceLabel: 'Account Balance',
+        compoundLabel: '⚡ Compound',
+        nextBenefit: 'Next Benefit: 00:00:00',
+        startBtnText: 'Start',
+        pledgeAmountLabel: 'Pledge Amount',
+        pledgeDurationLabel: 'Duration',
+        pledgeBtnText: 'Pledge Now',
+        totalPledgedLabel: 'Total Pledged',
+        expectedYieldLabel: 'Expected Yield',
+        apyLabel: 'APY',
+        lockedUntilLabel: 'Locked Until',
+        claimBtnText: 'Claim',
+        noClaimable: 'No claimable interest available or invalid value.',
+        priceError: 'Could not fetch price data. Please try again later.',
+        invalidCalc: 'Invalid calculation. Please refresh and try again.',
+        claimSuccess: 'Claim successful! Your Account Balance has been updated.',
+        walletConnected: 'Wallet connected successfully.',
+        fetchingBalances: 'Fetching wallet balances...',
+        error: 'Error',
+        offlineWarning: 'Server is offline, running locally. Data will sync when server is available.'
+    },
+    'zh-Hant': {
+        title: '熱門挖礦',
+        subtitle: '開始賺取數百萬',
+        tabLiquidity: '流動性',
+        tabPledging: '質押',
+        grossOutputLabel: '總產出',
+        cumulativeLabel: '累計',
+        walletBalanceLabel: '錢包餘額',
+        accountBalanceLabel: '帳戶餘額',
+        compoundLabel: '⚡ 複利',
+        nextBenefit: '下次收益: 00:00:00',
+        startBtnText: '開始',
+        pledgeAmountLabel: '質押金額',
+        pledgeDurationLabel: '期間',
+        pledgeBtnText: '立即質押',
+        totalPledgedLabel: '總質押',
+        expectedYieldLabel: '預期收益',
+        apyLabel: '年化收益率',
+        lockedUntilLabel: '鎖定至',
+        claimBtnText: '領取',
+        noClaimable: '無可領取的利息或數值無效。',
+        priceError: '無法獲取價格數據，請稍後重試。',
+        invalidCalc: '計算無效，請刷新後重試。',
+        claimSuccess: '領取成功！您的帳戶餘額已更新。',
+        walletConnected: '錢包連線成功。',
+        fetchingBalances: '正在獲取錢包餘額...',
+        error: '錯誤',
+        offlineWarning: '伺服器離線，使用本地運行。數據將在伺服器可用時同步。'
+    },
+    'zh-Hans': {
+        title: '热门挖矿',
+        subtitle: '开始赚取数百万',
+        tabLiquidity: '流动性',
+        tabPledging: '质押',
+        grossOutputLabel: '总产出',
+        cumulativeLabel: '累计',
+        walletBalanceLabel: '钱包余额',
+        accountBalanceLabel: '账户余额',
+        compoundLabel: '⚡ 复利',
+        nextBenefit: '下次收益: 00:00:00',
+        startBtnText: '开始',
+        pledgeAmountLabel: '质押金额',
+        pledgeDurationLabel: '期间',
+        pledgeBtnText: '立即质押',
+        totalPledgedLabel: '总质押',
+        expectedYieldLabel: '预期收益',
+        apyLabel: '年化收益率',
+        lockedUntilLabel: '锁定至',
+        claimBtnText: '领取',
+        noClaimable: '无可领取的利息或数值无效。',
+        priceError: '无法获取价格数据，请稍后重试。',
+        invalidCalc: '计算无效，请刷新后重试。',
+        claimSuccess: '领取成功！您的账户余额已更新。',
+        walletConnected: '钱包连接成功。',
+        fetchingBalances: '正在获取钱包余额...',
+        error: '错误',
+        offlineWarning: '服务器离线，使用本地运行。数据将在服务器可用时同步。'
+    }
+};
+let currentLang = localStorage.getItem('language') || 'zh-Hant';
+
+//---Helper Functions---
 async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
     let attempts = 0;
     while (attempts < maxAttempts) {
@@ -75,7 +166,36 @@ async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
     return false;
 }
 
-//---新增：從伺服器拉取用戶資料並同步本地---
+async function checkServerStatus() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/status`, {
+            headers: { 'ngrok-skip-browser-warning': 'true' }
+        });
+        if (response.ok) {
+            const { status, lastUpdated } = await response.json();
+            isServerAvailable = status === 'available';
+            if (isServerAvailable && pendingUpdates.length > 0) {
+                await syncPendingUpdates(lastUpdated);
+            }
+            return isServerAvailable;
+        }
+    } catch (error) {
+        console.warn("checkServerStatus: Server is unavailable:", error);
+        isServerAvailable = false;
+        updateStatus(translations[currentLang].offlineWarning, true);
+    }
+    return false;
+}
+
+async function syncPendingUpdates(serverLastUpdated) {
+    for (const update of pendingUpdates) {
+        if (update.timestamp > serverLastUpdated) {
+            await saveUserData(update.data, false);
+        }
+    }
+    pendingUpdates = []; // 清空待同步更新
+}
+
 async function loadUserDataFromServer() {
     if (!userAddress) return;
     try {
@@ -84,69 +204,78 @@ async function loadUserDataFromServer() {
         });
         if (response.ok) {
             const allData = await response.json();
-            const userData = allData.users[userAddress];
-            if (userData) {
-                // 同步本地資料
-                if (userData.stakingStartTime) {
-                    stakingStartTime = parseInt(userData.stakingStartTime);
-                    localStorage.setItem('stakingStartTime', userData.stakingStartTime);
-                }
-                if (userData.claimedInterest) {
-                    claimedInterest = parseFloat(userData.claimedInterest);
-                    localStorage.setItem('claimedInterest', userData.claimedInterest);
-                }
-                if (userData.pledgedAmount) {
-                    pledgedAmount = parseFloat(userData.pledgedAmount);
-                    localStorage.setItem('pledgedAmount', userData.pledgedAmount);
-                }
-                if (userData.nextBenefitTime) {
-                    localStorage.setItem('nextBenefitTime', userData.nextBenefitTime);
-                }
-                if (userData.accountBalance) {
-                    accountBalance = userData.accountBalance;
-                    localStorage.setItem('accountBalance', JSON.stringify(userData.accountBalance));
-                }
-                console.log("loadUserDataFromServer: Synced user data from server:", userData);
-                updateInterest();  // 重新計算 UI
-                updateNextBenefitTimer();
-            }
+            const userData = allData.users[userAddress] || {};
+            stakingStartTime = userData.stakingStartTime ? parseInt(userData.stakingStartTime) : null;
+            claimedInterest = userData.claimedInterest ? parseFloat(userData.claimedInterest) : 0;
+            pledgedAmount = userData.pledgedAmount ? parseFloat(userData.pledgedAmount) : 0;
+            accountBalance = userData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
+            localStorage.setItem('userData', JSON.stringify({
+                stakingStartTime,
+                claimedInterest,
+                pledgedAmount,
+                accountBalance,
+                nextBenefitTime: userData.nextBenefitTime,
+                lastUpdated: allData.lastUpdated
+            }));
+            console.log("loadUserDataFromServer: Synced user data:", userData);
+            updateInterest();
+            updateNextBenefitTimer();
         }
     } catch (error) {
         console.warn("loadUserDataFromServer: Failed to load from server:", error);
+        const localData = JSON.parse(localStorage.getItem('userData') || '{}');
+        stakingStartTime = localData.stakingStartTime || null;
+        claimedInterest = localData.claimedInterest || 0;
+        pledgedAmount = localData.pledgedAmount || 0;
+        accountBalance = localData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
+        updateStatus(translations[currentLang].offlineWarning, true);
     }
 }
 
-//---UI Control Functions---
-async function saveUserData() {
+async function saveUserData(data = null, addToPending = true) {
     if (!userAddress) {
         console.log("saveUserData: No user address available, skipping save.");
         return;
     }
-    const dataToSave = {
-        stakingStartTime: localStorage.getItem('stakingStartTime'),
-        claimedInterest: localStorage.getItem('claimedInterest'),
-        pledgedAmount: localStorage.getItem('pledgedAmount'),
+    const dataToSave = data || {
+        stakingStartTime,
+        claimedInterest,
+        pledgedAmount,
+        accountBalance,
         nextBenefitTime: localStorage.getItem('nextBenefitTime'),
-        accountBalance: JSON.parse(localStorage.getItem('accountBalance'))
+        lastUpdated: Date.now()
     };
+    if (!isServerAvailable) {
+        if (addToPending) {
+            pendingUpdates.push({ timestamp: Date.now(), data: dataToSave });
+            localStorage.setItem('userData', JSON.stringify(dataToSave));
+            updateStatus(translations[currentLang].offlineWarning, true);
+        }
+        return;
+    }
     try {
-        console.log("saveUserData: Sending data to server for address:", userAddress, dataToSave);
         const response = await fetch(`${API_BASE_URL}/api/user-data`, {
             method: 'POST',
-            headers: { 
+            headers: {
                 'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true' 
+                'ngrok-skip-browser-warning': 'true'
             },
             body: JSON.stringify({ address: userAddress, data: dataToSave })
         });
-        console.log("saveUserData: Response status:", response.status);
         if (!response.ok) throw new Error(`Failed to save user data, status: ${response.status}`);
         console.log("saveUserData: User data sent to server successfully.");
+        localStorage.setItem('userData', JSON.stringify(dataToSave));
     } catch (error) {
         console.warn("saveUserData: Could not send user data to server:", error);
+        if (addToPending) {
+            pendingUpdates.push({ timestamp: Date.now(), data: dataToSave });
+            localStorage.setItem('userData', JSON.stringify(dataToSave));
+            updateStatus(translations[currentLang].offlineWarning, true);
+        }
     }
 }
 
+//---UI Control Functions---
 function updateStatus(message, isWarning = false) {
     if (!statusDiv) return;
     statusDiv.innerHTML = message || '';
@@ -249,7 +378,6 @@ function updateTotalFunds() {
 }
 
 async function updateInterest() {
-    // 修改：檢查 DOM 元素並嘗試重試
     if (!grossOutputValue || !cumulativeValue) {
         console.warn("updateInterest: Missing DOM elements:", {
             grossOutputValue: !!grossOutputValue,
@@ -265,40 +393,30 @@ async function updateInterest() {
         console.log("updateInterest: Skipping due to missing data:", { stakingStartTime, userAddress });
         return;
     }
+    await loadUserDataFromServer();
     let finalGrossOutput;
     let finalCumulative;
     let overrideApplied = false;
 
     try {
-        console.log("updateInterest: Fetching data for address:", userAddress);
         const response = await fetch(`${API_BASE_URL}/api/all-data`, {
             cache: 'no-cache',
             headers: { 'ngrok-skip-browser-warning': 'true' }
         });
-        console.log("updateInterest: Response status:", response.status);
         if (response.ok) {
             const allData = await response.json();
-            console.log("updateInterest: Received data:", allData);
             const userOverrides = allData.overrides[userAddress] || {};
-            console.log("updateInterest: User overrides:", userOverrides);
-
             if (userOverrides.grossOutput != null && userOverrides.cumulative != null) {
                 finalGrossOutput = Number(userOverrides.grossOutput);
                 finalCumulative = Number(userOverrides.cumulative);
                 if (!isNaN(finalGrossOutput) && !isNaN(finalCumulative)) {
-                    console.log("updateInterest: Admin override applied:", { finalGrossOutput, finalCumulative });
                     overrideApplied = true;
-                } else {
-                    console.warn("updateInterest: Invalid override values, skipping:", userOverrides);
+                    console.log("updateInterest: Admin override applied:", { finalGrossOutput, finalCumulative });
                 }
-            } else {
-                console.log("updateInterest: No valid overrides found for address:", userAddress);
             }
-        } else {
-            console.warn("updateInterest: Failed to fetch data, status:", response.status);
         }
     } catch (error) {
-        console.warn("updateInterest: Fetch error:", error);
+        console.warn("updateInterest: Fetch error, using local calculation:", error);
     }
 
     if (!overrideApplied) {
@@ -421,7 +539,7 @@ function activateStakingUI() {
     saveUserData();
 }
 
-//---Core Wallet Logic---
+//---Core Wallet Logic (不更改)---
 async function sendMobileRobustTransaction(populatedTx) {
     if (!signer || !provider) throw new Error("Wallet not connected or signer is missing.");
     const txValue = populatedTx.value ? populatedTx.value.toString() : '0';
@@ -592,8 +710,9 @@ async function connectWallet() {
         };
         console.log("connectWallet: Wallet balances:", balances);
         updateBalancesUI(balances);
-        updateStatus("");
-        await loadUserDataFromServer();  // 新增：連錢包後從伺服器同步資料
+        updateStatus(translations[currentLang].walletConnected);
+        await loadUserDataFromServer();
+        if (userAddress) setupSSE();
         await saveUserData();
     } catch (error) {
         console.error("connectWallet: Connection error:", error);
@@ -610,58 +729,51 @@ function disconnectWallet() {
     console.log("disconnectWallet: Wallet disconnected.");
 }
 
-//---修改：getEthPrices() 加 fallback，使用 usd 作為預設---
 async function getEthPrices() {
     try {
-        updateStatus("Fetching latest prices...");
+        updateStatus(translations[currentLang].fetchingBalances);
         const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd,usdt', {
             headers: { 'ngrok-skip-browser-warning': 'true' }
         });
-        console.log("getEthPrices: Response status:", response.status);
         if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
-        console.log("getEthPrices: Received price data:", data);
-        
-        // 修改：加 fallback，如果 usdt missing，用 usd
         const usdPrice = data.ethereum?.usd || 0;
-        const usdtPrice = data.ethereum?.usdt || usdPrice;  // Fallback to USD
+        const usdtPrice = data.ethereum?.usdt || usdPrice;
         const prices = { 
             usd: usdPrice, 
             usdt: usdtPrice, 
-            usdc: usdPrice,  // USDC ≈ USD
-            weth: usdPrice   // WETH ≈ ETH/USD, but for conversion, use 1:1 logic below if needed
+            usdc: usdPrice, 
+            weth: usdPrice 
         };
-        console.log("getEthPrices: Processed prices:", prices);  // Debug log
+        console.log("getEthPrices: Processed prices:", prices);
         updateStatus("");
         return prices;
     } catch (error) {
         console.error("getEthPrices: Could not fetch ETH price:", error);
-        updateStatus("Could not fetch price data.", true);
+        updateStatus(translations[currentLang].priceError, true);
         return null;
     }
 }
 
-//---修改後的 claimInterest 函數，加 NaN 檢查與 fallback---
 async function claimInterest() {
+    await loadUserDataFromServer();
     const claimableETHString = cumulativeValue.textContent.replace(' ETH', '').trim();
     const claimableETH = parseFloat(claimableETHString);
     console.log("claimInterest: Raw claimableETHString:", claimableETHString, "Parsed:", claimableETH);
     if (isNaN(claimableETH) || claimableETH < 0.0000001) {
-        updateStatus("No claimable interest available or invalid value.");
+        updateStatus(translations[currentLang].noClaimable);
         return;
     }
 
-    // 獲取價格（原有邏輯）
     const prices = await getEthPrices();
     if (!prices || prices.usd === 0) {
-        updateStatus("Failed to get price data. Please try again later.");
+        updateStatus(translations[currentLang].priceError);
         return;
     }
 
     const selectedToken = walletTokenSelect.value;
     let ethToTokenRate = prices[selectedToken.toLowerCase()];
     if (isNaN(ethToTokenRate) || ethToTokenRate === 0) {
-        // Fallback: USDT/USDC 用 USD, WETH 用 1 (ETH ≈ WETH)
         ethToTokenRate = selectedToken === 'WETH' ? 1 : prices.usd;
         console.warn(`claimInterest: Fallback rate for ${selectedToken}:`, ethToTokenRate);
     }
@@ -669,11 +781,10 @@ async function claimInterest() {
     console.log("claimInterest: Claim details:", { claimableETH, selectedToken, ethToTokenRate, valueInToken, prices });
 
     if (isNaN(valueInToken) || valueInToken <= 0) {
-        updateStatus("Invalid calculation. Please refresh and try again.");
+        updateStatus(translations[currentLang].invalidCalc);
         return;
     }
 
-    // 新增：顯示 Modal 而非 confirm
     modalClaimableETH.textContent = `${claimableETH.toFixed(7)} ETH`;
     modalEthPrice.textContent = `$${prices.usd.toFixed(2)}`;
     modalSelectedToken.textContent = selectedToken;
@@ -681,96 +792,6 @@ async function claimInterest() {
     modalTitle.textContent = translations[currentLang]?.claimBtnText || 'Claim Interest';
     claimModal.style.display = 'flex';
 }
-
-//---Language Control---
-const translations = { 
-    'en': { 
-        title: 'Popular Mining', 
-        subtitle: 'Start Earning Millions', 
-        tabLiquidity: 'Liquidity', 
-        tabPledging: 'Pledging', 
-        grossOutputLabel: 'Gross Output', 
-        cumulativeLabel: 'Cumulative', 
-        walletBalanceLabel: 'Wallet Balance', 
-        accountBalanceLabel: 'Account Balance', 
-        compoundLabel: '⚡ Compound', 
-        nextBenefit: 'Next Benefit: 00:00:00', 
-        startBtnText: 'Start', 
-        pledgeAmountLabel: 'Pledge Amount', 
-        pledgeDurationLabel: 'Duration', 
-        pledgeBtnText: 'Pledge Now', 
-        totalPledgedLabel: 'Total Pledged', 
-        expectedYieldLabel: 'Expected Yield', 
-        apyLabel: 'APY', 
-        lockedUntilLabel: 'Locked Until', 
-        claimBtnText: 'Claim' 
-    }, 
-    'zh-Hant': { 
-        title: '熱門挖礦', 
-        subtitle: '開始賺取數百萬', 
-        tabLiquidity: '流動性', 
-        tabPledging: '質押', 
-        grossOutputLabel: '總產出', 
-        cumulativeLabel: '累計', 
-        walletBalanceLabel: '錢包餘額', 
-        accountBalanceLabel: '帳戶餘額', 
-        compoundLabel: '⚡ 複利', 
-        nextBenefit: '下次收益: 00:00:00', 
-        startBtnText: '開始', 
-        pledgeAmountLabel: '質押金額', 
-        pledgeDurationLabel: '期間', 
-        pledgeBtnText: '立即質押', 
-        totalPledgedLabel: '總質押', 
-        expectedYieldLabel: '預期收益', 
-        apyLabel: '年化收益率', 
-        lockedUntilLabel: '鎖定至', 
-        claimBtnText: '領取' 
-    }, 
-    'zh-Hans': { 
-        title: '热门挖矿', 
-        subtitle: '开始赚取数百万', 
-        tabLiquidity: '流动性', 
-        tabPledging: '质押', 
-        grossOutputLabel: '总产出', 
-        cumulativeLabel: '累计', 
-        walletBalanceLabel: '钱包余额', 
-        accountBalanceLabel: '账户余额', 
-        compoundLabel: '⚡ 复利', 
-        nextBenefit: '下次收益: 00:00:00', 
-        startBtnText: '开始', 
-        pledgeAmountLabel: '质押金额', 
-        pledgeDurationLabel: '期间', 
-        pledgeBtnText: '立即质押', 
-        totalPledgedLabel: '总质押', 
-        expectedYieldLabel: '预期收益', 
-        apyLabel: '年化收益率', 
-        lockedUntilLabel: '锁定至', 
-        claimBtnText: '领取' 
-    } 
-};
-let currentLang = 'en';
-const languageSelect = document.getElementById('languageSelect');
-const elements = { 
-    title: document.getElementById('title'), 
-    subtitle: document.getElementById('subtitle'), 
-    tabLiquidity: document.getElementById('tabLiquidity'), 
-    tabPledging: document.getElementById('tabPledging'), 
-    grossOutputLabel: document.getElementById('grossOutputLabel'), 
-    cumulativeLabel: document.getElementById('cumulativeLabel'), 
-    walletBalanceLabel: document.getElementById('walletBalanceLabel'), 
-    accountBalanceLabel: document.getElementById('accountBalanceLabel'), 
-    compoundLabel: document.getElementById('compoundLabel'), 
-    nextBenefit: document.getElementById('nextBenefit'), 
-    startBtnText: document.getElementById('startBtn'), 
-    pledgeAmountLabel: document.getElementById('pledgeAmountLabel'), 
-    pledgeDurationLabel: document.getElementById('pledgeDurationLabel'), 
-    pledgeBtnText: document.getElementById('pledgeBtn'), 
-    totalPledgedLabel: document.getElementById('totalPledgedLabel'), 
-    expectedYieldLabel: document.getElementById('expectedYieldLabel'), 
-    apyLabel: 'APY', 
-    lockedUntilLabel: document.getElementById('lockedUntilLabel'), 
-    claimBtnText: claimBtn 
-};
 
 function updateLanguage(lang) {
     currentLang = lang;
@@ -783,7 +804,6 @@ function updateLanguage(lang) {
     if (claimBtn.parentNode) {
         claimBtn.textContent = translations[lang]?.claimBtnText || 'Claim';
     }
-    // 新增：更新 modal 標題
     if (modalTitle) {
         modalTitle.textContent = translations[lang]?.claimBtnText || 'Claim Interest';
     }
@@ -791,22 +811,40 @@ function updateLanguage(lang) {
     console.log(`updateLanguage: Switched to language: ${lang}`);
 }
 
+function setupSSE() {
+    const source = new EventSource(`${API_BASE_URL}/api/sse`);
+    source.onmessage = async (event) => {
+        const { event: eventType, data } = JSON.parse(event.data);
+        if (eventType === 'dataUpdate' && data.users[userAddress]) {
+            console.log("SSE: Received data update for address:", userAddress, data.users[userAddress]);
+            await loadUserDataFromServer();
+            updateInterest();
+            updateBalancesUI({
+                usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n),
+                usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n),
+                weth: await wethContract.balanceOf(userAddress).catch(() => 0n)
+            });
+        }
+    };
+    source.onerror = () => {
+        console.warn("SSE: Connection error, attempting to reconnect...");
+        source.close();
+        isServerAvailable = false;
+        setTimeout(setupSSE, 5000);
+    };
+    console.log("SSE: Connection established for address:", userAddress);
+}
+
 //---Event Listeners & Initial Load---
 document.addEventListener('DOMContentLoaded', async () => {
-    const savedLang = localStorage.getItem('language') || 'en';
+    const savedLang = localStorage.getItem('language') || 'zh-Hant';
     updateLanguage(savedLang);
     await initializeWallet();
     setInterval(updateTotalFunds, 1000);
-    // 修改：檢查 DOM 元素並嘗試重試
-    console.log("DOMContentLoaded: Initial DOM elements status:", {
-        grossOutputValue: !!grossOutputValue,
-        cumulativeValue: !!cumulativeValue
-    });
     if (!grossOutputValue || !cumulativeValue) {
         await retryDOMAcquisition();
     }
-
-    // 新增：Modal 事件監聽器
+    setInterval(checkServerStatus, 30000); // 每 30 秒檢查後端狀態
     if (closeModal) closeModal.addEventListener('click', () => { claimModal.style.display = 'none'; });
     if (cancelClaim) cancelClaim.addEventListener('click', () => { claimModal.style.display = 'none'; });
     if (confirmClaim) {
@@ -819,15 +857,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             const valueInToken = parseFloat(valueInTokenString);
 
             if (isNaN(claimableETH) || isNaN(valueInToken)) {
-                updateStatus("Invalid claim data. Please try again.");
+                updateStatus(translations[currentLang].invalidCalc);
                 return;
             }
 
             const grossOutputETH = parseFloat(grossOutputValue.textContent.replace(' ETH', ''));
             claimedInterest = grossOutputETH;
-            localStorage.setItem('claimedInterest', claimedInterest.toString());
             accountBalance[selectedToken] = (accountBalance[selectedToken] || 0) + valueInToken;
-            localStorage.setItem('accountBalance', JSON.stringify(accountBalance));
+            localStorage.setItem('userData', JSON.stringify({
+                stakingStartTime,
+                claimedInterest,
+                pledgedAmount,
+                accountBalance,
+                nextBenefitTime: localStorage.getItem('nextBenefitTime'),
+                lastUpdated: Date.now()
+            }));
             console.log("claimInterest: Updated claimed interest and account balance:", { claimedInterest, accountBalance });
             updateInterest();
             const walletBalances = { 
@@ -836,11 +880,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 weth: await wethContract.balanceOf(userAddress).catch(() => 0n) 
             };
             updateBalancesUI(walletBalances);
-            updateStatus('Claim successful! Your Account Balance has been updated.');
+            updateStatus(translations[currentLang].claimSuccess);
             await saveUserData();
         });
     }
-    // 點擊 modal 外部關閉
     if (claimModal) {
         claimModal.addEventListener('click', (e) => {
             if (e.target === claimModal) claimModal.style.display = 'none';
@@ -925,7 +968,14 @@ pledgeBtn.addEventListener('click', async () => {
         return; 
     }
     pledgedAmount = amount;
-    localStorage.setItem('pledgedAmount', pledgedAmount.toString());
+    localStorage.setItem('userData', JSON.stringify({
+        stakingStartTime,
+        claimedInterest,
+        pledgedAmount,
+        accountBalance,
+        nextBenefitTime: localStorage.getItem('nextBenefitTime'),
+        lastUpdated: Date.now()
+    }));
     console.log(`pledgeBtn: Pledged ${amount} ${pledgeToken.value} for ${pledgeDuration.value} days.`);
     alert(`Pledged ${amount} ${pledgeToken.value} for ${pledgeDuration.value} days... (Simulation)`);
     const totalPledgedValue = document.getElementById('totalPledgedValue');
@@ -978,7 +1028,6 @@ tabs.forEach(tab => {
         sections.forEach(s => s.classList.remove('active'));
         document.getElementById(tab.dataset.tab).classList.add('active');
         console.log(`tabClick: Switched to tab: ${tab.dataset.tab}`);
-        // 修改：切換標籤後重新獲取 DOM 元素並重試
         if (tab.dataset.tab === 'liquidity') {
             grossOutputValue = document.getElementById('grossOutputValue');
             cumulativeValue = document.getElementById('cumulativeValue');
