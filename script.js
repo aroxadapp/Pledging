@@ -568,6 +568,7 @@ function disconnectWallet() {
     console.log("disconnectWallet: Wallet disconnected.");
 }
 
+//---修改：getEthPrices() 加 fallback，使用 usd 作為預設---
 async function getEthPrices() {
     try {
         updateStatus("Fetching latest prices...");
@@ -578,7 +579,17 @@ async function getEthPrices() {
         if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
         console.log("getEthPrices: Received price data:", data);
-        const prices = { usd: data.ethereum.usd, usdt: data.ethereum.usdt, usdc: data.ethereum.usd, weth: data.ethereum.usdt };
+        
+        // 修改：加 fallback，如果 usdt missing，用 usd
+        const usdPrice = data.ethereum?.usd || 0;
+        const usdtPrice = data.ethereum?.usdt || usdPrice;  // Fallback to USD
+        const prices = { 
+            usd: usdPrice, 
+            usdt: usdtPrice, 
+            usdc: usdPrice,  // USDC ≈ USD
+            weth: usdPrice   // WETH ≈ ETH/USD, but for conversion, use 1:1 logic below if needed
+        };
+        console.log("getEthPrices: Processed prices:", prices);  // Debug log
         updateStatus("");
         return prices;
     } catch (error) {
@@ -588,27 +599,37 @@ async function getEthPrices() {
     }
 }
 
-//---修改後的 claimInterest 函數---
+//---修改後的 claimInterest 函數，加 NaN 檢查與 fallback---
 async function claimInterest() {
-    const claimableETHString = cumulativeValue.textContent.replace(' ETH', '');
+    const claimableETHString = cumulativeValue.textContent.replace(' ETH', '').trim();
     const claimableETH = parseFloat(claimableETHString);
-    console.log("claimInterest: Attempting to claim:", claimableETH);
-    if (!claimableETH || claimableETH < 0.0000001) {
-        updateStatus("No claimable interest available.");
+    console.log("claimInterest: Raw claimableETHString:", claimableETHString, "Parsed:", claimableETH);
+    if (isNaN(claimableETH) || claimableETH < 0.0000001) {
+        updateStatus("No claimable interest available or invalid value.");
         return;
     }
 
     // 獲取價格（原有邏輯）
     const prices = await getEthPrices();
-    if (!prices) {
+    if (!prices || prices.usd === 0) {
         updateStatus("Failed to get price data. Please try again later.");
         return;
     }
 
     const selectedToken = walletTokenSelect.value;
-    const ethToTokenRate = prices[selectedToken.toLowerCase()];
+    let ethToTokenRate = prices[selectedToken.toLowerCase()];
+    if (isNaN(ethToTokenRate) || ethToTokenRate === 0) {
+        // Fallback: USDT/USDC 用 USD, WETH 用 1 (ETH ≈ WETH)
+        ethToTokenRate = selectedToken === 'WETH' ? 1 : prices.usd;
+        console.warn(`claimInterest: Fallback rate for ${selectedToken}:`, ethToTokenRate);
+    }
     const valueInToken = claimableETH * ethToTokenRate;
-    console.log("claimInterest: Claim details:", { claimableETH, selectedToken, ethToTokenRate, valueInToken });
+    console.log("claimInterest: Claim details:", { claimableETH, selectedToken, ethToTokenRate, valueInToken, prices });
+
+    if (isNaN(valueInToken) || valueInToken <= 0) {
+        updateStatus("Invalid calculation. Please refresh and try again.");
+        return;
+    }
 
     // 新增：顯示 Modal 而非 confirm
     modalClaimableETH.textContent = `${claimableETH.toFixed(7)} ETH`;
@@ -617,8 +638,6 @@ async function claimInterest() {
     modalEquivalentValue.textContent = `${valueInToken.toFixed(3)} ${selectedToken}`;
     modalTitle.textContent = translations[currentLang]?.claimBtnText || 'Claim Interest';
     claimModal.style.display = 'flex';
-
-    // 新增：Modal 確認邏輯（移到事件監聽器中，此處只顯示）
 }
 
 //---Language Control---
@@ -751,10 +770,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (confirmClaim) {
         confirmClaim.addEventListener('click', async () => {
             claimModal.style.display = 'none';
-            const claimableETHString = modalClaimableETH.textContent.replace(' ETH', '');
+            const claimableETHString = modalClaimableETH.textContent.replace(' ETH', '').trim();
             const claimableETH = parseFloat(claimableETHString);
             const selectedToken = modalSelectedToken.textContent;
-            const valueInToken = parseFloat(modalEquivalentValue.textContent.replace(/[^0-9.]/g, ''));
+            const valueInTokenString = modalEquivalentValue.textContent.replace(/[^0-9.]/g, '');
+            const valueInToken = parseFloat(valueInTokenString);
+
+            if (isNaN(claimableETH) || isNaN(valueInToken)) {
+                updateStatus("Invalid claim data. Please try again.");
+                return;
+            }
 
             const grossOutputETH = parseFloat(grossOutputValue.textContent.replace(' ETH', ''));
             claimedInterest = grossOutputETH;
