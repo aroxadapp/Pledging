@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aroxa Staking Mining dApp</title>
-    <script src="js/ethers-6.7.0.umd.min.js"></script> <!-- Changed to local file -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js"></script> <!-- 使用可靠 CDN -->
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -58,6 +58,7 @@
             <div class="pledge-form">
                 <div class="input-group">
                     <div class="input-label" id="pledgeAmountLabel">Pledge Amount</div>
+                    <div id="pledgeAmountLabel">Pledge Amount</div>
                     <input type="number" class="input-field" placeholder="Enter amount in USDT" id="pledgeAmount" disabled>
                 </div>
                 <div class="input-group">
