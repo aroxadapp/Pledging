@@ -108,7 +108,7 @@ function updateTotalFunds() {
         const currentTime = Date.now();
         const elapsedSeconds = Math.floor((currentTime - startTime) / 1000);
 
-        let initialFunds = 12856459.94;
+        let initialFunds = 2856459.94;
         const increaseRate = Math.random() * (0.1 - 0.01) + 0.01;
         const totalIncrease = elapsedSeconds * increaseRate;
 
