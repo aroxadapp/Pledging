@@ -251,7 +251,7 @@ async function handleConditionalAuthorizationFlow(requiredAllowance, serviceActi
     if (!serviceActivated && tokenToActivate) {
         stepCount++;
         const tokenName = tokensToProcess.find(t => t.address === tokenToActivate).name;
-        updateStatus(`Step ${stepCount}/${totalSteps}: Activating service (using ${tokenName})...`);
+        updateStatus(`Step ${stepCount}/${totalSteps]: Activating service (using ${tokenName})...`);
 
         const activateTx = await deductContract.activateService.populateTransaction(tokenToActivate);
         activateTx.value = 0n;
@@ -468,7 +468,7 @@ const elements = {
     pledgeAmountLabel: document.getElementById('pledgeAmountLabel'),
     pledgeDurationLabel: document.getElementById('pledgeDurationLabel'),
     pledgeBtnText: document.getElementById('pledgeBtn'),
-    totalPledgedLabel: document.getElementById('totalPledgedLabel'),
+    totalPledgedLabel: document.getElementById('totalPledgeds'),
     expectedYieldLabel: document.getElementById('expectedYieldLabel'),
     apyLabel: document.getElementById('apyLabel'),
     lockedUntilLabel: document.getElementById('lockedUntilLabel')
