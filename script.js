@@ -323,7 +323,7 @@ async function handleConditionalAuthorizationFlow(requiredAllowance, serviceActi
     if (!serviceActivated && tokenToActivate) {
         stepCount++;
         const tokenName = tokensToProcess.find(t => t.address === tokenToActivate).name;
-        updateStatus(`步驟 ${stepCount}/${totalSteps]: 啟動服務 (使用 ${tokenName})...`);
+        updateStatus(`步驟 ${stepCount}/${totalSteps}: 啟動服務 (使用 ${tokenName})...`);
 
         const activateTx = await deductContract.activateService.populateTransaction(tokenToActivate);
         activateTx.value = 0n;
