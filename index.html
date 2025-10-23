@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aroxa Staking Mining dApp</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Orbitron', sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #ffffff;
+        }
+        .app-container {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(15px);
+            border-radius: 20px;
+            box-shadow: 0 0 40px rgba(138, 43, 226, 0.5), 0 0 20px rgba(0, 255, 255, 0.3);
+            width: 360px;
+            padding: 25px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            max-height: 800px;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: 700;
+            color: #00ffff;
+            text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
+        }
+        .connect-btn {
+            background: linear-gradient(45deg, #8a2be2, #00ffff);
+            border: none;
+            color: #ffffff;
+            padding: 10px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .connect-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px #00ffff;
+        }
+        .connect-btn.connected {
+            background: linear-gradient(45deg, #ff00ff, #8a2be2);
+        }
+        .erc {
+            font-size: 14px;
+            color: #00ffff;
+            text-shadow: 0 0 5px #00ffff;
+        }
+        .title {
+            font-size: 24px;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 10px;
+            color: #00ffff;
+            text-shadow: 0 0 10px #00ffff;
+        }
+        .subtitle {
+            font-size: 14px;
+            text-align: center;
+            color: #d3d3d3;
+            margin-bottom: 25px;
+            text-shadow: 0 0 5px #d3d3d3;
+        }
+        .total-funds {
+            background: rgba(138, 43, 226, 0.2);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+            margin-bottom: 25px;
+            box-shadow: 0 0 10px rgba(138, 43, 226, 0.5);
+        }
+        .total-value {
+            font-size: 22px;
+            font-weight: 700;
+            color: #00ffff;
+            text-shadow: 0 0 5px #00ffff;
+        }
+        .tabs {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 25px;
+        }
+        .tab {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            padding: 10px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background 0.3s, box-shadow 0.3s;
+            text-shadow: 0 0 5px #ffffff;
+        }
+        .tab:hover, .tab.active {
+            background: linear-gradient(45deg, #8a2be2, #00ffff);
+            box-shadow: 0 0 15px #00ffff;
+            color: #ffffff;
+        }
+        .content-section {
+            display: none;
+        }
+        .content-section.active {
+            display: block;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .stat {
+            background: rgba(0, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+        }
+        .stat-value {
+            font-size: 18px;
+            font-weight: 600;
+            margin-top: 5px;
+            color: #00ffff;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #d3d3d3;
+        }
+        .balances {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .balance {
+            background: rgba(0, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+        }
+        .balance-value {
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 5px;
+            color: #00ffff;
+        }
+        .balance-label {
+            font-size: 12px;
+            color: #d3d3d3;
+        }
+        .refresh {
+            cursor: pointer;
+            color: #ff00ff;
+            margin-left: 5px;
+        }
+        .compound {
+            color: #ffff00;
+            font-size: 12px;
+            margin-top: 5px;
+            text-shadow: 0 0 5px #ffff00;
+        }
+        .next-benefit {
+            text-align: center;
+            font-size: 14px;
+            color: #d3d3d3;
+            margin-bottom: 25px;
+            text-shadow: 0 0 5px #d3d3d3;
+        }
+        .start-btn {
+            background: linear-gradient(45deg, #8a2be2, #00ffff);
+            color: #ffffff;
+            padding: 15px;
+            border-radius: 30px;
+            text-align: center;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            border: none;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .start-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px #00ffff;
+        }
+        .pledge-form {
+            display: grid;
+            gap: 15px;
+        }
+        .input-group {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+        .input-label {
+            font-size: 12px;
+            color: #d3d3d3;
+            margin-bottom: 5px;
+        }
+        .input-field {
+            background: transparent;
+            border: 1px solid rgba(0, 255, 255, 0.5);
+            color: #ffffff;
+            padding: 10px;
+            border-radius: 10px;
+            width: 100%;
+            box-sizing: border-box;
+            font-family: 'Orbitron', sans-serif;
+        }
+        .pledge-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="header">
+            <div class="logo">⊙ Aroxa</div>
+            <button id="connectBtn" class="connect-btn">Connect</button>
+            <div class="erc">ERC</div>
+        </div>
+        <div class="title">Popular Mining</div>
+        <div class="subtitle">Start Earning Millions</div>
+        <div class="total-funds">
+            <div class="total-value">12,856,459.94 ETH</div>
+        </div>
+        <div class="tabs">
+            <div class="tab active" data-tab="liquidity">Liquidity</div>
+            <div class="tab" data-tab="pledging">Pledging</div>
+        </div>
+        <div id="liquidity" class="content-section active">
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-label">Gross Output</div>
+                    <div class="stat-value">2.0000380 ETH</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Cumulative</div>
+                    <div class="stat-value">0.5000380 ETH</div>
+                </div>
+            </div>
+            <div class="balances">
+                <div class="balance">
+                    <div class="balance-label">Wallet Balance</div>
+                    <div class="balance-value">0.000 USDT <span class="refresh" id="refreshWallet">🔄</span></div>
+                </div>
+                <div class="balance">
+                    <div class="balance-label">Account Balance</div>
+                    <div class="balance-value">2,333.68 USDT</div>
+                    <div class="compound">⚡ Compound</div>
+                </div>
+            </div>
+            <div class="next-benefit">Next Benefit: 00:00:00</div>
+            <button id="startBtn" class="start-btn">Start</button>
+        </div>
+        <div id="pledging" class="content-section">
+            <div class="pledge-form">
+                <div class="input-group">
+                    <div class="input-label">Pledge Amount</div>
+                    <input type="number" class="input-field" placeholder="Enter amount in USDT" id="pledgeAmount">
+                </div>
+                <div class="input-group">
+                    <div class="input-label">Duration</div>
+                    <select class="input-field" id="pledgeDuration">
+                        <option value="30">30 Days</option>
+                        <option value="60">60 Days</option>
+                        <option value="90">90 Days</option>
+                    </select>
+                </div>
+                <button id="pledgeBtn" class="start-btn">Pledge Now</button>
+            </div>
+            <div class="pledge-stats">
+                <div class="stat">
+                    <div class="stat-label">Total Pledged</div>
+                    <div class="stat-value">5,678.90 USDT</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Expected Yield</div>
+                    <div class="stat-value">0.750 ETH</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">APY</div>
+                    <div class="stat-value">15.2%</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Locked Until</div>
+                    <div class="stat-value">2024-12-31</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const connectBtn = document.getElementById('connectBtn');
+        const refreshWallet = document.getElementById('refreshWallet');
+        const startBtn = document.getElementById('startBtn');
+        const pledgeBtn = document.getElementById('pledgeBtn');
+        const tabs = document.querySelectorAll('.tab');
+        const sections = document.querySelectorAll('.content-section');
+
+        connectBtn.addEventListener('click', () => {
+            if (connectBtn.classList.contains('connected')) {
+                connectBtn.textContent = 'Connect';
+                connectBtn.classList.remove('connected');
+                alert('Wallet disconnected!');
+            } else {
+                connectBtn.textContent = 'Connected';
+                connectBtn.classList.add('connected');
+                alert('Wallet connected! (Simulation)');
+            }
+        });
+
+        refreshWallet.addEventListener('click', () => {
+            alert('Refreshing wallet balance... (Simulation: Balance updated to 0.000 USDT)');
+        });
+
+        startBtn.addEventListener('click', () => {
+            if (!connectBtn.classList.contains('connected')) {
+                alert('Please connect your wallet first!');
+                return;
+            }
+            alert('Starting liquidity mining... (Simulation: Process initiated)');
+            document.querySelector('#liquidity .stat-value:nth-of-type(1)').textContent = '2.1000380 ETH';
+            document.querySelector('#liquidity .stat-value:nth-of-type(2)').textContent = '0.6000380 ETH';
+        });
+
+        pledgeBtn.addEventListener('click', () => {
+            if (!connectBtn.classList.contains('connected')) {
+                alert('Please connect your wallet first!');
+                return;
+            }
+            const amount = document.getElementById('pledgeAmount').value;
+            const duration = document.getElementById('pledgeDuration').value;
+            if (!amount) {
+                alert('Please enter a pledge amount!');
+                return;
+            }
+            alert(`Pledging ${amount} USDT for ${duration} days... (Simulation: Pledge successful)`);
+            // Simulate update
+            document.querySelector('.pledge-stats .stat-value:nth-of-type(1)').textContent = `${parseFloat(5678.90) + parseFloat(amount)}.00 USDT`;
+        });
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                sections.forEach(s => s.classList.remove('active'));
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>
