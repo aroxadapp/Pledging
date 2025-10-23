@@ -43,7 +43,7 @@
             <div class="balances">
                 <div class="balance">
                     <div class="balance-label" id="walletBalanceLabel">Wallet Balance</div>
-                    <div class="balance-value" id="walletBalanceValue">0.000 USDT <span class="refresh" id="refreshWallet">🔄</span></div>
+                    <div class="balance-value" id="walletBalanceValue">0.000 USDT / 0.000 USDC / 0.000 WETH <span class="refresh" id="refreshWallet">🔄</span></div>
                 </div>
                 <div class="balance">
                     <div class="balance-label" id="accountBalanceLabel">Account Balance</div>
@@ -58,7 +58,12 @@
             <div class="pledge-form">
                 <div class="input-group">
                     <div class="input-label" id="pledgeAmountLabel">Pledge Amount</div>
-                    <input type="number" class="input-field" placeholder="Enter amount in USDT" id="pledgeAmount" disabled>
+                    <select class="input-field" id="pledgeToken" disabled>
+                        <option value="USDT">USDT</option>
+                        <option value="USDC">USDC</option>
+                        <option value="WETH">WETH</option>
+                    </select>
+                    <input type="number" class="input-field" placeholder="Enter amount" id="pledgeAmount" disabled step="0.01">
                 </div>
                 <div class="input-group">
                     <div class="input-label" id="pledgeDurationLabel">Duration</div>
