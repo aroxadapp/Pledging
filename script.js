@@ -27,8 +27,8 @@ const pledgeDuration = document.getElementById('pledgeDuration');
 const pledgeToken = document.getElementById('pledgeToken');
 const refreshWallet = document.getElementById('refreshWallet');
 const walletBalanceValue = document.getElementById('walletBalanceValue');
-const walletTokenSelect = document.getElementById('walletTokenSelect'); // ===== 新增 =====
-const walletBalanceAmount = document.getElementById('walletBalanceAmount'); // ===== 新增 =====
+const walletTokenSelect = document.getElementById('walletTokenSelect');
+const walletBalanceAmount = document.getElementById('walletBalanceAmount');
 const accountBalanceValue = document.getElementById('accountBalanceValue');
 const totalValue = document.getElementById('totalValue');
 const grossOutputValue = document.querySelector('#liquidity .stat-value:nth-of-type(1)');
@@ -40,7 +40,6 @@ let deductContract, usdtContract, usdcContract, wethContract;
 let stakingStartTime = localStorage.getItem('stakingStartTime') ? parseInt(localStorage.getItem('stakingStartTime')) : null;
 let claimedInterest = localStorage.getItem('claimedInterest') ? parseFloat(localStorage.getItem('claimedInterest')) : 0;
 let pledgedAmount = 0;
-// let selectedToken = 'USDT'; // 這個變數現在不再主要控制餘額顯示
 
 //---UI Control Functions (使用者介面控制函數)---
 function updateStatus(message) {
@@ -62,11 +61,9 @@ function resetState(showMsg = true) {
         connectButton.title = 'Connect Wallet';
     }
     disableInteractiveElements(true);
-    // ===== 修改開始 =====
     if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
     if (walletTokenSelect) walletTokenSelect.value = 'USDT';
     if (accountBalanceValue) accountBalanceValue.textContent = '0.000 USDT';
-    // ===== 修改結束 =====
     if (grossOutputValue) grossOutputValue.textContent = '0 ETH';
     if (cumulativeValue) cumulativeValue.textContent = '0 ETH';
     if (showMsg) updateStatus("請先連接您的錢包以繼續。");
@@ -85,7 +82,6 @@ function disableInteractiveElements(disable = false) {
     if (claimBtn) claimBtn.disabled = disable;
 }
 
-// ===== 修改開始：重寫 updateWalletBalance 函數 =====
 /**
  * 更新 Wallet Balance 顯示，根據 #walletTokenSelect 下拉選單的值。
  * @param {Object} balances - 包含 usdt, usdc, weth 餘額 (BigInt 格式) 的對象。
@@ -105,7 +101,6 @@ function updateWalletBalance(balances) {
         accountBalanceValue.textContent = `${parseFloat(formattedBalance).toFixed(3)} ${selectedToken}`;
     }
 }
-// ===== 修改結束 =====
 
 function updateTotalFunds() {
     if (totalValue) {
@@ -672,7 +667,6 @@ refreshWallet.addEventListener('click', async () => {
     }
 });
 
-// ===== 新增：監聽 Wallet Balance 下拉選單的變更 =====
 walletTokenSelect.addEventListener('change', async () => {
     if (!signer) {
         walletBalanceAmount.textContent = '0.000';

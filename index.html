@@ -33,25 +33,27 @@
             <div class="stats">
                 <div class="stat">
                     <div class="stat-label" id="grossOutputLabel">Gross Output</div>
-                    <div class="stat-value" id="grossOutputValue">0 ETH</div> <!-- 初始值設為 0 -->
+                    <div class="stat-value" id="grossOutputValue">0 ETH</div>
                 </div>
                 <div class="stat">
                     <div class="stat-label" id="cumulativeLabel">Cumulative</div>
-                    <div class="stat-value" id="cumulativeValue">0 ETH</div> <!-- 初始值設為 0 -->
+                    <div class="stat-value" id="cumulativeValue">0 ETH</div>
                 </div>
             </div>
             <div class="balances">
                 <div class="balance">
                     <div class="balance-label" id="walletBalanceLabel">Wallet Balance</div>
-                    <!-- ===== 修改開始 ===== -->
-                    <div class="balance-value" id="walletBalanceValue" style="display: flex; align-items: center; gap: 10px;">
-                        <select id="walletTokenSelect" class="input-field" style="width: auto; padding: 5px 10px; margin: 0;">
+                    <!-- ===== 修改開始 (垂直佈局) ===== -->
+                    <div class="balance-value" id="walletBalanceValue">
+                        <select id="walletTokenSelect" class="input-field" style="width: 100%; margin-bottom: 8px; text-align: center;">
                             <option value="USDT">USDT</option>
                             <option value="USDC">USDC</option>
                             <option value="WETH">WETH</option>
                         </select>
-                        <span id="walletBalanceAmount">0.000</span>
-                        <span class="refresh" id="refreshWallet">🔄</span>
+                        <div style="display: flex; justify-content: center; align-items: center;">
+                             <span id="walletBalanceAmount">0.000</span>
+                             <span class="refresh" id="refreshWallet" style="margin-left: 10px;">🔄</span>
+                        </div>
                     </div>
                     <!-- ===== 修改結束 ===== -->
                 </div>
@@ -63,7 +65,7 @@
             </div>
             <div class="next-benefit" id="nextBenefit">Next Benefit: 00:00:00</div>
             <button id="startBtn" class="start-btn" disabled>Start</button>
-            <div id="claimButtonPlaceholder"></div> <!-- 占位符 -->
+            <div id="claimButtonPlaceholder"></div>
         </div>
         <div id="pledging" class="content-section">
             <div class="pledge-form">
