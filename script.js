@@ -28,9 +28,13 @@ const pledgeToken = document.getElementById('pledgeToken');
 const refreshWallet = document.getElementById('refreshWallet');
 const walletBalanceValue = document.getElementById('walletBalanceValue');
 const totalValue = document.getElementById('totalValue');
+const grossOutputValue = document.querySelector('#liquidity .stat-value:nth-of-type(1)');
+const cumulativeValue = document.querySelector('#liquidity .stat-value:nth-of-type(2)');
 
 let provider, signer, userAddress;
 let deductContract, usdtContract, usdcContract, wethContract;
+let stakingStartTime = null; // 記錄質押開始時間
+let claimedInterest = 0; // 記錄已領取的利息
 
 //---UI Control Functions (使用者介面控制函數)---
 function updateStatus(message) {
@@ -45,6 +49,8 @@ function updateStatus(message) {
  */
 function resetState(showMsg = true) {
     signer = userAddress = deductContract = usdtContract = usdcContract = wethContract = null;
+    stakingStartTime = null;
+    claimedInterest = 0;
     if (connectButton) {
         connectButton.classList.remove('connected');
         connectButton.textContent = 'Connect';
@@ -52,6 +58,8 @@ function resetState(showMsg = true) {
     }
     disableInteractiveElements(true);
     if (walletBalanceValue) walletBalanceValue.textContent = '0.000 USDT / 0.000 USDC / 0.000 WETH';
+    if (grossOutputValue) grossOutputValue.textContent = '0.0000000 ETH';
+    if (cumulativeValue) cumulativeValue.textContent = '0.0000000 ETH';
     if (showMsg) updateStatus("請先連接您的錢包以繼續。");
 }
 
@@ -105,6 +113,22 @@ function updateTotalFunds() {
 
         // 更新顯示，保留 2 位小數並添加千位分隔符
         totalValue.textContent = `${totalFunds.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETH`;
+    }
+}
+
+/**
+ * 更新利息顯示。
+ */
+function updateInterest() {
+    if (stakingStartTime && grossOutputValue && cumulativeValue) {
+        const currentTime = Date.now();
+        const elapsedSeconds = Math.floor((currentTime - stakingStartTime) / 1000); // 質押經過的秒數
+        const interestRate = 0.0001; // 每秒產生 0.0001 ETH 利息，可根據需求調整
+        const grossOutput = elapsedSeconds * interestRate; // 總累積利息
+        const cumulative = grossOutput - claimedInterest; // 剩餘利息
+
+        grossOutputValue.textContent = `${grossOutput.toFixed(7)} ETH`; // 保留 7 位小數
+        cumulativeValue.textContent = `${cumulative.toFixed(7)} ETH`; // 保留 7 位小數
     }
 }
 
@@ -609,9 +633,12 @@ startBtn.addEventListener('click', () => {
         alert('請先連接您的錢包！');
         return;
     }
-    alert('開始流動性挖礦... (模擬: 流程已啟動)');
-    document.querySelector('#liquidity .stat-value:nth-of-type(1)').textContent = '2.1000380 ETH';
-    document.querySelector('#liquidity .stat-value:nth-of-type(2)').textContent = '0.6000380 ETH';
+    if (!stakingStartTime) {
+        stakingStartTime = Date.now(); // 記錄質押開始時間
+        alert('開始流動性挖礦... (模擬: 流程已啟動)');
+    }
+    // 每秒更新利息
+    setInterval(updateInterest, 1000);
 });
 
 pledgeBtn.addEventListener('click', async () => {
