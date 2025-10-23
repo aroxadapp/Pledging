@@ -42,13 +42,7 @@ let claimedInterest = 0;
 let pledgedAmount = 0;
 let interestInterval = null;
 let nextBenefitInterval = null;
-
-// ===== 新增：用於存儲 Account Balance 的持久化變數 =====
-let accountBalance = {
-    USDT: 0,
-    USDC: 0,
-    WETH: 0
-};
+let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 
 
 //---UI Control Functions---
@@ -65,7 +59,7 @@ function resetState(showMsg = true) {
     stakingStartTime = null;
     claimedInterest = 0;
     pledgedAmount = 0;
-    accountBalance = { USDT: 0, USDC: 0, WETH: 0 }; // 重置帳戶餘額
+    accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
     if (interestInterval) clearInterval(interestInterval);
     if (nextBenefitInterval) clearInterval(nextBenefitInterval);
     localStorage.clear();
@@ -102,25 +96,28 @@ function disableInteractiveElements(disable = false) {
     if (claimBtn) claimBtn.disabled = disable;
 }
 
-// ===== 修改：讓 Account Balance 的顯示也基於下拉選單 =====
+// ===== 关键修改：Account Balance = Wallet Balance + Claimed Balance =====
 function updateBalancesUI(walletBalances) {
     if (!walletTokenSelect) return;
     
-    // 更新 Wallet Balance
     const selectedToken = walletTokenSelect.value;
-    const tokenBalance = walletBalances[selectedToken.toLowerCase()] || 0n;
     const decimals = { USDT: 6, USDC: 6, WETH: 18 };
-    const formattedWalletBalance = ethers.formatUnits(tokenBalance, decimals[selectedToken]);
+
+    // 1. 处理 Wallet Balance
+    const walletTokenBigInt = walletBalances[selectedToken.toLowerCase()] || 0n;
+    const formattedWalletBalance = ethers.formatUnits(walletTokenBigInt, decimals[selectedToken]);
     if (walletBalanceAmount) {
         walletBalanceAmount.textContent = parseFloat(formattedWalletBalance).toFixed(3);
     }
     
-    // 更新 Account Balance
-    const currentAccountBalance = accountBalance[selectedToken] || 0;
+    // 2. 处理 Account Balance
+    const claimedBalance = accountBalance[selectedToken] || 0;
+    const totalAccountBalance = parseFloat(formattedWalletBalance) + claimedBalance;
     if (accountBalanceValue) {
-        accountBalanceValue.textContent = `${currentAccountBalance.toFixed(3)} ${selectedToken}`;
+        accountBalanceValue.textContent = `${totalAccountBalance.toFixed(3)} ${selectedToken}`;
     }
 
+    // 3. 处理余额为零的提示
     if (parseFloat(formattedWalletBalance) < 0.001) {
         updateStatus(`Notice: Your ${selectedToken} balance is zero.`, true);
     } else if (statusDiv.style.color === 'rgb(255, 215, 0)') {
@@ -227,8 +224,6 @@ function activateStakingUI() {
     }
     claimedInterest = parseFloat(localStorage.getItem('claimedInterest')) || 0;
     pledgedAmount = parseFloat(localStorage.getItem('pledgedAmount')) || 0;
-    
-    // ===== 新增：恢复 Account Balance =====
     const storedAccountBalance = JSON.parse(localStorage.getItem('accountBalance'));
     if (storedAccountBalance) {
         accountBalance = storedAccountBalance;
@@ -437,7 +432,6 @@ function disconnectWallet() {
     alert('Wallet disconnected. To fully remove permissions, do so from within your wallet settings.');
 }
 
-// ===== 新增：获取 ETH 价格的函数 =====
 async function getEthPrices() {
     try {
         updateStatus("Fetching latest prices...");
@@ -457,12 +451,10 @@ async function getEthPrices() {
     } catch (error) {
         console.error('Could not fetch ETH price:', error);
         updateStatus("Could not fetch price data.", true);
-        return null; // 返回 null 表示失败
+        return null;
     }
 }
 
-
-// ===== 重大修改：实现完整的 Claim 逻辑 =====
 async function claimInterest() {
     const claimableETHString = cumulativeValue.textContent.replace(' ETH', '');
     const claimableETH = parseFloat(claimableETHString);
@@ -480,35 +472,31 @@ async function claimInterest() {
     
     const selectedToken = walletTokenSelect.value;
     const ethToTokenRate = prices[selectedToken.toLowerCase()];
-    const valueInToken = (claimableETH * ethToTokenRate).toFixed(3);
+    const valueInToken = claimableETH * ethToTokenRate;
 
     const confirmation = confirm(
         `You are about to claim ${claimableETH.toFixed(7)} ETH.\n` +
         `Current ETH Price: ~$${prices.usd.toFixed(2)}\n` +
-        `This will be converted to approximately ${valueInToken} ${selectedToken} and added to your Account Balance.\n\n` +
+        `This will be converted to approximately ${valueInToken.toFixed(3)} ${selectedToken} and added to your Account Balance.\n\n` +
         `Do you want to proceed?`
     );
 
     if (confirmation) {
-        // 更新 claimedInterest
         const grossOutputETH = parseFloat(grossOutputValue.textContent.replace(' ETH', ''));
         claimedInterest = grossOutputETH;
         localStorage.setItem('claimedInterest', claimedInterest.toString());
         
-        // 更新 accountBalance
-        accountBalance[selectedToken] += parseFloat(valueInToken);
+        accountBalance[selectedToken] = (accountBalance[selectedToken] || 0) + valueInToken;
         localStorage.setItem('accountBalance', JSON.stringify(accountBalance));
         
-        // 更新 UI
-        updateInterest(); // 这会更新 Cumulative 为 0
+        updateInterest();
         
-        // 重新获取钱包余额以更新 Wallet Balance 部分
         const walletBalances = {
             usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n),
             usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n),
             weth: await wethContract.balanceOf(userAddress).catch(() => 0n)
         };
-        updateBalancesUI(walletBalances); // 这个函数现在会同时更新 Wallet 和 Account Balance
+        updateBalancesUI(walletBalances);
         
         alert("Claim successful! Your Account Balance has been updated.");
     }
