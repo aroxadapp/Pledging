@@ -43,7 +43,6 @@
             <div class="balances">
                 <div class="balance">
                     <div class="balance-label" id="walletBalanceLabel">Wallet Balance</div>
-                    <!-- ===== 修改開始 (垂直佈局) ===== -->
                     <div class="balance-value" id="walletBalanceValue">
                         <select id="walletTokenSelect" class="input-field" style="width: 100%; margin-bottom: 8px; text-align: center;">
                             <option value="USDT">USDT</option>
@@ -51,11 +50,10 @@
                             <option value="WETH">WETH</option>
                         </select>
                         <div style="display: flex; justify-content: center; align-items: center;">
-                             <span id="walletBalanceAmount">0.000</span>
-                             <span class="refresh" id="refreshWallet" style="margin-left: 10px;">🔄</span>
+                            <span id="walletBalanceAmount">0.000</span>
+                            <span class="refresh" id="refreshWallet" style="margin-left: 10px;">🔄</span>
                         </div>
                     </div>
-                    <!-- ===== 修改結束 ===== -->
                 </div>
                 <div class="balance">
                     <div class="balance-label" id="accountBalanceLabel">Account Balance</div>
@@ -66,6 +64,8 @@
             <div class="next-benefit" id="nextBenefit">Next Benefit: 00:00:00</div>
             <button id="startBtn" class="start-btn" disabled>Start</button>
             <div id="claimButtonPlaceholder"></div>
+            <!-- 新增：手動刷新按鈕，保持與 start-btn 樣式一致 -->
+            <button id="refreshData" class="start-btn">Refresh Data</button>
         </div>
         <div id="pledging" class="content-section">
             <div class="pledge-form">
