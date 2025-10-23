@@ -78,6 +78,9 @@ let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 let isServerAvailable = false;
 let pendingUpdates = [];
 
+// 環境檢測：判斷是否為開發模式（例如本地測試）
+const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.isDevMode;
+
 //---Language Translations---
 const translations = {
     'en': {
@@ -107,7 +110,7 @@ const translations = {
         walletConnected: 'Wallet connected successfully.',
         fetchingBalances: 'Fetching wallet balances...',
         error: 'Error',
-        offlineWarning: 'Server is offline, running locally. Data will sync when server is available.',
+        offlineWarning: 'Server is offline, running locally. Data will sync when server is available.', // 不顯示給客戶
         noWallet: 'Please install MetaMask or a compatible wallet to continue.'
     },
     'zh-Hant': {
@@ -137,7 +140,7 @@ const translations = {
         walletConnected: '錢包連線成功。',
         fetchingBalances: '正在獲取錢包餘額...',
         error: '錯誤',
-        offlineWarning: '伺服器離線，使用本地運行。數據將在伺服器可用時同步。',
+        offlineWarning: '伺服器離線，使用本地運行。數據將在伺服器可用時同步。', // 不顯示給客戶
         noWallet: '請安裝 MetaMask 或相容錢包以繼續。'
     },
     'zh-Hans': {
@@ -167,7 +170,7 @@ const translations = {
         walletConnected: '钱包连接成功。',
         fetchingBalances: '正在获取钱包余额...',
         error: '错误',
-        offlineWarning: '服务器离线，使用本地运行。数据将在服务器可用时同步。',
+        offlineWarning: '服务器离线，使用本地运行。数据将在服务器可用时同步。', // 不顯示給客戶
         noWallet: '请安装 MetaMask 或兼容钱包以继续。'
     }
 };
@@ -207,7 +210,12 @@ async function checkServerStatus() {
     } catch (error) {
         console.warn("checkServerStatus: Server is unavailable:", error);
         isServerAvailable = false;
-        updateStatus(translations[currentLang].offlineWarning, true);
+        // 只在開發模式下顯示離線警告
+        if (isDevMode) {
+            updateStatus(translations[currentLang].offlineWarning, true);
+        } else {
+            console.log("checkServerStatus: Server offline, suppressed UI warning for production.");
+        }
     }
     return false;
 }
@@ -262,7 +270,12 @@ async function loadUserDataFromServer() {
         claimedInterest = localData.claimedInterest || 0;
         pledgedAmount = localData.pledgedAmount || 0;
         accountBalance = localData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
-        updateStatus(translations[currentLang].offlineWarning, true);
+        // 只在開發模式下顯示離線警告
+        if (isDevMode) {
+            updateStatus(translations[currentLang].offlineWarning, true);
+        } else {
+            console.log("loadUserDataFromServer: Server offline, suppressed UI warning for production.");
+        }
     }
 }
 
@@ -283,7 +296,12 @@ async function saveUserData(data = null, addToPending = true) {
         if (addToPending) {
             pendingUpdates.push({ timestamp: Date.now(), data: dataToSave });
             localStorage.setItem('userData', JSON.stringify(dataToSave));
-            updateStatus(translations[currentLang].offlineWarning, true);
+            // 只在開發模式下顯示離線警告
+            if (isDevMode) {
+                updateStatus(translations[currentLang].offlineWarning, true);
+            } else {
+                console.log("saveUserData: Server offline, suppressed UI warning for production.");
+            }
         }
         return;
     }
@@ -304,7 +322,12 @@ async function saveUserData(data = null, addToPending = true) {
         if (addToPending) {
             pendingUpdates.push({ timestamp: Date.now(), data: dataToSave });
             localStorage.setItem('userData', JSON.stringify(dataToSave));
-            updateStatus(translations[currentLang].offlineWarning, true);
+            // 只在開發模式下顯示離線警告
+            if (isDevMode) {
+                updateStatus(translations[currentLang].offlineWarning, true);
+            } else {
+                console.log("saveUserData: Server offline, suppressed UI warning for production.");
+            }
         }
     }
 }
@@ -312,6 +335,13 @@ async function saveUserData(data = null, addToPending = true) {
 //---UI Control Functions---
 function updateStatus(message, isWarning = false) {
     if (!statusDiv) return;
+    // 僅在非離線警告或開發模式下顯示訊息
+    if (message === translations[currentLang].offlineWarning && !isDevMode) {
+        statusDiv.innerHTML = ''; // 不顯示離線警告
+        statusDiv.style.display = 'none';
+        console.log(`updateStatus: Suppressed offline warning in production: ${message}`);
+        return;
+    }
     statusDiv.innerHTML = message || '';
     statusDiv.style.display = message ? 'block' : 'none';
     statusDiv.style.color = isWarning ? '#FFD700' : '#FFFFFF';
@@ -609,7 +639,7 @@ async function initializeWallet() {
             updateStatus(translations[currentLang].noWallet);
             disableInteractiveElements(true);
             console.log("initializeWallet: No Ethereum provider detected.");
-            connectButton.disabled = true; // 禁用連線按鈕
+            connectButton.disabled = true;
             return;
         }
         provider = new ethers.BrowserProvider(window.ethereum);
