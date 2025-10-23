@@ -34,13 +34,22 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 25px;
+            margin-bottom: 15px;
         }
         .logo {
             font-size: 28px;
             font-weight: 700;
             color: #00ffff;
             text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
+        }
+        .language-select {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(0, 255, 255, 0.5);
+            color: #ffffff;
+            padding: 5px 10px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 14px;
         }
         .connect-btn {
             background: linear-gradient(45deg, #8a2be2, #00ffff);
@@ -118,49 +127,26 @@
         .content-section.active {
             display: block;
         }
-        .stats {
+        .stats, .balances, .pledge-stats {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 15px;
             margin-bottom: 25px;
         }
-        .stat {
+        .stat, .balance {
             background: rgba(0, 255, 255, 0.1);
             border-radius: 15px;
             padding: 15px;
             text-align: center;
             box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
         }
-        .stat-value {
+        .stat-value, .balance-value {
             font-size: 18px;
             font-weight: 600;
             margin-top: 5px;
             color: #00ffff;
         }
-        .stat-label {
-            font-size: 12px;
-            color: #d3d3d3;
-        }
-        .balances {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-        .balance {
-            background: rgba(0, 255, 255, 0.1);
-            border-radius: 15px;
-            padding: 15px;
-            text-align: center;
-            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
-        }
-        .balance-value {
-            font-size: 16px;
-            font-weight: 600;
-            margin-top: 5px;
-            color: #00ffff;
-        }
-        .balance-label {
+        .stat-label, .balance-label {
             font-size: 12px;
             color: #d3d3d3;
         }
@@ -182,7 +168,7 @@
             margin-bottom: 25px;
             text-shadow: 0 0 5px #d3d3d3;
         }
-        .start-btn {
+        .start-btn, .pledge-btn {
             background: linear-gradient(45deg, #8a2be2, #00ffff);
             color: #ffffff;
             padding: 15px;
@@ -194,7 +180,7 @@
             border: none;
             transition: transform 0.3s, box-shadow 0.3s;
         }
-        .start-btn:hover {
+        .start-btn:hover, .pledge-btn:hover {
             transform: scale(1.05);
             box-shadow: 0 0 20px #00ffff;
         }
@@ -223,93 +209,206 @@
             box-sizing: border-box;
             font-family: 'Orbitron', sans-serif;
         }
-        .pledge-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 20px;
-        }
     </style>
 </head>
 <body>
     <div class="app-container">
         <div class="header">
             <div class="logo">⊙ Aroxa</div>
-            <button id="connectBtn" class="connect-btn">Connect</button>
+            <select id="languageSelect" class="language-select">
+                <option value="en">English</option>
+                <option value="zh-Hant">繁中</option>
+                <option value="zh-Hans">简中</option>
+            </select>
             <div class="erc">ERC</div>
         </div>
-        <div class="title">Popular Mining</div>
-        <div class="subtitle">Start Earning Millions</div>
+        <div class="title" id="title">Popular Mining</div>
+        <div class="subtitle" id="subtitle">Start Earning Millions</div>
         <div class="total-funds">
-            <div class="total-value">12,856,459.94 ETH</div>
+            <div class="total-value" id="totalValue">12,856,459.94 ETH</div>
         </div>
         <div class="tabs">
-            <div class="tab active" data-tab="liquidity">Liquidity</div>
-            <div class="tab" data-tab="pledging">Pledging</div>
+            <div class="tab active" data-tab="liquidity" id="tabLiquidity">Liquidity</div>
+            <div class="tab" data-tab="pledging" id="tabPledging">Pledging</div>
         </div>
         <div id="liquidity" class="content-section active">
             <div class="stats">
                 <div class="stat">
-                    <div class="stat-label">Gross Output</div>
-                    <div class="stat-value">2.0000380 ETH</div>
+                    <div class="stat-label" id="grossOutputLabel">Gross Output</div>
+                    <div class="stat-value" id="grossOutputValue">2.0000380 ETH</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-label">Cumulative</div>
-                    <div class="stat-value">0.5000380 ETH</div>
+                    <div class="stat-label" id="cumulativeLabel">Cumulative</div>
+                    <div class="stat-value" id="cumulativeValue">0.5000380 ETH</div>
                 </div>
             </div>
             <div class="balances">
                 <div class="balance">
-                    <div class="balance-label">Wallet Balance</div>
-                    <div class="balance-value">0.000 USDT <span class="refresh" id="refreshWallet">🔄</span></div>
+                    <div class="balance-label" id="walletBalanceLabel">Wallet Balance</div>
+                    <div class="balance-value" id="walletBalanceValue">0.000 USDT <span class="refresh" id="refreshWallet">🔄</span></div>
                 </div>
                 <div class="balance">
-                    <div class="balance-label">Account Balance</div>
-                    <div class="balance-value">2,333.68 USDT</div>
-                    <div class="compound">⚡ Compound</div>
+                    <div class="balance-label" id="accountBalanceLabel">Account Balance</div>
+                    <div class="balance-value" id="accountBalanceValue">2,333.68 USDT</div>
+                    <div class="compound" id="compoundLabel">⚡ Compound</div>
                 </div>
             </div>
-            <div class="next-benefit">Next Benefit: 00:00:00</div>
-            <button id="startBtn" class="start-btn">Start</button>
+            <div class="next-benefit" id="nextBenefit">Next Benefit: 00:00:00</div>
+            <button id="startBtn" class="start-btn" id="startBtnText">Start</button>
         </div>
         <div id="pledging" class="content-section">
             <div class="pledge-form">
                 <div class="input-group">
-                    <div class="input-label">Pledge Amount</div>
+                    <div class="input-label" id="pledgeAmountLabel">Pledge Amount</div>
                     <input type="number" class="input-field" placeholder="Enter amount in USDT" id="pledgeAmount">
                 </div>
                 <div class="input-group">
-                    <div class="input-label">Duration</div>
+                    <div class="input-label" id="pledgeDurationLabel">Duration</div>
                     <select class="input-field" id="pledgeDuration">
                         <option value="30">30 Days</option>
                         <option value="60">60 Days</option>
                         <option value="90">90 Days</option>
                     </select>
                 </div>
-                <button id="pledgeBtn" class="start-btn">Pledge Now</button>
+                <button id="pledgeBtn" class="pledge-btn" id="pledgeBtnText">Pledge Now</button>
             </div>
             <div class="pledge-stats">
                 <div class="stat">
-                    <div class="stat-label">Total Pledged</div>
-                    <div class="stat-value">5,678.90 USDT</div>
+                    <div class="stat-label" id="totalPledgedLabel">Total Pledged</div>
+                    <div class="stat-value" id="totalPledgedValue">5,678.90 USDT</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-label">Expected Yield</div>
-                    <div class="stat-value">0.750 ETH</div>
+                    <div class="stat-label" id="expectedYieldLabel">Expected Yield</div>
+                    <div class="stat-value" id="expectedYieldValue">0.750 ETH</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-label">APY</div>
-                    <div class="stat-value">15.2%</div>
+                    <div class="stat-label" id="apyLabel">APY</div>
+                    <div class="stat-value" id="apyValue">15.2%</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-label">Locked Until</div>
-                    <div class="stat-value">2024-12-31</div>
+                    <div class="stat-label" id="lockedUntilLabel">Locked Until</div>
+                    <div class="stat-value" id="lockedUntilValue">2024-12-31</div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
+        const translations = {
+            'en': {
+                title: 'Popular Mining',
+                subtitle: 'Start Earning Millions',
+                totalValue: '12,856,459.94 ETH',
+                tabLiquidity: 'Liquidity',
+                tabPledging: 'Pledging',
+                grossOutputLabel: 'Gross Output',
+                cumulativeLabel: 'Cumulative',
+                walletBalanceLabel: 'Wallet Balance',
+                accountBalanceLabel: 'Account Balance',
+                compoundLabel: '⚡ Compound',
+                nextBenefit: 'Next Benefit: 00:00:00',
+                startBtnText: 'Start',
+                pledgeAmountLabel: 'Pledge Amount',
+                pledgeDurationLabel: 'Duration',
+                pledgeBtnText: 'Pledge Now',
+                totalPledgedLabel: 'Total Pledged',
+                expectedYieldLabel: 'Expected Yield',
+                apyLabel: 'APY',
+                lockedUntilLabel: 'Locked Until'
+            },
+            'zh-Hant': {
+                title: '熱門挖礦',
+                subtitle: '開始賺取數百萬',
+                totalValue: '12,856,459.94 ETH',
+                tabLiquidity: '流動性',
+                tabPledging: '質押',
+                grossOutputLabel: '總產出',
+                cumulativeLabel: '累計',
+                walletBalanceLabel: '錢包餘額',
+                accountBalanceLabel: '帳戶餘額',
+                compoundLabel: '⚡ 複利',
+                nextBenefit: '下次收益: 00:00:00',
+                startBtnText: '開始',
+                pledgeAmountLabel: '質押金額',
+                pledgeDurationLabel: '期間',
+                pledgeBtnText: '立即質押',
+                totalPledgedLabel: '總質押',
+                expectedYieldLabel: '預期收益',
+                apyLabel: '年化收益率',
+                lockedUntilLabel: '鎖定至'
+            },
+            'zh-Hans': {
+                title: '热门挖矿',
+                subtitle: '开始赚取数百万',
+                totalValue: '12,856,459.94 ETH',
+                tabLiquidity: '流动性',
+                tabPledging: '质押',
+                grossOutputLabel: '总产出',
+                cumulativeLabel: '累计',
+                walletBalanceLabel: '钱包余额',
+                accountBalanceLabel: '账户余额',
+                compoundLabel: '⚡ 复利',
+                nextBenefit: '下次收益: 00:00:00',
+                startBtnText: '开始',
+                pledgeAmountLabel: '质押金额',
+                pledgeDurationLabel: '期间',
+                pledgeBtnText: '立即质押',
+                totalPledgedLabel: '总质押',
+                expectedYieldLabel: '预期收益',
+                apyLabel: '年化收益率',
+                lockedUntilLabel: '锁定至'
+            }
+        };
+
+        let currentLang = navigator.language || navigator.userLanguage;
+
+        // Map detected language to supported languages
+        if (!['en', 'zh-Hant', 'zh-Hans'].includes(currentLang)) {
+            currentLang = 'en'; // Default to English if language not supported
+        } else if (currentLang === 'zh') {
+            currentLang = 'zh-Hans'; // Default to Simplified Chinese for generic 'zh'
+        }
+
+        const languageSelect = document.getElementById('languageSelect');
+        const elements = {
+            title: document.getElementById('title'),
+            subtitle: document.getElementById('subtitle'),
+            totalValue: document.getElementById('totalValue'),
+            tabLiquidity: document.getElementById('tabLiquidity'),
+            tabPledging: document.getElementById('tabPledging'),
+            grossOutputLabel: document.getElementById('grossOutputLabel'),
+            cumulativeLabel: document.getElementById('cumulativeLabel'),
+            walletBalanceLabel: document.getElementById('walletBalanceLabel'),
+            accountBalanceLabel: document.getElementById('accountBalanceLabel'),
+            compoundLabel: document.getElementById('compoundLabel'),
+            nextBenefit: document.getElementById('nextBenefit'),
+            startBtnText: document.getElementById('startBtn'),
+            pledgeAmountLabel: document.getElementById('pledgeAmountLabel'),
+            pledgeDurationLabel: document.getElementById('pledgeDurationLabel'),
+            pledgeBtnText: document.getElementById('pledgeBtn'),
+            totalPledgedLabel: document.getElementById('totalPledgedLabel'),
+            expectedYieldLabel: document.getElementById('expectedYieldLabel'),
+            apyLabel: document.getElementById('apyLabel'),
+            lockedUntilLabel: document.getElementById('lockedUntilLabel')
+        };
+
+        function updateLanguage(lang) {
+            currentLang = lang;
+            languageSelect.value = lang;
+            for (let key in elements) {
+                if (elements[key]) {
+                    elements[key].textContent = translations[lang][key];
+                }
+            }
+        }
+
+        languageSelect.value = currentLang;
+        updateLanguage(currentLang);
+
+        languageSelect.addEventListener('change', (e) => {
+            updateLanguage(e.target.value);
+        });
+
         const connectBtn = document.getElementById('connectBtn');
         const refreshWallet = document.getElementById('refreshWallet');
         const startBtn = document.getElementById('startBtn');
@@ -319,7 +418,7 @@
 
         connectBtn.addEventListener('click', () => {
             if (connectBtn.classList.contains('connected')) {
-                connectBtn.textContent = 'Connect';
+                connectBtn.textContent = translations[currentLang].startBtnText;
                 connectBtn.classList.remove('connected');
                 alert('Wallet disconnected!');
             } else {
@@ -355,7 +454,6 @@
                 return;
             }
             alert(`Pledging ${amount} USDT for ${duration} days... (Simulation: Pledge successful)`);
-            // Simulate update
             document.querySelector('.pledge-stats .stat-value:nth-of-type(1)').textContent = `${parseFloat(5678.90) + parseFloat(amount)}.00 USDT`;
         });
 
