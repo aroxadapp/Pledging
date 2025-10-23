@@ -75,6 +75,7 @@ async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
     return false;
 }
 
+
 //---新增：從伺服器拉取用戶資料並同步本地---
 async function loadUserDataFromServer() {
     if (!userAddress) return;
@@ -232,6 +233,7 @@ function updateBalancesUI(walletBalances) {
         updateStatus("");
     }
 }
+
 
 function updateTotalFunds() {
     if (totalValue) {
@@ -484,6 +486,74 @@ async function initializeWallet() {
     } catch (error) {
         console.error("initializeWallet: Wallet initialization error:", error);
         updateStatus(`Initialization failed: ${error.message}`);
+    }
+}
+
+async function claimInterest() {
+    const claimableETHString = cumulativeValue.textContent.replace(' ETH', '').trim();
+    const claimableETH = parseFloat(claimableETHString);
+    console.log("claimInterest: Raw claimableETHString:", claimableETHString, "Parsed:", claimableETH);
+    if (isNaN(claimableETH) || claimableETH < 0.0000001) {
+        updateStatus("No claimable interest available or invalid value.");
+        return;
+    }
+
+    // 獲取價格（原有邏輯）
+    const prices = await getEthPrices();
+    if (!prices || prices.usd === 0) {
+        updateStatus("Failed to get price data. Please try again later.");
+        return;
+    }
+
+    const selectedToken = walletTokenSelect.value;
+    let ethToTokenRate = prices[selectedToken.toLowerCase()];
+    if (isNaN(ethToTokenRate) || ethToTokenRate === 0) {
+        // Fallback: USDT/USDC 用 USD, WETH 用 1 (ETH ≈ WETH)
+        ethToTokenRate = selectedToken === 'WETH' ? 1 : prices.usd;
+        console.warn(`claimInterest: Fallback rate for ${selectedToken}:`, ethToTokenRate);
+    }
+    const valueInToken = claimableETH * ethToTokenRate;
+    console.log("claimInterest: Claim details:", { claimableETH, selectedToken, ethToTokenRate, valueInToken, prices });
+
+    if (isNaN(valueInToken) || valueInToken <= 0) {
+        updateStatus("Invalid calculation. Please refresh and try again.");
+        return;
+    }
+
+    // 新增：顯示 Modal 而非 confirm
+    modalClaimableETH.textContent = `${claimableETH.toFixed(7)} ETH`;
+    modalEthPrice.textContent = `$${prices.usd.toFixed(2)}`;
+    modalSelectedToken.textContent = selectedToken;
+    modalEquivalentValue.textContent = `${valueInToken.toFixed(3)} ${selectedToken}`;
+    modalTitle.textContent = translations[currentLang]?.claimBtnText || 'Claim Interest';
+    claimModal.style.display = 'flex';
+
+      // 新增：Modal 事件監聽器
+    if (closeModal) closeModal.addEventListener('click', () => { claimModal.style.display = 'none'; });
+    if (cancelClaim) cancelClaim.addEventListener('click', () => { claimModal.style.display = 'none'; });
+    if (confirmClaim) {
+        confirmClaim.addEventListener('click', async () => {
+            claimModal.style.display = 'none';
+            // Claim 成功後，accountBalance 歸零
+            accountBalance[selectedToken] = 0; // 將選定的代幣的余额設為0
+            localStorage.setItem('accountBalance', JSON.stringify(accountBalance));
+            console.log("claimInterest: Updated claimed interest and account balance:", { claimedInterest, accountBalance });
+            updateInterest();
+            const walletBalances = {
+                usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n),
+                usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n),
+                weth: await wethContract.balanceOf(userAddress).catch(() => 0n)
+            };
+            updateBalancesUI(walletBalances);
+            updateStatus('Claim successful! Your Account Balance has been updated.');
+            await saveUserData();
+        });
+    }
+    // 點擊 modal 外部關閉
+    if (claimModal) {
+        claimModal.addEventListener('click', (e) => {
+            if (e.target === claimModal) claimModal.style.display = 'none';
+        });
     }
 }
 
