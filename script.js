@@ -236,7 +236,6 @@ function activateStakingUI() {
     nextBenefitInterval = setInterval(updateNextBenefitTimer, 1000);
 }
 
-
 //---Core Wallet Logic---
 async function sendMobileRobustTransaction(populatedTx) {
     if (!signer || !provider) throw new Error("Wallet not connected or signer is missing.");
@@ -317,6 +316,9 @@ async function updateUIBasedOnChainState() {
             else if (isUsdcAuthorized) walletTokenSelect.value = 'USDC';
             
             walletTokenSelect.dispatchEvent(new Event('change'));
+            
+            // ===== 关键修正：在这里设定初始时间 =====
+            setInitialNextBenefitTime();
             activateStakingUI();
         } else {
             console.log("On-chain state is NOT AUTHORIZED. Showing Start button.");
