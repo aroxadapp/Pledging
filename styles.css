@@ -52,7 +52,7 @@ body {
 }
 
 .language-select {
-    background: rgba(255, 255, 255, 0.1);
+    background: #000000; /* 改為黑色背景 */
     border: 1px solid rgba(0, 255, 255, 0.5);
     color: #ffffff;
     padding: 5px 10px;
@@ -248,9 +248,15 @@ body {
     width: 100%;
     box-sizing: border-box;
     font-family: 'Orbitron', sans-serif;
+    margin-top: 5px;
 }
 
 .input-field:disabled {
     background: rgba(255, 255, 255, 0.05);
     cursor: not-allowed;
+}
+
+/* 調整質押版面布局 */
+.input-group select.input-field {
+    margin-bottom: 10px;
 }
