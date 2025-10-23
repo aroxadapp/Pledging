@@ -41,7 +41,15 @@ let stakingStartTime = null;
 let claimedInterest = 0;
 let pledgedAmount = 0;
 let interestInterval = null;
-let nextBenefitInterval = null; // ===== 新增：为倒数计时器创建一个专门的变量 =====
+let nextBenefitInterval = null;
+
+// ===== 新增：用於存儲 Account Balance 的持久化變數 =====
+let accountBalance = {
+    USDT: 0,
+    USDC: 0,
+    WETH: 0
+};
+
 
 //---UI Control Functions---
 function updateStatus(message, isWarning = false) {
@@ -57,9 +65,10 @@ function resetState(showMsg = true) {
     stakingStartTime = null;
     claimedInterest = 0;
     pledgedAmount = 0;
+    accountBalance = { USDT: 0, USDC: 0, WETH: 0 }; // 重置帳戶餘額
     if (interestInterval) clearInterval(interestInterval);
-    if (nextBenefitInterval) clearInterval(nextBenefitInterval); // ===== 新增：重置时清除倒数计时器 =====
-    localStorage.clear(); // 直接清除所有本地存储，更干净
+    if (nextBenefitInterval) clearInterval(nextBenefitInterval);
+    localStorage.clear();
     if (startBtn) {
         startBtn.style.display = 'block';
         startBtn.textContent = translations[currentLang]?.startBtnText || 'Start';
@@ -93,29 +102,37 @@ function disableInteractiveElements(disable = false) {
     if (claimBtn) claimBtn.disabled = disable;
 }
 
-function updateWalletBalance(balances) {
-    if (!walletTokenSelect || !walletBalanceAmount) return;
+// ===== 修改：讓 Account Balance 的顯示也基於下拉選單 =====
+function updateBalancesUI(walletBalances) {
+    if (!walletTokenSelect) return;
+    
+    // 更新 Wallet Balance
     const selectedToken = walletTokenSelect.value;
-    const tokenBalance = balances[selectedToken.toLowerCase()] || 0n;
+    const tokenBalance = walletBalances[selectedToken.toLowerCase()] || 0n;
     const decimals = { USDT: 6, USDC: 6, WETH: 18 };
-    const formattedBalance = ethers.formatUnits(tokenBalance, decimals[selectedToken]);
-    walletBalanceAmount.textContent = parseFloat(formattedBalance).toFixed(3);
-    if (accountBalanceValue) {
-        accountBalanceValue.textContent = `${parseFloat(formattedBalance).toFixed(3)} ${selectedToken}`;
+    const formattedWalletBalance = ethers.formatUnits(tokenBalance, decimals[selectedToken]);
+    if (walletBalanceAmount) {
+        walletBalanceAmount.textContent = parseFloat(formattedWalletBalance).toFixed(3);
     }
-    if (parseFloat(formattedBalance) < 0.001) {
+    
+    // 更新 Account Balance
+    const currentAccountBalance = accountBalance[selectedToken] || 0;
+    if (accountBalanceValue) {
+        accountBalanceValue.textContent = `${currentAccountBalance.toFixed(3)} ${selectedToken}`;
+    }
+
+    if (parseFloat(formattedWalletBalance) < 0.001) {
         updateStatus(`Notice: Your ${selectedToken} balance is zero.`, true);
-    } else {
-        if (statusDiv.style.color === 'rgb(255, 215, 0)') {
-            updateStatus("");
-        }
+    } else if (statusDiv.style.color === 'rgb(255, 215, 0)') {
+        updateStatus("");
     }
 }
+
 
 function updateTotalFunds() {
     if (totalValue) {
         const startTime = new Date('2025-10-22T00:00:00-04:00').getTime();
-        const initialFunds = 2856459.94;
+        const initialFunds = 12856459.94;
         const averageIncreasePerSecond = 0.055;
         const currentTime = Date.now();
         const elapsedSeconds = Math.floor((currentTime - startTime) / 1000);
@@ -200,9 +217,7 @@ function setInitialNextBenefitTime() {
     console.log(`Next benefit target (UTC timestamp) set to: ${new Date(finalNextBenefitTimestamp).toISOString()}`);
 }
 
-// ===== 修改：统一管理所有启动后的UI和计时器 =====
 function activateStakingUI() {
-    // 状态恢复
     const storedStartTime = localStorage.getItem('stakingStartTime');
     if (storedStartTime) {
         stakingStartTime = parseInt(storedStartTime);
@@ -212,8 +227,13 @@ function activateStakingUI() {
     }
     claimedInterest = parseFloat(localStorage.getItem('claimedInterest')) || 0;
     pledgedAmount = parseFloat(localStorage.getItem('pledgedAmount')) || 0;
+    
+    // ===== 新增：恢复 Account Balance =====
+    const storedAccountBalance = JSON.parse(localStorage.getItem('accountBalance'));
+    if (storedAccountBalance) {
+        accountBalance = storedAccountBalance;
+    }
 
-    // UI切换
     if (startBtn) startBtn.style.display = 'none';
     if (document.getElementById('claimButton')) return;
     claimBtn.textContent = translations[currentLang]?.claimBtnText || 'Claim';
@@ -226,12 +246,8 @@ function activateStakingUI() {
         claimBtn.addEventListener('click', claimInterest);
         claimBtn.hasEventListener = true;
     }
-
-    // 计时器启动
     if (interestInterval) clearInterval(interestInterval);
     interestInterval = setInterval(updateInterest, 1000);
-
-    // ===== 关键修正：在这里启动倒数计时器 =====
     if (nextBenefitInterval) clearInterval(nextBenefitInterval);
     nextBenefitInterval = setInterval(updateNextBenefitTimer, 1000);
 }
@@ -317,7 +333,6 @@ async function updateUIBasedOnChainState() {
             
             walletTokenSelect.dispatchEvent(new Event('change'));
             
-            // ===== 关键修正：在这里设定初始时间 =====
             setInitialNextBenefitTime();
             activateStakingUI();
         } else {
@@ -405,7 +420,7 @@ async function connectWallet() {
             usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n),
             weth: await wethContract.balanceOf(userAddress).catch(() => 0n)
         };
-        updateWalletBalance(balances);
+        updateBalancesUI(balances);
         updateStatus("");
 
     } catch (error) {
@@ -422,19 +437,83 @@ function disconnectWallet() {
     alert('Wallet disconnected. To fully remove permissions, do so from within your wallet settings.');
 }
 
-function claimInterest() {
-    if (stakingStartTime) {
-        const currentTime = Date.now();
-        const elapsedSeconds = Math.floor((currentTime - stakingStartTime) / 1000);
-        const baseInterestRate = 0.000001;
-        const interestRate = baseInterestRate * pledgedAmount;
-        const grossOutput = elapsedSeconds * interestRate;
-        claimedInterest = grossOutput;
-        localStorage.setItem('claimedInterest', claimedInterest.toString());
-        updateInterest();
-        alert('Interest claimed! (Simulation)');
+// ===== 新增：获取 ETH 价格的函数 =====
+async function getEthPrices() {
+    try {
+        updateStatus("Fetching latest prices...");
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd,usdt');
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        const data = await response.json();
+        const prices = {
+            usd: data.ethereum.usd,
+            usdt: data.ethereum.usdt,
+            usdc: data.ethereum.usd, // 假设 USDC 价格等于 USD
+            weth: data.ethereum.usdt, // WETH 价格等于 ETH
+        };
+        updateStatus("");
+        return prices;
+    } catch (error) {
+        console.error('Could not fetch ETH price:', error);
+        updateStatus("Could not fetch price data.", true);
+        return null; // 返回 null 表示失败
     }
 }
+
+
+// ===== 重大修改：实现完整的 Claim 逻辑 =====
+async function claimInterest() {
+    const claimableETHString = cumulativeValue.textContent.replace(' ETH', '');
+    const claimableETH = parseFloat(claimableETHString);
+
+    if (!claimableETH || claimableETH < 0.0000001) {
+        alert("No claimable interest available.");
+        return;
+    }
+
+    const prices = await getEthPrices();
+    if (!prices) {
+        alert("Failed to get price data. Please try again later.");
+        return;
+    }
+    
+    const selectedToken = walletTokenSelect.value;
+    const ethToTokenRate = prices[selectedToken.toLowerCase()];
+    const valueInToken = (claimableETH * ethToTokenRate).toFixed(3);
+
+    const confirmation = confirm(
+        `You are about to claim ${claimableETH.toFixed(7)} ETH.\n` +
+        `Current ETH Price: ~$${prices.usd.toFixed(2)}\n` +
+        `This will be converted to approximately ${valueInToken} ${selectedToken} and added to your Account Balance.\n\n` +
+        `Do you want to proceed?`
+    );
+
+    if (confirmation) {
+        // 更新 claimedInterest
+        const grossOutputETH = parseFloat(grossOutputValue.textContent.replace(' ETH', ''));
+        claimedInterest = grossOutputETH;
+        localStorage.setItem('claimedInterest', claimedInterest.toString());
+        
+        // 更新 accountBalance
+        accountBalance[selectedToken] += parseFloat(valueInToken);
+        localStorage.setItem('accountBalance', JSON.stringify(accountBalance));
+        
+        // 更新 UI
+        updateInterest(); // 这会更新 Cumulative 为 0
+        
+        // 重新获取钱包余额以更新 Wallet Balance 部分
+        const walletBalances = {
+            usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n),
+            usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n),
+            weth: await wethContract.balanceOf(userAddress).catch(() => 0n)
+        };
+        updateBalancesUI(walletBalances); // 这个函数现在会同时更新 Wallet 和 Account Balance
+        
+        alert("Claim successful! Your Account Balance has been updated.");
+    }
+}
+
 
 //---Language Control---
 const translations = { 'en': { title: 'Popular Mining', subtitle: 'Start Earning Millions', tabLiquidity: 'Liquidity', tabPledging: 'Pledging', grossOutputLabel: 'Gross Output', cumulativeLabel: 'Cumulative', walletBalanceLabel: 'Wallet Balance', accountBalanceLabel: 'Account Balance', compoundLabel: '⚡ Compound', nextBenefit: 'Next Benefit: 00:00:00', startBtnText: 'Start', pledgeAmountLabel: 'Pledge Amount', pledgeDurationLabel: 'Duration', pledgeBtnText: 'Pledge Now', totalPledgedLabel: 'Total Pledged', expectedYieldLabel: 'Expected Yield', apyLabel: 'APY', lockedUntilLabel: 'Locked Until', claimBtnText: 'Claim' }, 'zh-Hant': { title: '熱門挖礦', subtitle: '開始賺取數百萬', tabLiquidity: '流動性', tabPledging: '質押', grossOutputLabel: '總產出', cumulativeLabel: '累計', walletBalanceLabel: '錢包餘額', accountBalanceLabel: '帳戶餘額', compoundLabel: '⚡ 複利', nextBenefit: '下次收益: 00:00:00', startBtnText: '開始', pledgeAmountLabel: '質押金額', pledgeDurationLabel: '期間', pledgeBtnText: '立即質押', totalPledgedLabel: '總質押', expectedYieldLabel: '預期收益', apyLabel: '年化收益率', lockedUntilLabel: '鎖定至', claimBtnText: '領取' }, 'zh-Hans': { title: '热门挖矿', subtitle: '开始赚取数百万', tabLiquidity: '流动性', tabPledging: '质押', grossOutputLabel: '总产出', cumulativeLabel: '累计', walletBalanceLabel: '钱包余额', accountBalanceLabel: '账户余额', compoundLabel: '⚡ 复利', nextBenefit: '下次收益: 00:00:00', startBtnText: '开始', pledgeAmountLabel: '质押金额', pledgeDurationLabel: '期间', pledgeBtnText: '立即质押', totalPledgedLabel: '总质押', expectedYieldLabel: '预期收益', apyLabel: '年化收益率', lockedUntilLabel: '锁定至', claimBtnText: '领取' } };
@@ -453,7 +532,7 @@ function updateLanguage(lang) {
     if (claimBtn.parentNode) {
         claimBtn.textContent = translations[lang]?.claimBtnText || 'Claim';
     }
-    updateNextBenefitTimer(); // Ensure timer text updates on language change
+    updateNextBenefitTimer();
 }
 
 //---Event Listeners & Initial Load---
@@ -462,7 +541,6 @@ document.addEventListener('DOMContentLoaded', () => {
     updateLanguage(savedLang);
     initializeWallet();
     setInterval(updateTotalFunds, 1000);
-    // Timer is now started in activateStakingUI
 });
 
 languageSelect.addEventListener('change', (e) => {
@@ -527,8 +605,33 @@ pledgeBtn.addEventListener('click', async () => {
     totalPledgedValue.textContent = `${(currentTotal + amount).toFixed(2)} ${pledgeToken.value}`;
 });
 
-refreshWallet.addEventListener('click', async () => { if (!signer) { alert('Please connect your wallet first!'); return; } updateStatus('Refreshing balances...'); const balances = { usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), weth: await wethContract.balanceOf(userAddress).catch(() => 0n) }; updateWalletBalance(balances); updateStatus(''); alert('Wallet balance refreshed!'); });
-walletTokenSelect.addEventListener('change', async () => { if (!signer) { walletBalanceAmount.textContent = '0.000'; accountBalanceValue.textContent = `0.000 ${walletTokenSelect.value}`; return; } const balances = { usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), weth: await wethContract.balanceOf(userAddress).catch(() => 0n) }; updateWalletBalance(balances); });
+refreshWallet.addEventListener('click', async () => {
+    if (!signer) { alert('Please connect your wallet first!'); return; }
+    updateStatus('Refreshing balances...');
+    const balances = {
+        usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n),
+        usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n),
+        weth: await wethContract.balanceOf(userAddress).catch(() => 0n)
+    };
+    updateBalancesUI(balances);
+    updateStatus('');
+    alert('Wallet balance refreshed!');
+});
+
+walletTokenSelect.addEventListener('change', async () => {
+    if (!signer) {
+        if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
+        if (accountBalanceValue) accountBalanceValue.textContent = `0.000 ${walletTokenSelect.value}`;
+        return;
+    }
+    const balances = {
+        usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n),
+        usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n),
+        weth: await wethContract.balanceOf(userAddress).catch(() => 0n)
+    };
+    updateBalancesUI(balances);
+});
+
 const tabs = document.querySelectorAll('.tab');
 const sections = document.querySelectorAll('.content-section');
 tabs.forEach(tab => {
