@@ -44,7 +44,7 @@ function resetState(showMsg = true) {
     signer = userAddress = deductContract = usdtContract = usdcContract = wethContract = null;
     if (connectButton) {
         connectButton.classList.remove('connected');
-        connectButton.textContent = 'Connect'; // 強制更新按鈕文字
+        connectButton.textContent = 'Connect'; // 強制更新文字
         connectButton.title = 'Connect Wallet';
     }
     disableInteractiveElements(true);
@@ -145,7 +145,7 @@ async function initializeWallet() {
             }
         }
 
-        // 移除重載邏輯，避免連接後自動重整
+        // 移除自動重整邏輯
         // window.ethereum.on('accountsChanged', () => window.location.reload());
         // window.ethereum.on('chainChanged', () => window.location.reload());
 
@@ -162,6 +162,7 @@ async function initializeWallet() {
         const accounts = await provider.send('eth_accounts', []);
         if (accounts.length > 0) {
             resetState(false);
+            await connectWallet(); // 自動連接已授權帳戶
         }
 
         updateStatus("請先連接您的錢包以繼續。");
