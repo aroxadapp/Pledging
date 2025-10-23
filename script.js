@@ -140,42 +140,77 @@ function updateInterest() {
     }
 }
 
+// ===== 重写：基于美东时间的持久化倒数计时器 =====
 function updateNextBenefitTimer() {
     if (!nextBenefit) return;
+
     const nextBenefitTimestamp = parseInt(localStorage.getItem('nextBenefitTime'));
     const label = (translations[currentLang].nextBenefit || "Next Benefit: 00:00:00").split(':')[0];
+
     if (!nextBenefitTimestamp) {
         nextBenefit.textContent = `${label}: 00:00:00`;
         return;
     }
+
     const now = Date.now();
     let diff = nextBenefitTimestamp - now;
+
     if (diff <= 0) {
         const twelveHoursInMillis = 12 * 60 * 60 * 1000;
         const newNextBenefitTimestamp = nextBenefitTimestamp + twelveHoursInMillis;
         localStorage.setItem('nextBenefitTime', newNextBenefitTimestamp.toString());
         diff = newNextBenefitTimestamp - now;
     }
+
     const totalSeconds = Math.floor(diff / 1000);
     const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
     const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
     const seconds = String(totalSeconds % 60).padStart(2, '0');
+    
     nextBenefit.textContent = `${label}: ${hours}:${minutes}:${seconds}`;
 }
 
+// ===== 重写：首次开始时设定基于美东时间的目标 =====
 function setInitialNextBenefitTime() {
     if (localStorage.getItem('nextBenefitTime')) return;
-    console.log("Setting initial benefit countdown target...");
-    const startTime = new Date();
-    const nextNoonUTC = new Date(startTime);
-    nextNoonUTC.setUTCHours(12, 0, 0, 0);
-    if (startTime > nextNoonUTC) nextNoonUTC.setUTCDate(nextNoonUTC.getUTCDate() + 1);
-    const nextMidnightUTC = new Date(startTime);
-    nextMidnightUTC.setUTCHours(24, 0, 0, 0);
-    const immediateNextBenefitTime = (nextNoonUTC < nextMidnightUTC) ? nextNoonUTC : nextMidnightUTC;
-    const twelveHoursInMillis = 12 * 60 * 60 * 1000;
-    const finalNextBenefitTimestamp = immediateNextBenefitTime.getTime() + twelveHoursInMillis;
+
+    console.log("Setting initial benefit countdown target based on US Eastern Time...");
+    
+    // 创建一个 formatter 来获取当前的美东时间
+    const etFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        year: 'numeric', month: 'numeric', day: 'numeric',
+        hour: 'numeric', minute: 'numeric', second: 'numeric',
+        hour12: false
+    });
+    
+    const parts = etFormatter.formatToParts(new Date());
+    const etDate = new Date(`${parts.find(p => p.type === 'month').value}/${parts.find(p => p.type === 'day').value}/${parts.find(p => p.type === 'year').value} ${parts.find(p => p.type === 'hour').value}:${parts.find(p => p.type === 'minute').value}:${parts.find(p => p.type === 'second').value} GMT-0400`); // 假设 EDT
+
+    // 创建今天的美东时间 00:00 和 12:00 的目标
+    const todayMidnightET = new Date(etDate);
+    todayMidnightET.setHours(24, 0, 0, 0); // 隔天 00:00
+
+    const todayNoonET = new Date(etDate);
+    todayNoonET.setHours(12, 0, 0, 0);
+
+    let nextBenefitTimeET;
+
+    if (etDate < todayNoonET) {
+        nextBenefitTimeET = todayNoonET;
+    } else if (etDate < todayMidnightET) {
+        nextBenefitTimeET = todayMidnightET;
+    } else {
+        // 如果当前时间已经超过了今天的午夜，目标是明天的中午
+        const tomorrowNoonET = new Date(todayNoonET);
+        tomorrowNoonET.setDate(tomorrowNoonET.getDate() + 1);
+        nextBenefitTimeET = tomorrowNoonET;
+    }
+    
+    // 将这个美东时间目标（它是一个Date对象）转换为UTC时间戳并储存
+    const finalNextBenefitTimestamp = nextBenefitTimeET.getTime();
     localStorage.setItem('nextBenefitTime', finalNextBenefitTimestamp.toString());
+    console.log(`Next benefit target set to: ${new Date(finalNextBenefitTimestamp).toISOString()}`);
 }
 
 function activateStakingUI() {
