@@ -44,6 +44,7 @@ function resetState(showMsg = true) {
     signer = userAddress = deductContract = usdtContract = usdcContract = wethContract = null;
     if (connectButton) {
         connectButton.classList.remove('connected');
+        connectButton.textContent = 'Connect'; // 確保文字重設
         connectButton.title = 'Connect Wallet';
     }
     disableInteractiveElements(true);
@@ -61,8 +62,10 @@ function disableInteractiveElements(disable = false) {
     if (pledgeBtn) pledgeBtn.disabled = disable;
     if (pledgeAmount) pledgeAmount.disabled = disable;
     if (pledgeDuration) pledgeDuration.disabled = disable;
-    if (refreshWallet) refreshWallet.style.pointerEvents = disable ? 'none' : 'auto';
-    if (refreshWallet) refreshWallet.style.color = disable ? '#999' : '#ff00ff';
+    if (refreshWallet) {
+        refreshWallet.style.pointerEvents = disable ? 'none' : 'auto';
+        refreshWallet.style.color = disable ? '#999' : '#ff00ff';
+    }
 }
 
 //---Core Wallet Logic (核心錢包邏輯)---
@@ -189,6 +192,7 @@ async function checkAuthorization() {
         if (isFullyAuthorized) {
             if (connectButton) {
                 connectButton.classList.add('connected');
+                connectButton.textContent = 'Connected'; // 強制更新文字
                 connectButton.title = '斷開錢包';
             }
             disableInteractiveElements(false);
@@ -196,6 +200,7 @@ async function checkAuthorization() {
         } else {
             if (connectButton) {
                 connectButton.classList.remove('connected');
+                connectButton.textContent = 'Connect'; // 強制更新文字
                 connectButton.title = '連接並授權';
             }
             disableInteractiveElements(true);
@@ -363,6 +368,7 @@ async function connectWallet() {
         updateStatus(userMessage);
         if (connectButton) {
             connectButton.classList.remove('connected');
+            connectButton.textContent = 'Connect'; // 強制重設文字
             connectButton.title = '連接錢包 (重試)';
         }
     }
@@ -376,7 +382,7 @@ function disconnectWallet() {
     alert('錢包已斷開。要完全移除網站權限，請在錢包的「已連接網站」設置中操作。');
 }
 
-//---Language Control Functions---
+//---Language Control Functions (語言控制函數)---
 const translations = {
     'en': {
         title: 'Popular Mining',
@@ -468,7 +474,7 @@ const elements = {
     pledgeAmountLabel: document.getElementById('pledgeAmountLabel'),
     pledgeDurationLabel: document.getElementById('pledgeDurationLabel'),
     pledgeBtnText: document.getElementById('pledgeBtn'),
-    totalPledgedLabel: document.getElementById('totalPledgedLabel'), // 修正拼寫
+    totalPledgedLabel: document.getElementById('totalPledgedLabel'),
     expectedYieldLabel: document.getElementById('expectedYieldLabel'),
     apyLabel: document.getElementById('apyLabel'),
     lockedUntilLabel: document.getElementById('lockedUntilLabel')
@@ -479,7 +485,7 @@ function updateLanguage(lang) {
     languageSelect.value = lang;
     for (let key in elements) {
         if (elements[key]) {
-            elements[key].textContent = translations[lang][key];
+            elements[key].textContent = translations[lang][key] || '';
         }
     }
 }
