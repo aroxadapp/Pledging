@@ -179,7 +179,7 @@ async function updateInterest() {
         const interestRate = baseInterestRate * pledgedAmount;
         grossOutput = elapsedSeconds * interestRate;
     }
-    if (typeof cumulative === 'undefined') {
+     if (typeof cumulative === 'undefined') {
         cumulative = grossOutput - claimedInterest;
     }
     grossOutputValue.textContent = `${grossOutput.toFixed(7)} ETH`;
