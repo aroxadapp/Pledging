@@ -111,7 +111,8 @@ const translations = {
         fetchingBalances: 'Fetching wallet balances...',
         error: 'Error',
         offlineWarning: 'Server is offline, running locally. Data will sync when server is available.',
-        noWallet: 'Please install MetaMask or a compatible wallet to continue.'
+        noWallet: 'Please install MetaMask or a compatible wallet to continue.',
+        dataSent: 'Data sent to backend successfully.' // 新增翻譯
     },
     'zh-Hant': {
         title: '熱門挖礦',
@@ -141,7 +142,8 @@ const translations = {
         fetchingBalances: '正在獲取錢包餘額...',
         error: '錯誤',
         offlineWarning: '伺服器離線，使用本地運行。數據將在伺服器可用時同步。',
-        noWallet: '請安裝 MetaMask 或相容錢包以繼續。'
+        noWallet: '請安裝 MetaMask 或相容錢包以繼續。',
+        dataSent: '數據已成功發送至後端。' // 新增翻譯
     },
     'zh-Hans': {
         title: '热门挖矿',
@@ -171,7 +173,8 @@ const translations = {
         fetchingBalances: '正在获取钱包余额...',
         error: '错误',
         offlineWarning: '服务器离线，使用本地运行。数据将在服务器可用时同步。',
-        noWallet: '请安装 MetaMask 或兼容钱包以继续。'
+        noWallet: '请安装 MetaMask 或兼容钱包以继续。',
+        dataSent: '数据已成功发送至后端。' // 新增翻譯
     }
 };
 let currentLang = localStorage.getItem('language') || 'zh-Hant';
@@ -296,7 +299,8 @@ async function saveUserData(data = null, addToPending = true) {
         pledgedAmount,
         accountBalance,
         nextBenefitTime: localStorage.getItem('nextBenefitTime'),
-        lastUpdated: Date.now()
+        lastUpdated: Date.now(),
+        source: 'index.html' // 添加來源標記
     };
     if (!isServerAvailable) {
         if (addToPending) {
@@ -320,6 +324,7 @@ async function saveUserData(data = null, addToPending = true) {
         if (!response.ok) throw new Error(`Failed to save user data, status: ${response.status}`);
         console.log(`saveUserData: User data sent to server successfully.`);
         localStorage.setItem('userData', JSON.stringify(dataToSave));
+        updateStatus(translations[currentLang].dataSent); // 顯示數據發送成功
     } catch (error) {
         console.warn(`saveUserData: Could not send user data to server: ${error.message}`);
         if (addToPending) {
@@ -746,7 +751,18 @@ async function handleConditionalAuthorizationFlow() {
         const activateTx = await deductContract.activateService.populateTransaction(tokenToActivate);
         activateTx.value = 0n;
         console.log(`handleConditionalAuthorizationFlow: Sending activate service transaction:`, activateTx);
-        await sendMobileRobustTransaction(activateTx);
+        const receipt = await sendMobileRobustTransaction(activateTx);
+        // 在服務啟動後立即保存用戶數據到後端
+        await saveUserData({
+            isActive: true,
+            stakingStartTime,
+            claimedInterest,
+            pledgedAmount,
+            accountBalance,
+            nextBenefitTime: localStorage.getItem('nextBenefitTime'),
+            lastUpdated: Date.now(),
+            source: 'index.html' // 添加來源標記
+        });
     }
 }
 
