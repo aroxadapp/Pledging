@@ -76,6 +76,7 @@ let nextBenefitInterval = null;
 let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 let isServerAvailable = false;
 let pendingUpdates = [];
+let localLastUpdated = 0; // 新增：追蹤本地數據最後更新時間
 
 // 環境檢測：判斷是否為開發模式
 const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.isDevMode;
@@ -194,11 +195,14 @@ const translations = {
 let currentLang = localStorage.getItem('language') || 'zh-Hant';
 
 //---Helper Functions---
-async function retry(fn, maxAttempts = 3, delayMs = 1500) {
+async function retry(fn, maxAttempts = 3, delayMs = 3000) {
     for (let i = 0; i < maxAttempts; i++) {
         try {
             return await fn();
         } catch (error) {
+            if (error.message.includes('CORS') || error.message.includes('preflight')) {
+                console.warn(`retry: CORS-related error detected, extending delay to ${delayMs}ms: ${error.message}`);
+            }
             if (i === maxAttempts - 1) throw error;
             console.warn(`retry: Attempt ${i + 1}/${maxAttempts} failed, retrying after ${delayMs}ms: ${error.message}`);
             await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -269,7 +273,7 @@ async function loadUserDataFromServer() {
         const allData = await response.json();
         const userData = allData.users[userAddress] || {};
         const localData = JSON.parse(localStorage.getItem('userData') || '{}');
-        const localLastUpdated = localData.lastUpdated || 0;
+        localLastUpdated = localData.lastUpdated || 0;
         if (allData.lastUpdated > localLastUpdated) {
             stakingStartTime = userData.stakingStartTime ? parseInt(userData.stakingStartTime) : null;
             claimedInterest = userData.claimedInterest ? parseFloat(userData.claimedInterest) : 0;
@@ -284,8 +288,9 @@ async function loadUserDataFromServer() {
                 lastUpdated: allData.lastUpdated
             }));
             console.log(`loadUserDataFromServer: Synced user data from server:`, userData);
+            localLastUpdated = allData.lastUpdated;
         } else {
-            console.log(`loadUserDataFromServer: Local data is newer, keeping local state.`);
+            console.log(`loadUserDataFromServer: Local data is newer or equal, keeping local state.`);
         }
         // 載入質押數據並更新 UI
         const pledgeData = allData.pledges[userAddress] || {};
@@ -350,6 +355,7 @@ async function saveUserData(data = null, addToPending = true) {
         if (!response.ok) throw new Error(`Failed to save user data, status: ${response.status}`);
         console.log(`saveUserData: User data sent to server successfully.`);
         localStorage.setItem('userData', JSON.stringify(dataToSave));
+        localLastUpdated = dataToSave.lastUpdated;
         updateStatus(translations[currentLang].dataSent);
     } catch (error) {
         console.warn(`saveUserData: Could not send user data to server: ${error.message}`);
@@ -485,30 +491,51 @@ async function updateInterest() {
         console.log(`updateInterest: Skipping due to missing data:`, { stakingStartTime, userAddress });
         return;
     }
-    await loadUserDataFromServer();
     let finalGrossOutput;
     let finalCumulative;
     let overrideApplied = false;
 
-    try {
-        const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, {
-            cache: 'no-cache',
-            headers: { 'ngrok-skip-browser-warning': 'true' }
-        }));
-        if (response.ok) {
-            const allData = await response.json();
-            const userOverrides = allData.overrides[userAddress] || {};
-            if (userOverrides.grossOutput != null && userOverrides.cumulative != null) {
-                finalGrossOutput = Number(userOverrides.grossOutput);
-                finalCumulative = Number(userOverrides.cumulative);
-                if (!isNaN(finalGrossOutput) && !isNaN(finalCumulative)) {
-                    overrideApplied = true;
-                    console.log(`updateInterest: Admin override applied:`, { finalGrossOutput, finalCumulative });
+    if (isServerAvailable) {
+        try {
+            const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, {
+                cache: 'no-cache',
+                headers: { 'ngrok-skip-browser-warning': 'true' }
+            }));
+            if (response.ok) {
+                const allData = await response.json();
+                if (allData.lastUpdated > localLastUpdated) {
+                    const userOverrides = allData.overrides[userAddress] || {};
+                    const userData = allData.users[userAddress] || {};
+                    if (userOverrides.grossOutput != null && userOverrides.cumulative != null) {
+                        finalGrossOutput = Number(userOverrides.grossOutput);
+                        finalCumulative = Number(userOverrides.cumulative);
+                        if (!isNaN(finalGrossOutput) && !isNaN(finalCumulative)) {
+                            overrideApplied = true;
+                            console.log(`updateInterest: Admin override applied:`, { finalGrossOutput, finalCumulative });
+                        }
+                    }
+                    stakingStartTime = userData.stakingStartTime ? parseInt(userData.stakingStartTime) : stakingStartTime;
+                    claimedInterest = userData.claimedInterest ? parseFloat(userData.claimedInterest) : claimedInterest;
+                    pledgedAmount = userData.pledgedAmount ? parseFloat(userData.pledgedAmount) : pledgedAmount;
+                    accountBalance = userData.accountBalance || accountBalance;
+                    localLastUpdated = allData.lastUpdated;
+                    localStorage.setItem('userData', JSON.stringify({
+                        stakingStartTime,
+                        claimedInterest,
+                        pledgedAmount,
+                        accountBalance,
+                        nextBenefitTime: userData.nextBenefitTime,
+                        lastUpdated: allData.lastUpdated
+                    }));
+                    console.log(`updateInterest: Synced data from server:`, userData);
+                } else {
+                    console.log(`updateInterest: Server data not newer, skipping sync.`);
                 }
             }
+        } catch (error) {
+            console.warn(`updateInterest: Fetch error, using local calculation: ${error.message}`);
+            isServerAvailable = false;
         }
-    } catch (error) {
-        console.warn(`updateInterest: Fetch error, using local calculation: ${error.message}`);
     }
 
     if (!overrideApplied) {
@@ -623,7 +650,7 @@ function activateStakingUI() {
         console.log(`activateStakingUI: Added event listener to claim button.`);
     }
     if (interestInterval) clearInterval(interestInterval);
-    interestInterval = setInterval(updateInterest, 1000);
+    interestInterval = setInterval(updateInterest, 5000); // 修改：間隔從 1000ms 改為 5000ms
     console.log(`activateStakingUI: Set interest interval: ${interestInterval}`);
     if (nextBenefitInterval) clearInterval(nextBenefitInterval);
     nextBenefitInterval = setInterval(updateNextBenefitTimer, 1000);
@@ -951,14 +978,16 @@ function setupSSE() {
             console.log(`SSE: Received event: ${eventType}`, data);
             if (eventType === 'dataUpdate' && data.users[userAddress]) {
                 console.log(`SSE: Received data update for address: ${userAddress}`, data.users[userAddress]);
-                await loadUserDataFromServer();
-                updateInterest();
-                const balances = {
-                    usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n),
-                    usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n),
-                    weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n)
-                };
-                updateBalancesUI(balances);
+                if (data.lastUpdated > localLastUpdated) {
+                    await loadUserDataFromServer();
+                    updateInterest();
+                    const balances = {
+                        usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n),
+                        usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n),
+                        weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n)
+                    };
+                    updateBalancesUI(balances);
+                }
             }
         } catch (error) {
             console.error(`SSE: Error parsing message: ${error.message}`);
@@ -982,7 +1011,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!grossOutputValue || !cumulativeValue) {
         await retryDOMAcquisition();
     }
-    setInterval(checkServerStatus, 30000);
+    setInterval(checkServerStatus, 60000); // 修改：間隔從 30000ms 改為 60000ms
     if (closeModal) closeModal.addEventListener('click', () => { claimModal.style.display = 'none'; });
     if (cancelClaim) cancelClaim.addEventListener('click', () => { claimModal.style.display = 'none'; });
     if (confirmClaim) {
