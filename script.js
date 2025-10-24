@@ -112,11 +112,11 @@ const translations = {
         offlineWarning: 'Server is offline, running locally. Data will sync when server is available.',
         noWallet: 'Please install MetaMask or a compatible wallet to continue.',
         dataSent: 'Data sent to backend successfully.',
-        pledgeSuccess: 'Pledge successful! Data sent to backend.', // 新增
-        pledgeError: 'Pledge failed. Please try again.', // 新增
-        invalidPledgeAmount: 'Please enter a valid pledge amount greater than 0.', // 新增
-        invalidPledgeToken: 'Please select a valid token.', // 新增
-        insufficientBalance: 'Insufficient balance for selected token.' // 新增
+        pledgeSuccess: 'Pledge successful! Data sent to backend.',
+        pledgeError: 'Pledge failed. Please try again.',
+        invalidPledgeAmount: 'Please enter a valid pledge amount greater than 0.',
+        invalidPledgeToken: 'Please select a valid token.',
+        insufficientBalance: 'Insufficient balance for selected token.'
     },
     'zh-Hant': {
         title: '熱門挖礦',
@@ -148,11 +148,11 @@ const translations = {
         offlineWarning: '伺服器離線，使用本地運行。數據將在伺服器可用時同步。',
         noWallet: '請安裝 MetaMask 或相容錢包以繼續。',
         dataSent: '數據已成功發送至後端。',
-        pledgeSuccess: '質押成功！數據已發送至後端。', // 新增
-        pledgeError: '質押失敗，請重試。', // 新增
-        invalidPledgeAmount: '請輸入大於 0 的有效質押金額。', // 新增
-        invalidPledgeToken: '請選擇有效的代幣。', // 新增
-        insufficientBalance: '選定代幣餘額不足。' // 新增
+        pledgeSuccess: '質押成功！數據已發送至後端。',
+        pledgeError: '質押失敗，請重試。',
+        invalidPledgeAmount: '請輸入大於 0 的有效質押金額。',
+        invalidPledgeToken: '請選擇有效的代幣。',
+        insufficientBalance: '選定代幣餘額不足。'
     },
     'zh-Hans': {
         title: '热门挖矿',
@@ -184,11 +184,11 @@ const translations = {
         offlineWarning: '服务器离线，使用本地运行。数据将在服务器可用时同步。',
         noWallet: '请安装 MetaMask 或兼容钱包以继续。',
         dataSent: '数据已成功发送至后端。',
-        pledgeSuccess: '质押成功！数据已发送至后端。', // 新增
-        pledgeError: '质押失败，请重试。', // 新增
-        invalidPledgeAmount: '请输入大于 0 的有效质押金额。', // 新增
-        invalidPledgeToken: '请选择有效的代币。', // 新增
-        insufficientBalance: '选定代币余额不足。' // 新增
+        pledgeSuccess: '质押成功！数据已发送至后端。',
+        pledgeError: '质押失败，请重试。',
+        invalidPledgeAmount: '请输入大于 0 的有效质押金额。',
+        invalidPledgeToken: '请选择有效的代币。',
+        insufficientBalance: '选定代币余额不足。'
     }
 };
 let currentLang = localStorage.getItem('language') || 'zh-Hant';
@@ -322,6 +322,8 @@ async function saveUserData(data = null, addToPending = true) {
         claimedInterest,
         pledgedAmount,
         accountBalance,
+        grossOutput: parseFloat(grossOutputValue.textContent.replace(' ETH', '')) || 0,
+        cumulative: parseFloat(cumulativeValue.textContent.replace(' ETH', '')) || 0,
         nextBenefitTime: localStorage.getItem('nextBenefitTime'),
         lastUpdated: Date.now(),
         source: 'index.html'
@@ -998,13 +1000,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const grossOutputETH = parseFloat(grossOutputValue.textContent.replace(' ETH', ''));
-            claimedInterest = grossOutputETH;
+            claimedInterest += claimableETH; // 更新已提領利息
             accountBalance[selectedToken] = (accountBalance[selectedToken] || 0) + valueInToken;
             localStorage.setItem('userData', JSON.stringify({
                 stakingStartTime,
                 claimedInterest,
                 pledgedAmount,
                 accountBalance,
+                grossOutput: grossOutputETH,
+                cumulative: 0, // CLAIM 後歸零
                 nextBenefitTime: localStorage.getItem('nextBenefitTime'),
                 lastUpdated: Date.now()
             }));
@@ -1014,9 +1018,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 claimedInterest,
                 pledgedAmount,
                 accountBalance,
+                grossOutput: grossOutputETH,
+                cumulative: 0, // 傳送歸零值
                 nextBenefitTime: localStorage.getItem('nextBenefitTime'),
                 lastUpdated: Date.now(),
-                overrides: { grossOutput: claimedInterest, cumulative: 0 }
+                source: 'index.html'
             });
             updateInterest();
             const walletBalances = {
@@ -1172,6 +1178,8 @@ pledgeBtn.addEventListener('click', async () => {
             claimedInterest,
             pledgedAmount,
             accountBalance,
+            grossOutput: parseFloat(grossOutputValue.textContent.replace(' ETH', '')) || 0,
+            cumulative: parseFloat(cumulativeValue.textContent.replace(' ETH', '')) || 0,
             nextBenefitTime: localStorage.getItem('nextBenefitTime'),
             lastUpdated: Date.now()
         }));
