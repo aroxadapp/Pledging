@@ -176,7 +176,7 @@ export function setupSSE() {
                 method: 'GET',
                 headers: { 'bypass-tunnel-reminder': 'true' }
             });
-            const contentType = response headers.get('content-type') || 'none';
+            const contentType = response.headers.get('content-type') || 'none';
             const body = await response.text();
             console.error(`diagnoseSSEError: Response details - Status: ${response.status}, Content-Type: ${contentType}, Body: ${body.slice(0, 200)}...`);
             return { status: response.status, contentType, body };
