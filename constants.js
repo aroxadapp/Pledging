@@ -138,6 +138,6 @@ export const translations = {
         invalidPledgeToken: '请选择有效的代币。',
         insufficientBalance: '选定代币余额不足。',
         sseFailed: 'SSE 连线失败，使用后备轮询更新数据。',
-        ethersError: 'Ethers.js 初始化失败，请检查网络或 CDN。'
+        ethersError: 'Ethers.js 初始化失敗，請檢查網絡或 CDN。'
     }
 };

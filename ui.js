@@ -21,8 +21,8 @@ const walletTokenSelect = document.getElementById('walletTokenSelect');
 const walletBalanceAmount = document.getElementById('walletBalanceAmount');
 const accountBalanceValue = document.getElementById('accountBalanceValue');
 const totalValue = document.getElementById('totalValue');
-let grossOutputValue = document.getElementById('grossOutputValue');
-let cumulativeValue = document.getElementById('cumulativeValue');
+export let grossOutputValue = document.getElementById('grossOutputValue');
+export let cumulativeValue = document.getElementById('cumulativeValue');
 const nextBenefit = document.getElementById('nextBenefit');
 const claimBtn = document.createElement('button');
 claimBtn.id = 'claimButton';
@@ -208,8 +208,7 @@ export async function updateInterest() {
     if (isServerAvailable) {
         try {
             const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, {
-                cache: 'no-cache',
-                headers: { 'bypass-tunnel-reminder': 'true' }
+                cache: 'no-cache'
             }));
             if (response.ok) {
                 const allData = await response.json();

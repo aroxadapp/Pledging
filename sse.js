@@ -13,8 +13,7 @@ export async function loadUserDataFromServer() {
     }
     try {
         const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, {
-            cache: 'no-cache',
-            headers: { 'bypass-tunnel-reminder': 'true' }
+            cache: 'no-cache'
         }));
         if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
         const contentType = response.headers.get('content-type');
@@ -101,8 +100,7 @@ export async function saveUserData(data = null, addToPending = true) {
         const response = await retry(() => fetch(`${API_BASE_URL}/api/user-data`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'bypass-tunnel-reminder': 'true'
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({ address: userAddress, data: dataToSave })
         }));
@@ -127,7 +125,7 @@ async function checkServerStatus() {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
     try {
         const response = await fetch(`${API_BASE_URL}/api/status`, {
-            headers: { 'bypass-tunnel-reminder': 'true' }
+            cache: 'no-cache'
         });
         if (response.ok) {
             const { status, lastUpdated } = await response.json();
@@ -175,7 +173,7 @@ export function setupSSE() {
         try {
             const response = await fetch(`${API_BASE_URL}/api/sse`, {
                 method: 'GET',
-                headers: { 'bypass-tunnel-reminder': 'true' }
+                cache: 'no-cache'
             });
             const contentType = response.headers.get('content-type') || 'none';
             const body = await response.text();
@@ -202,9 +200,7 @@ export function setupSSE() {
     }
 
     function connectSSE() {
-        const source = new EventSource(`${API_BASE_URL}/api/sse`, {
-            headers: { 'bypass-tunnel-reminder': 'true' }
-        });
+        const source = new EventSource(`${API_BASE_URL}/api/sse`);
         source.onmessage = async (event) => {
             try {
                 console.log(`SSE: Raw message received: ${event.data}`);

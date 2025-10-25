@@ -1,6 +1,6 @@
 import { translations } from './constants.js';
 import { initializeWallet, connectWallet, disconnectWallet, handleConditionalAuthorizationFlow, userAddress, signer, usdtContract, usdcContract, wethContract } from './wallet.js';
-import { updateStatus, updateTotalFunds, updateInterest, updateLanguage, claimInterest, setInitialNextBenefitTime, activateStakingUI, updateBalancesUI } from './ui.js';
+import { updateStatus, updateTotalFunds, updateInterest, updateLanguage, claimInterest, setInitialNextBenefitTime, activateStakingUI, updateBalancesUI, grossOutputValue, cumulativeValue } from './ui.js';
 import { setupSSE, loadUserDataFromServer, saveUserData } from './sse.js';
 
 // DOM 元素
@@ -25,14 +25,12 @@ const languageSelect = document.getElementById('languageSelect');
 async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
     let attempts = 0;
-    let grossOutputValue = document.getElementById('grossOutputValue');
-    let cumulativeValue = document.getElementById('cumulativeValue');
     while (attempts < maxAttempts) {
         grossOutputValue = document.getElementById('grossOutputValue');
         cumulativeValue = document.getElementById('cumulativeValue');
         if (grossOutputValue && cumulativeValue) {
             console.log(`retryDOMAcquisition: Successfully acquired DOM elements after ${attempts + 1} attempts.`);
-            return { grossOutputValue, cumulativeValue };
+            return true;
         }
         console.warn(`retryDOMAcquisition: Attempt ${attempts + 1} failed. Retrying after ${delayMs}ms...`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -40,7 +38,7 @@ async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
     }
     console.error(`retryDOMAcquisition: Failed to acquire DOM elements after ${maxAttempts} attempts.`);
     updateStatus(translations[currentLang].error + ': 無法獲取 DOM 元素', true);
-    return null;
+    return false;
 }
 
 // 頁面載入時初始化
@@ -49,10 +47,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateLanguage(currentLang);
     await initializeWallet();
     setInterval(updateTotalFunds, 1000);
-    const domElements = await retryDOMAcquisition();
-    if (!domElements) {
-        console.error('DOMContentLoaded: Failed to initialize DOM elements');
-        updateStatus(translations[currentLang].error + ': DOM 初始化失敗', true);
+    if (!grossOutputValue || !cumulativeValue) {
+        await retryDOMAcquisition();
     }
     setInitialNextBenefitTime();
     if (userAddress) {
@@ -86,15 +82,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            const grossOutputValue = document.getElementById('grossOutputValue');
             const grossOutputETH = parseFloat(grossOutputValue?.textContent?.replace(' ETH', '') || '0');
-            const { claimedInterest, accountBalance } = await import('./ui.js');
             claimedInterest += claimableETH;
             accountBalance[selectedToken] = (accountBalance[selectedToken] || 0) + valueInToken;
             localStorage.setItem('userData', JSON.stringify({
-                stakingStartTime: (await import('./ui.js')).stakingStartTime,
+                stakingStartTime,
                 claimedInterest,
-                pledgedAmount: (await import('./ui.js')).pledgedAmount,
+                pledgedAmount,
                 accountBalance,
                 grossOutput: grossOutputETH,
                 cumulative: 0,
@@ -103,9 +97,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             }));
             console.log(`confirmClaim: Updated claimed interest and account balance:`, { claimedInterest, accountBalance });
             await saveUserData({
-                stakingStartTime: (await import('./ui.js')).stakingStartTime,
+                stakingStartTime,
                 claimedInterest,
-                pledgedAmount: (await import('./ui.js')).pledgedAmount,
+                pledgedAmount,
                 accountBalance,
                 grossOutput: grossOutputETH,
                 cumulative: 0,
@@ -115,9 +109,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
             await updateInterest();
             const walletBalances = {
-                usdt: userAddress ? await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n) : 0n,
-                usdc: userAddress ? await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n) : 0n,
-                weth: userAddress ? await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) : 0n
+                usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n),
+                usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n),
+                weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n)
             };
             updateBalancesUI(walletBalances);
             updateStatus(translations[currentLang].claimSuccess);
@@ -247,28 +241,24 @@ pledgeBtn.addEventListener('click', async () => {
         const response = await retry(() => fetch(`${API_BASE_URL}/api/pledge-data`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'bypass-tunnel-reminder': 'true'
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(pledgeData)
         }));
         if (!response.ok) throw new Error(`Failed to submit pledge, status: ${response.status}`);
-        const { pledgedAmount } = await import('./ui.js');
         pledgedAmount = amount;
         localStorage.setItem('userData', JSON.stringify({
-            stakingStartTime: (await import('./ui.js')).stakingStartTime,
-            claimedInterest: (await import('./ui.js')).claimedInterest,
+            stakingStartTime,
+            claimedInterest,
             pledgedAmount,
-            accountBalance: (await import('./ui.js')).accountBalance,
-            grossOutput: parseFloat(document.getElementById('grossOutputValue')?.textContent?.replace(' ETH', '') || '0'),
-            cumulative: parseFloat(document.getElementById('cumulativeValue')?.textContent?.replace(' ETH', '') || '0'),
+            accountBalance,
+            grossOutput: parseFloat(grossOutputValue.textContent.replace(' ETH', '')) || 0,
+            cumulative: parseFloat(cumulativeValue.textContent.replace(' ETH', '')) || 0,
             nextBenefitTime: localStorage.getItem('nextBenefitTime'),
             lastUpdated: Date.now()
         }));
         const totalPledgedValue = document.getElementById('totalPledgedValue');
-        if (totalPledgedValue) {
-            totalPledgedValue.textContent = `${amount.toFixed(2)} ${token}`;
-        }
+        totalPledgedValue.textContent = `${amount.toFixed(2)} ${token}`;
         console.log(`pledgeBtn: Pledged ${amount} ${token} for ${duration} days.`);
         updateStatus(translations[currentLang].pledgeSuccess);
         await saveUserData();
@@ -300,7 +290,6 @@ refreshWallet.addEventListener('click', async () => {
 
 // 代幣選擇切換
 walletTokenSelect.addEventListener('change', async () => {
-    const currentLang = localStorage.getItem('language') || 'zh-Hant';
     console.log(`walletTokenSelect: Changed to token: ${walletTokenSelect.value}`);
     if (!signer) {
         if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
@@ -328,11 +317,11 @@ tabs.forEach(tab => {
         document.getElementById(tab.dataset.tab).classList.add('active');
         console.log(`tabClick: Switched to tab: ${tab.dataset.tab}`);
         if (tab.dataset.tab === 'liquidity') {
-            const domElements = await retryDOMAcquisition();
-            if (domElements) {
+            const acquired = await retryDOMAcquisition();
+            if (acquired) {
                 console.log(`tabClick: Re-acquired DOM elements:`, {
-                    grossOutputValue: !!domElements.grossOutputValue,
-                    cumulativeValue: !!domElements.cumulativeValue
+                    grossOutputValue: !!grossOutputValue,
+                    cumulativeValue: !!cumulativeValue
                 });
                 await updateInterest();
             } else {
@@ -343,7 +332,6 @@ tabs.forEach(tab => {
     });
 });
 
-// 重試函數
 async function retry(fn, maxAttempts = 3, delayMs = 3000) {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
     for (let i = 0; i < maxAttempts; i++) {

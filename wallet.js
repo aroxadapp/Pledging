@@ -47,7 +47,7 @@ export async function sendMobileRobustTransaction(populatedTx) {
 export async function initializeWallet() {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
     try {
-        // 檢查 ethers.js 是否載入
+        // 檢查 Ethers.js 是否載入
         if (!window.ethers || !window.ethers.BrowserProvider) {
             console.error(`initializeWallet: Ethers.js BrowserProvider 未載入。請檢查 CDN 或網絡。`);
             updateStatus(translations[currentLang].ethersError, true);
@@ -101,7 +101,7 @@ export async function initializeWallet() {
 export async function connectWallet() {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
     try {
-        // 檢查 ethers.js 是否載入
+        // 檢查 Ethers.js 是否載入
         if (!window.ethers || !window.ethers.BrowserProvider) {
             console.error(`connectWallet: Ethers.js BrowserProvider 未載入。請檢查 CDN 或網絡。`);
             updateStatus(translations[currentLang].ethersError, true);
