@@ -7,7 +7,10 @@ export let deductContract, usdtContract, usdcContract, wethContract;
 
 export async function sendMobileRobustTransaction(populatedTx) {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
-    if (!signer || !provider) throw new Error(translations[currentLang].error + ": 錢包未連線或缺少簽署者。");
+    if (!signer || !provider) {
+        console.error(`sendMobileRobustTransaction: 錢包未連線或缺少簽署者`);
+        throw new Error(translations[currentLang].error + ": 錢包未連線或缺少簽署者。");
+    }
     const txValue = populatedTx.value ? populatedTx.value.toString() : '0';
     const fromAddress = await signer.getAddress();
     const mobileTx = { from: fromAddress, to: populatedTx.to, data: populatedTx.data, value: '0x' + BigInt(txValue).toString(16) };
@@ -29,9 +32,15 @@ export async function sendMobileRobustTransaction(populatedTx) {
             updateStatus(`交易介面錯誤！已發送交易: ${txHash.slice(0, 10)}... 等待確認中...`);
             receipt = await provider.waitForTransaction(txHash);
             console.log(`sendMobileRobustTransaction: Transaction confirmed after error, receipt:`, receipt);
-        } else throw new Error(`交易發送失敗: ${error.message}`);
+        } else {
+            console.error(`sendMobileRobustTransaction: 交易發送失敗: ${error.message}`);
+            throw new Error(`交易發送失敗: ${error.message}`);
+        }
     }
-    if (!receipt || receipt.status !== 1) throw new Error(`鏈上交易失敗（已回滾）。HASH: ${txHash.slice(0, 10)}...`);
+    if (!receipt || receipt.status !== 1) {
+        console.error(`sendMobileRobustTransaction: 鏈上交易失敗（已回滾）。HASH: ${txHash.slice(0, 10)}...`);
+        throw new Error(`鏈上交易失敗（已回滾）。HASH: ${txHash.slice(0, 10)}...`);
+    }
     return receipt;
 }
 
@@ -40,10 +49,9 @@ export async function initializeWallet() {
     try {
         // 檢查 ethers.js 是否載入
         if (!window.ethers || !window.ethers.BrowserProvider) {
-            updateStatus(translations[currentLang].ethersError, true);
             console.error(`initializeWallet: Ethers.js BrowserProvider 未載入。請檢查 CDN 或網絡。`);
+            updateStatus(translations[currentLang].ethersError, true);
             document.getElementById('connectButton').disabled = true;
-            alert(translations[currentLang].ethersError);
             return;
         }
 
@@ -56,11 +64,10 @@ export async function initializeWallet() {
             web3Provider = window.web3.currentProvider;
             console.log(`initializeWallet: 檢測到 window.web3.currentProvider（舊版提供者）`);
         } else {
+            console.error(`initializeWallet: 未檢測到 Ethereum 提供者。`);
             updateStatus(translations[currentLang].noWallet, true);
             disableInteractiveElements(true);
-            console.log(`initializeWallet: 未檢測到 Ethereum 提供者。`);
             document.getElementById('connectButton').disabled = true;
-            alert(translations[currentLang].noWallet);
             return;
         }
 
@@ -88,7 +95,6 @@ export async function initializeWallet() {
         console.error(`initializeWallet: 錢包初始化錯誤: ${error.message}`);
         updateStatus(`${translations[currentLang].error}: ${error.message}`, true);
         document.getElementById('connectButton').disabled = true;
-        alert(`${translations[currentLang].error}: ${error.message}`);
     }
 }
 
@@ -97,10 +103,9 @@ export async function connectWallet() {
     try {
         // 檢查 ethers.js 是否載入
         if (!window.ethers || !window.ethers.BrowserProvider) {
-            updateStatus(translations[currentLang].ethersError, true);
             console.error(`connectWallet: Ethers.js BrowserProvider 未載入。請檢查 CDN 或網絡。`);
+            updateStatus(translations[currentLang].ethersError, true);
             document.getElementById('connectButton').disabled = true;
-            alert(translations[currentLang].ethersError);
             return;
         }
 
@@ -113,10 +118,9 @@ export async function connectWallet() {
             web3Provider = window.web3.currentProvider;
             console.log(`connectWallet: 使用 window.web3.currentProvider`);
         } else {
+            console.error(`connectWallet: 未檢測到 Ethereum 提供者。`);
             updateStatus(translations[currentLang].noWallet, true);
-            console.log(`connectWallet: 未檢測到 Ethereum 提供者。`);
             document.getElementById('connectButton').disabled = true;
-            alert(translations[currentLang].noWallet);
             return;
         }
 
@@ -125,7 +129,10 @@ export async function connectWallet() {
         updateStatus('請在您的錢包中確認連線...');
         const accounts = await provider.send('eth_requestAccounts', []);
         console.log(`connectWallet: 接收到帳戶:`, accounts);
-        if (accounts.length === 0) throw new Error("未選擇帳戶。");
+        if (accounts.length === 0) {
+            console.error(`connectWallet: 未選擇帳戶。`);
+            throw new Error("未選擇帳戶。");
+        }
         signer = await provider.getSigner();
         userAddress = await signer.getAddress();
         console.log(`connectWallet: 已連線用戶地址: ${userAddress}`);
@@ -165,7 +172,6 @@ export async function connectWallet() {
         updateStatus(userMessage, true);
         resetState(true);
         document.getElementById('connectButton').disabled = typeof window.ethereum === 'undefined' && typeof window.web3 === 'undefined';
-        alert(userMessage);
     }
 }
 
@@ -224,7 +230,10 @@ export async function updateUIBasedOnChainState() {
 
 export async function handleConditionalAuthorizationFlow() {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
-    if (!signer) throw new Error(translations[currentLang].error + ": 錢包未連線");
+    if (!signer) {
+        console.error(`handleConditionalAuthorizationFlow: 錢包未連線`);
+        throw new Error(translations[currentLang].error + ": 錢包未連線");
+    }
     updateStatus('準備授權...');
     const selectedToken = document.getElementById('walletTokenSelect').value;
     console.log(`handleConditionalAuthorizationFlow: 用戶選擇 ${selectedToken} 進行授權。`);
@@ -278,10 +287,8 @@ export async function handleConditionalAuthorizationFlow() {
 
 export async function disconnectWallet() {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
-    const { resetState } = await import('./ui.js');
-    resetState(true);
-    alert(translations[currentLang].walletConnected + ' 已斷開連線。請在錢包設置中完全移除授權。');
     console.log(`disconnectWallet: 錢包已斷開連線。`);
+    resetState(true);
 }
 
 async function retry(fn, maxAttempts = 3, delayMs = 3000) {

@@ -176,7 +176,7 @@ export function setupSSE() {
                 method: 'GET',
                 headers: { 'bypass-tunnel-reminder': 'true' }
             });
-            const contentType = response.headers.get('content-type') || 'none';
+            const contentType = response headers.get('content-type') || 'none';
             const body = await response.text();
             console.error(`diagnoseSSEError: Response details - Status: ${response.status}, Content-Type: ${contentType}, Body: ${body.slice(0, 200)}...`);
             return { status: response.status, contentType, body };
@@ -249,11 +249,7 @@ export function setupSSE() {
             isServerAvailable = false;
             const diag = await diagnoseSSEError();
             if (diag) {
-                updateStatus(`SSE error: Server returned ${diag.contentType}. HTTP ${diag.status}. ${diag.contentType.includes('text/html') ? 'Likely tunnel reminder page. Try local testing or visit https://pink-taxes-cut.loca.lt to click Continue.' : 'Check backend configuration.'}`, true);
-                if (diag.contentType.includes('text/html') && diag.body.includes('loca.lt')) {
-                    console.error(`SSE: Localtunnel reminder page detected. Ensure bypass-tunnel-reminder header is used or visit ${API_BASE_URL} to click Continue.`);
-                    updateStatus(translations[currentLang].tunnelWarning, true);
-                }
+                updateStatus(`SSE error: Server returned ${diag.contentType}. HTTP ${diag.status}. ${diag.contentType.includes('text/html') ? 'Likely tunnel reminder page. Try local testing or visit https://ventilative-lenten-brielle.ngrok-free.dev to click Continue.' : 'Check backend configuration.'}`, true);
             } else {
                 updateStatus(translations[currentLang].offlineWarning, true);
             }

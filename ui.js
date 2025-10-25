@@ -63,7 +63,10 @@ let localLastUpdated = 0;
 let pendingUpdates = [];
 
 export function updateStatus(message, isWarning = false) {
-    if (!statusDiv) return;
+    if (!statusDiv) {
+        console.warn(`updateStatus: statusDiv 未找到，無法顯示狀態訊息: ${message}`);
+        return;
+    }
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
     if (message === translations[currentLang].offlineWarning && !isDevMode) {
         statusDiv.innerHTML = '';
@@ -75,8 +78,6 @@ export function updateStatus(message, isWarning = false) {
     statusDiv.style.display = message ? 'block' : 'none';
     statusDiv.style.color = isWarning ? '#FFD700' : '#FFFFFF';
     console.log(`updateStatus: ${isWarning ? 'Warning' : 'Info'}: ${message}`);
-    // 添加 alert 以便手機調試
-    alert(`Status: ${message}`);
 }
 
 export function resetState(showMsg = true) {
@@ -143,7 +144,6 @@ export function updateBalancesUI(walletBalances) {
     if (!window.ethers || !window.ethers.utils) {
         console.error(`updateBalancesUI: Ethers.js utils 未載入。請檢查 CDN 或網絡。`);
         updateStatus(translations[currentLang].ethersError, true);
-        alert(translations[currentLang].ethersError);
         return;
     }
     const selectedToken = walletTokenSelect.value;
@@ -171,7 +171,7 @@ export function updateBalancesUI(walletBalances) {
 export function updateTotalFunds() {
     if (totalValue) {
         const startTime = new Date('2025-10-22T00:00:00-04:00').getTime();
-        const initialFunds = 2856459.94;
+        const initialFunds = 12856459.94;
         const averageIncreasePerSecond = 0.055;
         const currentTime = Date.now();
         const elapsedSeconds = Math.floor((currentTime - startTime) / 1000);
