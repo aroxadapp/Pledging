@@ -127,7 +127,7 @@ const translations = {
         invalidPledgeAmount: 'Please enter a valid pledge amount greater than 0.',
         invalidPledgeToken: 'Please select a valid token.',
         insufficientBalance: 'Insufficient balance for selected token.',
-        tunnelWarning: 'Localtunnel reminder page detected. Please test locally or check headers.',
+        tunnelWarning: 'Localtunnel reminder page detected. Please test locally or visit the tunnel URL to click Continue.',
         sseFailed: 'SSE connection failed, using fallback polling.'
     },
     'zh-Hant': {
@@ -165,7 +165,7 @@ const translations = {
         invalidPledgeAmount: '請輸入大於 0 的有效質押金額。',
         invalidPledgeToken: '請選擇有效的代幣。',
         insufficientBalance: '選定代幣餘額不足。',
-        tunnelWarning: '檢測到 Localtunnel 提示頁面，請嘗試本地測試或檢查標頭配置。',
+        tunnelWarning: '檢測到 Localtunnel 提示頁面，請嘗試本地測試或訪問隧道 URL 點擊繼續。',
         sseFailed: 'SSE 連線失敗，使用後備輪詢更新數據。'
     },
     'zh-Hans': {
@@ -203,7 +203,7 @@ const translations = {
         invalidPledgeAmount: '请输入大于 0 的有效质押金额。',
         invalidPledgeToken: '请选择有效的代币。',
         insufficientBalance: '选定代币余额不足。',
-        tunnelWarning: '检测到 Localtunnel 提示页面，请尝试本地测试或检查标头配置。',
+        tunnelWarning: '检测到 Localtunnel 提示页面，请尝试本地测试或访问隧道 URL 点击继续。',
         sseFailed: 'SSE 连线失败，使用后备轮询更新数据。'
     }
 };
@@ -497,10 +497,10 @@ function updateTotalFunds() {
     }
 }
 
-function updateInterest() {
+async function updateInterest() {
     if (!grossOutputValue || !cumulativeValue) {
         console.warn(`updateInterest: Missing DOM elements:`, { grossOutputValue: !!grossOutputValue, cumulativeValue: !!cumulativeValue });
-        const acquired = retryDOMAcquisition();
+        const acquired = await retryDOMAcquisition();
         if (!acquired) {
             console.error(`updateInterest: Failed to re-acquire DOM elements, skipping update.`);
             return;
@@ -518,12 +518,12 @@ function updateInterest() {
 
     if (isServerAvailable) {
         try {
-            const response = retry(() => fetch(`${API_BASE_URL}/api/all-data`, {
+            const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, {
                 cache: 'no-cache',
                 headers: { 'bypass-tunnel-reminder': 'true' }
             }));
             if (response.ok) {
-                const allData = response.json();
+                const allData = await response.json();
                 console.log(`updateInterest: Received server data:`, allData);
                 if (allData.lastUpdated > localLastUpdated) {
                     const userOverrides = allData.overrides[userAddress] || {};
@@ -1038,12 +1038,13 @@ function setupSSE() {
         });
         source.onmessage = async (event) => {
             try {
-                console.log(`SSE: Raw message received: ${event.data}`); // 添加原始消息日誌
+                console.log(`SSE: Raw message received: ${event.data}`);
                 const parsed = JSON.parse(event.data);
-                if (!parsed.event || !parsed.data) {
-                    throw new Error('Invalid SSE message format: missing event or data');
+                const eventType = parsed.event;
+                const data = parsed.data || (eventType === 'ping' ? { timestamp: parsed.timestamp } : {});
+                if (!eventType) {
+                    throw new Error('Invalid SSE message format: missing event');
                 }
-                const { event: eventType, data } = parsed;
                 console.log(`SSE: Received event: ${eventType}`, data);
                 if (eventType === 'dataUpdate' && data.users && data.users[userAddress]) {
                     console.log(`SSE: Received data update for address: ${userAddress}`, data.users[userAddress]);
@@ -1059,10 +1060,10 @@ function setupSSE() {
                         updateBalancesUI(balances);
                     }
                 } else if (eventType === 'ping') {
-                    console.log(`SSE: Received ping, timestamp: ${data?.timestamp || 'unknown'}`);
+                    console.log(`SSE: Received ping, timestamp: ${data.timestamp || 'unknown'}`);
                 } else if (eventType === 'error') {
-                    console.warn(`SSE: Server reported error: ${data?.message || 'unknown'}`);
-                    updateStatus(`SSE error: ${data?.message || 'unknown'}`, true);
+                    console.warn(`SSE: Server reported error: ${data.message || 'unknown'}`);
+                    updateStatus(`SSE error: ${data.message || 'unknown'}`, true);
                 }
                 retryCount = 0;
                 if (fallbackPollingInterval) {
@@ -1080,7 +1081,7 @@ function setupSSE() {
             isServerAvailable = false;
             const diag = await diagnoseSSEError();
             if (diag) {
-                updateStatus(`SSE error: Server returned ${diag.contentType}. HTTP ${diag.status}. ${diag.contentType.includes('text/html') ? 'Likely tunnel reminder page. Try local testing or add bypass headers.' : 'Check backend configuration.'}`, true);
+                updateStatus(`SSE error: Server returned ${diag.contentType}. HTTP ${diag.status}. ${diag.contentType.includes('text/html') ? 'Likely tunnel reminder page. Try local testing or visit https://fuzzy-bats-open.loca.lt to click Continue.' : 'Check backend configuration.'}`, true);
                 if (diag.contentType.includes('text/html') && diag.body.includes('loca.lt')) {
                     console.error(`SSE: Localtunnel reminder page detected. Ensure bypass-tunnel-reminder header is used or visit https://fuzzy-bats-open.loca.lt to click Continue.`);
                     updateStatus(translations[currentLang].tunnelWarning, true);
@@ -1340,7 +1341,7 @@ refreshWallet.addEventListener('click', async () => {
     alert('Wallet balance refreshed!');
 });
 
-walletTokenSelect.addEventListener('click', async () => {
+walletTokenSelect.addEventListener('change', async () => {
     console.log(`walletTokenSelect: Changed to token: ${walletTokenSelect.value}`);
     if (!signer) {
         if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
