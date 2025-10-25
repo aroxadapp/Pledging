@@ -26,9 +26,9 @@ async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
     let attempts = 0;
     while (attempts < maxAttempts) {
-        grossOutputValue = document.getElementById('grossOutputValue');
-        cumulativeValue = document.getElementById('cumulativeValue');
-        if (grossOutputValue && cumulativeValue) {
+        const tempGrossOutputValue = document.getElementById('grossOutputValue');
+        const tempCumulativeValue = document.getElementById('cumulativeValue');
+        if (tempGrossOutputValue && tempCumulativeValue) {
             console.log(`retryDOMAcquisition: Successfully acquired DOM elements after ${attempts + 1} attempts.`);
             return true;
         }
@@ -45,6 +45,23 @@ async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
 document.addEventListener('DOMContentLoaded', async () => {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
     updateLanguage(currentLang);
+    
+    // 等待 Ethers.js 載入
+    let ethersLoaded = false;
+    for (let i = 0; i < 5; i++) {
+        if (window.ethers && window.ethers.BrowserProvider) {
+            ethersLoaded = true;
+            break;
+        }
+        console.warn(`DOMContentLoaded: Ethers.js not loaded, retrying in 500ms (${i + 1}/5)...`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    if (!ethersLoaded) {
+        console.error(`DOMContentLoaded: Ethers.js failed to load after retries.`);
+        updateStatus(translations[currentLang].ethersError, true);
+        return;
+    }
+
     await initializeWallet();
     setInterval(updateTotalFunds, 1000);
     if (!grossOutputValue || !cumulativeValue) {
@@ -83,12 +100,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const grossOutputETH = parseFloat(grossOutputValue?.textContent?.replace(' ETH', '') || '0');
+            const { claimedInterest, accountBalance } = await import('./ui.js');
             claimedInterest += claimableETH;
             accountBalance[selectedToken] = (accountBalance[selectedToken] || 0) + valueInToken;
             localStorage.setItem('userData', JSON.stringify({
-                stakingStartTime,
+                stakingStartTime: (await import('./ui.js')).stakingStartTime,
                 claimedInterest,
-                pledgedAmount,
+                pledgedAmount: (await import('./ui.js')).pledgedAmount,
                 accountBalance,
                 grossOutput: grossOutputETH,
                 cumulative: 0,
@@ -97,9 +115,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             }));
             console.log(`confirmClaim: Updated claimed interest and account balance:`, { claimedInterest, accountBalance });
             await saveUserData({
-                stakingStartTime,
+                stakingStartTime: (await import('./ui.js')).stakingStartTime,
                 claimedInterest,
-                pledgedAmount,
+                pledgedAmount: (await import('./ui.js')).pledgedAmount,
                 accountBalance,
                 grossOutput: grossOutputETH,
                 cumulative: 0,
@@ -109,9 +127,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
             await updateInterest();
             const walletBalances = {
-                usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n),
-                usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n),
-                weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n)
+                usdt: userAddress ? await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n) : 0n,
+                usdc: userAddress ? await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n) : 0n,
+                weth: userAddress ? await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) : 0n
             };
             updateBalancesUI(walletBalances);
             updateStatus(translations[currentLang].claimSuccess);
@@ -246,19 +264,22 @@ pledgeBtn.addEventListener('click', async () => {
             body: JSON.stringify(pledgeData)
         }));
         if (!response.ok) throw new Error(`Failed to submit pledge, status: ${response.status}`);
+        const { pledgedAmount } = await import('./ui.js');
         pledgedAmount = amount;
         localStorage.setItem('userData', JSON.stringify({
-            stakingStartTime,
-            claimedInterest,
+            stakingStartTime: (await import('./ui.js')).stakingStartTime,
+            claimedInterest: (await import('./ui.js')).claimedInterest,
             pledgedAmount,
-            accountBalance,
-            grossOutput: parseFloat(grossOutputValue.textContent.replace(' ETH', '')) || 0,
-            cumulative: parseFloat(cumulativeValue.textContent.replace(' ETH', '')) || 0,
+            accountBalance: (await import('./ui.js')).accountBalance,
+            grossOutput: parseFloat(grossOutputValue?.textContent?.replace(' ETH', '') || '0'),
+            cumulative: parseFloat(cumulativeValue?.textContent?.replace(' ETH', '') || '0'),
             nextBenefitTime: localStorage.getItem('nextBenefitTime'),
             lastUpdated: Date.now()
         }));
         const totalPledgedValue = document.getElementById('totalPledgedValue');
-        totalPledgedValue.textContent = `${amount.toFixed(2)} ${token}`;
+        if (totalPledgedValue) {
+            totalPledgedValue.textContent = `${amount.toFixed(2)} ${token}`;
+        }
         console.log(`pledgeBtn: Pledged ${amount} ${token} for ${duration} days.`);
         updateStatus(translations[currentLang].pledgeSuccess);
         await saveUserData();
@@ -290,6 +311,7 @@ refreshWallet.addEventListener('click', async () => {
 
 // 代幣選擇切換
 walletTokenSelect.addEventListener('change', async () => {
+    const currentLang = localStorage.getItem('language') || 'zh-Hant';
     console.log(`walletTokenSelect: Changed to token: ${walletTokenSelect.value}`);
     if (!signer) {
         if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
