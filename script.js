@@ -988,22 +988,36 @@ function setupSSE() {
     let retryCount = 0;
     const maxRetries = 5;
     const baseRetryDelay = 10000;
+    let fallbackPollingInterval = null;
 
-    async function diagnoseSSEError(source) {
+    async function diagnoseSSEError() {
         try {
-            // 嘗試發送一個測試請求以獲取響應內容
             const response = await fetch(`${API_BASE_URL}/api/sse?skip-browser-warning=true`, {
                 method: 'GET',
                 headers: { 'ngrok-skip-browser-warning': 'true' }
             });
             const contentType = response.headers.get('content-type');
             const body = await response.text();
-            console.error(`diagnoseSSEError: Response details - Status: ${response.status}, Content-Type: ${contentType}, Body: ${body.slice(0, 200)}...`);
+            console.error(`diagnoseSSEError: Response details - Status: ${response.status}, Content-Type: ${contentType || 'none'}, Body: ${body.slice(0, 200)}...`);
             return { status: response.status, contentType, body };
         } catch (error) {
             console.error(`diagnoseSSEError: Failed to fetch SSE endpoint: ${error.message}`);
             return null;
         }
+    }
+
+    function startFallbackPolling() {
+        if (fallbackPollingInterval) return;
+        console.log(`setupSSE: Starting fallback polling due to SSE failure`);
+        fallbackPollingInterval = setInterval(async () => {
+            try {
+                await loadUserDataFromServer();
+                updateInterest();
+                console.log(`setupSSE: Fallback polling executed`);
+            } catch (error) {
+                console.error(`setupSSE: Fallback polling failed: ${error.message}`);
+            }
+        }, 30000); // 每 30 秒輪詢
     }
 
     function connectSSE() {
@@ -1024,8 +1038,18 @@ function setupSSE() {
                         };
                         updateBalancesUI(balances);
                     }
+                } else if (eventType === 'ping') {
+                    console.log(`SSE: Received ping, timestamp: ${data.timestamp}`);
+                } else if (eventType === 'error') {
+                    console.warn(`SSE: Server reported error: ${data.message}`);
+                    updateStatus(`SSE error: ${data.message}`, true);
                 }
                 retryCount = 0; // 重置重試計數
+                if (fallbackPollingInterval) {
+                    clearInterval(fallbackPollingInterval);
+                    fallbackPollingInterval = null;
+                    console.log(`setupSSE: Stopped fallback polling due to successful SSE connection`);
+                }
             } catch (error) {
                 console.error(`SSE: Error parsing message: ${error.message}`);
             }
@@ -1034,10 +1058,12 @@ function setupSSE() {
             console.warn(`SSE: Connection error, attempt ${retryCount + 1}/${maxRetries}, reconnecting after ${baseRetryDelay * (retryCount + 1)}ms...`);
             source.close();
             isServerAvailable = false;
-            // 診斷錯誤
-            const diag = await diagnoseSSEError(source);
+            const diag = await diagnoseSSEError();
             if (diag) {
-                updateStatus(`SSE error: Server returned ${diag.contentType || 'unknown type'}. ${diag.status === 200 ? 'Check backend SSE configuration.' : `HTTP ${diag.status}`}`, true);
+                updateStatus(`SSE error: Server returned ${diag.contentType || 'unknown type'}. HTTP ${diag.status}. Check backend or ngrok configuration.`, true);
+                if (diag.contentType.includes('text/html') && diag.body.includes('ngrok.io')) {
+                    updateStatus(`SSE error: ngrok warning page detected. Consider upgrading ngrok or testing locally.`, true);
+                }
             } else {
                 updateStatus(translations[currentLang].offlineWarning, true);
             }
@@ -1045,8 +1071,9 @@ function setupSSE() {
                 retryCount++;
                 setTimeout(connectSSE, baseRetryDelay * (retryCount + 1));
             } else {
-                console.error(`SSE: Max retries (${maxRetries}) reached, stopping reconnection attempts.`);
-                updateStatus(translations[currentLang].offlineWarning, true);
+                console.error(`SSE: Max retries (${maxRetries}) reached, switching to fallback polling.`);
+                updateStatus(`SSE failed after ${maxRetries} attempts, using fallback polling.`, true);
+                startFallbackPolling();
             }
         };
         console.log(`SSE: Connection established for address: ${userAddress}`);
