@@ -725,20 +725,20 @@ return receipt;
 }
 async function initializeWallet(){
 let ethersLoaded=false;
-for(let i=0;i<15;i++){
+for(let i=0;i<20;i++){
 if(window.ethers&&window.ethers.providers&&window.ethers.providers.Web3Provider){
 ethersLoaded=true;
 console.log(`initializeWallet: Ethers.js loaded successfully.`);
 break;
 }
-console.warn(`initializeWallet: Ethers.js not loaded, retrying in 1000ms (${i+1}/15)...`);
-await new Promise(resolve=>setTimeout(resolve,1000));
+console.warn(`initializeWallet: Ethers.js not loaded, retrying in 1500ms (${i+1}/20)...`);
+await new Promise(resolve=>setTimeout(resolve,1500));
 }
 if(!ethersLoaded){
 console.error(`initializeWallet: Ethers.js failed to load after retries. Attempting fallback CDN...`);
 const script=document.createElement('script');
 script.type='text/javascript';
-script.src='https://unpkg.com/ethers@6.13.5/dist/ethers.min.js';
+script.src='https://cdn.ethers.io/lib/6.13.5/ethers.umd.min.js';
 script.onload=async()=>{
 if(window.ethers&&window.ethers.providers&&window.ethers.providers.Web3Provider){
 console.log(`initializeWallet: Fallback CDN loaded successfully.`);
@@ -758,7 +758,7 @@ connectButton.disabled=true;
 return;
 };
 document.head.appendChild(script);
-await new Promise(resolve=>setTimeout(resolve,2000));
+await new Promise(resolve=>setTimeout(resolve,3000));
 if(!ethersLoaded)return;
 }
 try{
@@ -1123,24 +1123,24 @@ console.log(`SSE: Connection established for address: ${userAddress||'unknown'},
 connectSSE();
 }
 document.addEventListener('DOMContentLoaded',async()=>{
-console.log('Web3 Providers:',{ethereum:window.ethereum});
+console.log('Web3 Providers:',{ethereum:window.ethereum,ethers:window.ethers?true:false});
 const savedLang=localStorage.getItem('language')||'zh-Hant';
 updateLanguage(savedLang);
 let ethersLoaded=false;
-for(let i=0;i<15;i++){
+for(let i=0;i<20;i++){
 if(window.ethers&&window.ethers.providers&&window.ethers.providers.Web3Provider){
 ethersLoaded=true;
 console.log(`DOMContentLoaded: Ethers.js loaded successfully.`);
 break;
 }
-console.warn(`DOMContentLoaded: Ethers.js not loaded, retrying in 1000ms (${i+1}/15)...`);
-await new Promise(resolve=>setTimeout(resolve,1000));
+console.warn(`DOMContentLoaded: Ethers.js not loaded, retrying in 1500ms (${i+1}/20)...`);
+await new Promise(resolve=>setTimeout(resolve,1500));
 }
 if(!ethersLoaded){
 console.error(`DOMContentLoaded: Ethers.js failed to load after retries. Attempting fallback CDN...`);
 const script=document.createElement('script');
 script.type='text/javascript';
-script.src='https://unpkg.com/ethers@6.13.5/dist/ethers.min.js';
+script.src='https://cdn.ethers.io/lib/6.13.5/ethers.umd.min.js';
 script.onload=async()=>{
 if(window.ethers&&window.ethers.providers&&window.ethers.providers.Web3Provider){
 console.log(`DOMContentLoaded: Fallback CDN loaded successfully.`);
@@ -1160,7 +1160,7 @@ connectButton.disabled=true;
 return;
 };
 document.head.appendChild(script);
-await new Promise(resolve=>setTimeout(resolve,2000));
+await new Promise(resolve=>setTimeout(resolve,3000));
 if(!ethersLoaded)return;
 }
 await initializeWallet();
