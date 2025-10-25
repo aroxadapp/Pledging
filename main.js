@@ -1,9 +1,7 @@
-
-import { ethers } from 'https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js';
+import { translations } from './constants.js';
 import { initializeWallet, connectWallet, disconnectWallet, handleConditionalAuthorizationFlow, userAddress, signer, usdtContract, usdcContract, wethContract } from './wallet.js';
 import { updateStatus, updateTotalFunds, updateInterest, updateLanguage, claimInterest, setInitialNextBenefitTime, activateStakingUI } from './ui.js';
 import { setupSSE, loadUserDataFromServer, saveUserData } from './sse.js';
-import { translations } from './constants.js';
 
 const connectButton = document.getElementById('connectButton');
 const startBtn = document.getElementById('startBtn');
@@ -210,7 +208,7 @@ pledgeBtn.addEventListener('click', async () => {
     try {
         const balance = await retry(() => selectedContract.balanceOf(userAddress));
         const decimals = token === 'WETH' ? 18 : 6;
-        const formattedBalance = parseFloat(ethers.utils.formatUnits(balance, decimals));
+        const formattedBalance = parseFloat(window.ethers.utils.formatUnits(balance, decimals));
         if (amount > formattedBalance) {
             alert(translations[currentLang].insufficientBalance);
             console.log(`pledgeBtn: Insufficient balance for ${token}: ${amount} > ${formattedBalance}`);

