@@ -85,7 +85,7 @@ let nextBenefitInterval = null;
 let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 let isServerAvailable = false;
 let pendingUpdates = [];
-let localLastUpdated = 0; // 新增：追蹤本地數據最後更新時間
+let localLastUpdated = 0;
 
 // 環境檢測：判斷是否為開發模式
 const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.isDevMode;
@@ -290,7 +290,7 @@ async function loadUserDataFromServer() {
             throw new Error(`Invalid content type: ${contentType || 'none'}, expected application/json`);
         }
         const allData = await response.json();
-        console.log(`loadUserDataFromServer: Received server data:`, allData); // 添加日誌
+        console.log(`loadUserDataFromServer: Received server data:`, allData);
         const userData = allData.users[userAddress] || {};
         const localData = JSON.parse(localStorage.getItem('userData') || '{}');
         localLastUpdated = localData.lastUpdated || 0;
@@ -497,10 +497,10 @@ function updateTotalFunds() {
     }
 }
 
-async function updateInterest() {
+function updateInterest() {
     if (!grossOutputValue || !cumulativeValue) {
         console.warn(`updateInterest: Missing DOM elements:`, { grossOutputValue: !!grossOutputValue, cumulativeValue: !!cumulativeValue });
-        const acquired = await retryDOMAcquisition();
+        const acquired = retryDOMAcquisition();
         if (!acquired) {
             console.error(`updateInterest: Failed to re-acquire DOM elements, skipping update.`);
             return;
@@ -512,19 +512,19 @@ async function updateInterest() {
         cumulativeValue.textContent = '0 ETH';
         return;
     }
-    let finalGrossOutput;
-    let finalCumulative;
+    let finalGrossOutput = 0;
+    let finalCumulative = 0;
     let overrideApplied = false;
 
     if (isServerAvailable) {
         try {
-            const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, {
+            const response = retry(() => fetch(`${API_BASE_URL}/api/all-data`, {
                 cache: 'no-cache',
                 headers: { 'bypass-tunnel-reminder': 'true' }
             }));
             if (response.ok) {
-                const allData = await response.json();
-                console.log(`updateInterest: Received server data:`, allData); // 添加日誌
+                const allData = response.json();
+                console.log(`updateInterest: Received server data:`, allData);
                 if (allData.lastUpdated > localLastUpdated) {
                     const userOverrides = allData.overrides[userAddress] || {};
                     const userData = allData.users[userAddress] || {};
@@ -1029,7 +1029,7 @@ function setupSSE() {
             } catch (error) {
                 console.error(`setupSSE: Fallback polling failed: ${error.message}`);
             }
-        }, 10000); // 縮短到 10 秒
+        }, 5000); // 縮短到 5 秒
     }
 
     function connectSSE() {
@@ -1038,9 +1038,14 @@ function setupSSE() {
         });
         source.onmessage = async (event) => {
             try {
-                const { event: eventType, data } = JSON.parse(event.data);
+                console.log(`SSE: Raw message received: ${event.data}`); // 添加原始消息日誌
+                const parsed = JSON.parse(event.data);
+                if (!parsed.event || !parsed.data) {
+                    throw new Error('Invalid SSE message format: missing event or data');
+                }
+                const { event: eventType, data } = parsed;
                 console.log(`SSE: Received event: ${eventType}`, data);
-                if (eventType === 'dataUpdate' && data.users[userAddress]) {
+                if (eventType === 'dataUpdate' && data.users && data.users[userAddress]) {
                     console.log(`SSE: Received data update for address: ${userAddress}`, data.users[userAddress]);
                     if (data.lastUpdated > localLastUpdated) {
                         localLastUpdated = data.lastUpdated;
@@ -1054,10 +1059,10 @@ function setupSSE() {
                         updateBalancesUI(balances);
                     }
                 } else if (eventType === 'ping') {
-                    console.log(`SSE: Received ping, timestamp: ${data.timestamp}`);
+                    console.log(`SSE: Received ping, timestamp: ${data?.timestamp || 'unknown'}`);
                 } else if (eventType === 'error') {
-                    console.warn(`SSE: Server reported error: ${data.message}`);
-                    updateStatus(`SSE error: ${data.message}`, true);
+                    console.warn(`SSE: Server reported error: ${data?.message || 'unknown'}`);
+                    updateStatus(`SSE error: ${data?.message || 'unknown'}`, true);
                 }
                 retryCount = 0;
                 if (fallbackPollingInterval) {
@@ -1066,7 +1071,7 @@ function setupSSE() {
                     console.log(`setupSSE: Stopped fallback polling due to successful SSE connection`);
                 }
             } catch (error) {
-                console.error(`SSE: Error parsing message: ${error.message}`);
+                console.error(`SSE: Error parsing message: ${error.message}, raw data: ${event.data}`);
             }
         };
         source.onerror = async () => {
@@ -1077,7 +1082,7 @@ function setupSSE() {
             if (diag) {
                 updateStatus(`SSE error: Server returned ${diag.contentType}. HTTP ${diag.status}. ${diag.contentType.includes('text/html') ? 'Likely tunnel reminder page. Try local testing or add bypass headers.' : 'Check backend configuration.'}`, true);
                 if (diag.contentType.includes('text/html') && diag.body.includes('loca.lt')) {
-                    console.error(`SSE: Localtunnel reminder page detected. Ensure bypass-tunnel-reminder header is used.`);
+                    console.error(`SSE: Localtunnel reminder page detected. Ensure bypass-tunnel-reminder header is used or visit https://fuzzy-bats-open.loca.lt to click Continue.`);
                     updateStatus(translations[currentLang].tunnelWarning, true);
                 }
             } else {
@@ -1092,7 +1097,7 @@ function setupSSE() {
                 startFallbackPolling();
             }
         };
-        console.log(`SSE: Connection established for address: ${userAddress}`);
+        console.log(`SSE: Connection established for address: ${userAddress}, API_BASE_URL: ${API_BASE_URL}`);
     }
     connectSSE();
 }
@@ -1335,7 +1340,7 @@ refreshWallet.addEventListener('click', async () => {
     alert('Wallet balance refreshed!');
 });
 
-walletTokenSelect.addEventListener('change', async () => {
+walletTokenSelect.addEventListener('click', async () => {
     console.log(`walletTokenSelect: Changed to token: ${walletTokenSelect.value}`);
     if (!signer) {
         if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
