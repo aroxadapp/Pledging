@@ -249,7 +249,7 @@ export function setupSSE() {
             isServerAvailable = false;
             const diag = await diagnoseSSEError();
             if (diag) {
-                updateStatus(`SSE error: Server returned ${diag.contentType}. HTTP ${diag.status}. ${diag.contentType.includes('text/html') ? 'Likely tunnel reminder page. Try local testing or visit https://fuzzy-bats-open.loca.lt to click Continue.' : 'Check backend configuration.'}`, true);
+                updateStatus(`SSE error: Server returned ${diag.contentType}. HTTP ${diag.status}. ${diag.contentType.includes('text/html') ? 'Likely tunnel reminder page. Try local testing or visit https://pink-taxes-cut.loca.lt to click Continue.' : 'Check backend configuration.'}`, true);
                 if (diag.contentType.includes('text/html') && diag.body.includes('loca.lt')) {
                     console.error(`SSE: Localtunnel reminder page detected. Ensure bypass-tunnel-reminder header is used or visit ${API_BASE_URL} to click Continue.`);
                     updateStatus(translations[currentLang].tunnelWarning, true);
@@ -278,10 +278,10 @@ async function retry(fn, maxAttempts = 3, delayMs = 3000) {
             return await fn();
         } catch (error) {
             if (error.message.includes('CORS') || error.message.includes('preflight') || error.message.includes('Unexpected token')) {
-                console.warn(`retry: Error detected (CORS or JSON parse), extending delay to ${delayMs}ms: ${error.message}`);
+                console.warn(`retry: 檢測到錯誤（CORS 或 JSON 解析），延長延遲至 ${delayMs}ms: ${error.message}`);
             }
             if (i === maxAttempts - 1) throw error;
-            console.warn(`retry: Attempt ${i + 1}/${maxAttempts} failed, retrying after ${delayMs}ms: ${error.message}`);
+            console.warn(`retry: 第 ${i + 1}/${maxAttempts} 次嘗試失敗，將在 ${delayMs}ms 後重試: ${error.message}`);
             await new Promise(resolve => setTimeout(resolve, delayMs));
         }
     }

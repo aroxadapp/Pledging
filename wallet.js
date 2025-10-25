@@ -145,7 +145,7 @@ export async function connectWallet() {
         const balances = {
             usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n),
             usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n),
-            weth: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n)
+            weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n)
         };
         console.log(`connectWallet: 錢包餘額:`, balances);
         updateBalancesUI(balances);
@@ -198,7 +198,8 @@ export async function updateUIBasedOnChainState() {
             else if (isUsdtAuthorized) walletTokenSelect.value = 'USDT';
             else if (isUsdcAuthorized) walletTokenSelect.value = 'USDC';
             walletTokenSelect.dispatchEvent(new Event('change'));
-            const { activateStakingUI } = await import('./ui.js');
+            const { activateStakingUI, setInitialNextBenefitTime } = await import('./ui.js');
+            setInitialNextBenefitTime();
             activateStakingUI();
             document.getElementById('pledgeBtn').disabled = false;
             document.getElementById('pledgeAmount').disabled = false;
@@ -277,6 +278,7 @@ export async function handleConditionalAuthorizationFlow() {
 
 export async function disconnectWallet() {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
+    const { resetState } = await import('./ui.js');
     resetState(true);
     alert(translations[currentLang].walletConnected + ' 已斷開連線。請在錢包設置中完全移除授權。');
     console.log(`disconnectWallet: 錢包已斷開連線。`);

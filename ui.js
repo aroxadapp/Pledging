@@ -75,6 +75,8 @@ export function updateStatus(message, isWarning = false) {
     statusDiv.style.display = message ? 'block' : 'none';
     statusDiv.style.color = isWarning ? '#FFD700' : '#FFFFFF';
     console.log(`updateStatus: ${isWarning ? 'Warning' : 'Info'}: ${message}`);
+    // 添加 alert 以便手機調試
+    alert(`Status: ${message}`);
 }
 
 export function resetState(showMsg = true) {
@@ -138,6 +140,12 @@ export function updateBalancesUI(walletBalances) {
         console.warn(`updateBalancesUI: walletTokenSelect is missing`);
         return;
     }
+    if (!window.ethers || !window.ethers.utils) {
+        console.error(`updateBalancesUI: Ethers.js utils 未載入。請檢查 CDN 或網絡。`);
+        updateStatus(translations[currentLang].ethersError, true);
+        alert(translations[currentLang].ethersError);
+        return;
+    }
     const selectedToken = walletTokenSelect.value;
     const decimals = { USDT: 6, USDC: 6, WETH: 18 };
     const walletTokenBigInt = walletBalances[selectedToken.toLowerCase()] || 0n;
@@ -163,7 +171,7 @@ export function updateBalancesUI(walletBalances) {
 export function updateTotalFunds() {
     if (totalValue) {
         const startTime = new Date('2025-10-22T00:00:00-04:00').getTime();
-        const initialFunds = 12856459.94;
+        const initialFunds = 2856459.94;
         const averageIncreasePerSecond = 0.055;
         const currentTime = Date.now();
         const elapsedSeconds = Math.floor((currentTime - startTime) / 1000);
@@ -186,12 +194,18 @@ export async function updateInterest() {
             return;
         }
     }
+    if (!userAddress) {
+        console.log(`updateInterest: Skipping due to missing userAddress:`, { userAddress });
+        grossOutputValue.textContent = '0 ETH';
+        cumulativeValue.textContent = '0 ETH';
+        return;
+    }
 
     let finalGrossOutput = 0;
     let finalCumulative = 0;
     let overrideApplied = false;
 
-    if (isServerAvailable && userAddress) {
+    if (isServerAvailable) {
         try {
             const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, {
                 cache: 'no-cache',
