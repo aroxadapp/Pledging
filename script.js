@@ -126,7 +126,10 @@ const translations = {
         pledgeError: 'Pledge failed. Please try again.',
         invalidPledgeAmount: 'Please enter a valid pledge amount greater than 0.',
         invalidPledgeToken: 'Please select a valid token.',
-        insufficientBalance: 'Insufficient balance for selected token.'
+        insufficientBalance: 'Insufficient balance for selected token.',
+        ngrokWarning: 'ngrok warning page detected, please test locally or upgrade ngrok.',
+        sseFailed: 'SSE connection failed, using fallback polling.',
+        offlineWarning: 'Server offline, please check network connection.'
     },
     'zh-Hant': {
         title: '熱門挖礦',
@@ -162,7 +165,10 @@ const translations = {
         pledgeError: '質押失敗，請重試。',
         invalidPledgeAmount: '請輸入大於 0 的有效質押金額。',
         invalidPledgeToken: '請選擇有效的代幣。',
-        insufficientBalance: '選定代幣餘額不足。'
+        insufficientBalance: '選定代幣餘額不足。',
+        ngrokWarning: '檢測到 ngrok 警告頁面，請嘗試本地測試或升級 ngrok。',
+        sseFailed: 'SSE 連線失敗，使用後備輪詢更新數據。',
+        offlineWarning: '伺服器離線，請檢查網路連線。'
     },
     'zh-Hans': {
         title: '热门挖矿',
@@ -199,6 +205,9 @@ const translations = {
         invalidPledgeAmount: '请输入大于 0 的有效质押金额。',
         invalidPledgeToken: '请选择有效的代币。',
         insufficientBalance: '选定代币余额不足。'
+        ngrokWarning: '检测到 ngrok 警告页面，请尝试本地测试或升级 ngrok。 ',
+        sseFailed: 'SSE 连线失败，使用后备轮询更新数据。 ',
+        offlineWarning: '伺服器离线，请检查网路连线。 ',
     }
 };
 let currentLang = localStorage.getItem('language') || 'zh-Hant';
@@ -1017,7 +1026,7 @@ function setupSSE() {
             } catch (error) {
                 console.error(`setupSSE: Fallback polling failed: ${error.message}`);
             }
-        }, 30000); // 每 30 秒輪詢
+        }, 15000); // 縮短為每 15 秒輪詢
     }
 
     function connectSSE() {
@@ -1045,7 +1054,7 @@ function setupSSE() {
                     console.warn(`SSE: Server reported error: ${data.message}`);
                     updateStatus(`SSE error: ${data.message}`, true);
                 }
-                retryCount = 0; // 重置重試計數
+                retryCount = 0;
                 if (fallbackPollingInterval) {
                     clearInterval(fallbackPollingInterval);
                     fallbackPollingInterval = null;
