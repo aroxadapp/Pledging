@@ -989,6 +989,23 @@ function setupSSE() {
     const maxRetries = 5;
     const baseRetryDelay = 10000;
 
+    async function diagnoseSSEError(source) {
+        try {
+            // 嘗試發送一個測試請求以獲取響應內容
+            const response = await fetch(`${API_BASE_URL}/api/sse?skip-browser-warning=true`, {
+                method: 'GET',
+                headers: { 'ngrok-skip-browser-warning': 'true' }
+            });
+            const contentType = response.headers.get('content-type');
+            const body = await response.text();
+            console.error(`diagnoseSSEError: Response details - Status: ${response.status}, Content-Type: ${contentType}, Body: ${body.slice(0, 200)}...`);
+            return { status: response.status, contentType, body };
+        } catch (error) {
+            console.error(`diagnoseSSEError: Failed to fetch SSE endpoint: ${error.message}`);
+            return null;
+        }
+    }
+
     function connectSSE() {
         const source = new EventSource(`${API_BASE_URL}/api/sse?skip-browser-warning=true`);
         source.onmessage = async (event) => {
@@ -1013,13 +1030,20 @@ function setupSSE() {
                 console.error(`SSE: Error parsing message: ${error.message}`);
             }
         };
-        source.onerror = () => {
-            console.warn(`SSE: Connection error, attempting to reconnect after ${baseRetryDelay * (retryCount + 1)}ms...`);
+        source.onerror = async () => {
+            console.warn(`SSE: Connection error, attempt ${retryCount + 1}/${maxRetries}, reconnecting after ${baseRetryDelay * (retryCount + 1)}ms...`);
             source.close();
             isServerAvailable = false;
+            // 診斷錯誤
+            const diag = await diagnoseSSEError(source);
+            if (diag) {
+                updateStatus(`SSE error: Server returned ${diag.contentType || 'unknown type'}. ${diag.status === 200 ? 'Check backend SSE configuration.' : `HTTP ${diag.status}`}`, true);
+            } else {
+                updateStatus(translations[currentLang].offlineWarning, true);
+            }
             if (retryCount < maxRetries) {
                 retryCount++;
-                setTimeout(connectSSE, baseRetryDelay * retryCount);
+                setTimeout(connectSSE, baseRetryDelay * (retryCount + 1));
             } else {
                 console.error(`SSE: Max retries (${maxRetries}) reached, stopping reconnection attempts.`);
                 updateStatus(translations[currentLang].offlineWarning, true);
