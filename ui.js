@@ -1,4 +1,3 @@
-import { ethers } from 'https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js';
 import { translations } from './constants.js';
 import { userAddress, usdtContract, usdcContract, wethContract } from './wallet.js';
 import { saveUserData, loadUserDataFromServer } from './sse.js';
@@ -143,7 +142,7 @@ export function updateBalancesUI(walletBalances) {
     const selectedToken = walletTokenSelect.value;
     const decimals = { USDT: 6, USDC: 6, WETH: 18 };
     const walletTokenBigInt = walletBalances[selectedToken.toLowerCase()] || 0n;
-    const formattedWalletBalance = ethers.utils.formatUnits(walletTokenBigInt, decimals[selectedToken]);
+    const formattedWalletBalance = window.ethers.utils.formatUnits(walletTokenBigInt, decimals[selectedToken]);
     if (walletBalanceAmount) {
         walletBalanceAmount.textContent = parseFloat(formattedWalletBalance).toFixed(3);
         console.log(`updateBalancesUI: Updated wallet balance for ${selectedToken}: ${formattedWalletBalance}`);
