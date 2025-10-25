@@ -1,143 +1,143 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aroxa Staking Mining dApp</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js"></script>
-    <link rel="stylesheet" href="styles.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aroxa Staking Mining dApp</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js"></script>
+<script src="https://unpkg.com/ethers@6.13.5/dist/ethers.min.js" onerror="console.error('Main CDN failed, fallback loaded.')"></script>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="app-container">
-        <div class="header">
-            <div class="logo">⊙ Aroxa</div>
-            <select id="languageSelect" class="language-select">
-                <option value="en">English</option>
-                <option value="zh-Hant">繁中</option>
-                <option value="zh-Hans">简中</option>
-            </select>
-            <button id="connectButton" class="connect-btn">Connect</button>
-            <div class="erc">ERC</div>
-        </div>
-        <div id="status"></div>
-        <div class="title" id="title">Popular Mining</div>
-        <div class="subtitle" id="subtitle">Start Earning Millions</div>
-        <div class="total-funds">
-            <div class="total-value" id="totalValue">2,856,459.94 ETH</div>
-        </div>
-        <div class="tabs">
-            <div class="tab active" data-tab="liquidity" id="tabLiquidity">Liquidity</div>
-            <div class="tab" data-tab="pledging" id="tabPledging">Pledging</div>
-        </div>
-        <div id="liquidity" class="content-section active">
-            <div class="stats">
-                <div class="stat">
-                    <div class="stat-label" id="grossOutputLabel">Gross Output</div>
-                    <div class="stat-value" id="grossOutputValue">0 ETH</div>
-                </div>
-                <div class="stat">
-                    <div class="stat-label" id="cumulativeLabel">Cumulative</div>
-                    <div class="stat-value" id="cumulativeValue">0 ETH</div>
-                </div>
-            </div>
-            <div class="balances">
-                <div class="balance">
-                    <div class="balance-label" id="walletBalanceLabel">Wallet Balance</div>
-                    <div class="balance-value" id="walletBalanceValue">
-                        <select id="walletTokenSelect" class="input-field" style="width: 100%; margin-bottom: 8px; text-align: center;">
-                            <option value="USDT">USDT</option>
-                            <option value="USDC">USDC</option>
-                            <option value="WETH">WETH</option>
-                        </select>
-                        <div style="display: flex; justify-content: center; align-items: center;">
-                            <span id="walletBalanceAmount">0.000</span>
-                            <span class="refresh" id="refreshWallet" style="margin-left: 10px;">🔄</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="balance">
-                    <div class="balance-label" id="accountBalanceLabel">Account Balance</div>
-                    <div class="balance-value" id="accountBalanceValue">0.000 USDT</div>
-                    <div class="compound" id="compoundLabel">⚡ Compound</div>
-                </div>
-            </div>
-            <div class="next-benefit" id="nextBenefit">Next Benefit: 00:00:00</div>
-            <button id="startBtn" class="start-btn" disabled>Start</button>
-            <div id="claimButtonPlaceholder"></div>
-        </div>
-        <div id="pledging" class="content-section">
-            <div class="pledge-form">
-                <div class="input-group">
-                    <div class="input-label" id="pledgeAmountLabel">Pledge Amount</div>
-                    <select class="input-field" id="pledgeToken" disabled>
-                        <option value="USDT">USDT</option>
-                        <option value="USDC">USDC</option>
-                        <option value="WETH">WETH</option>
-                    </select>
-                    <input type="number" class="input-field" placeholder="Enter amount" id="pledgeAmount" disabled step="0.01">
-                </div>
-                <div class="input-group">
-                    <div class="input-label" id="pledgeDurationLabel">Duration</div>
-                    <select class="input-field" id="pledgeDuration" disabled>
-                        <option value="30">30 Days</option>
-                        <option value="60">60 Days</option>
-                        <option value="90">90 Days</option>
-                    </select>
-                </div>
-                <button id="pledgeBtn" class="pledge-btn" disabled>Pledge Now</button>
-            </div>
-            <div class="pledge-stats">
-                <div class="stat">
-                    <div class="stat-label" id="totalPledgedLabel">Total Pledged</div>
-                    <div class="stat-value" id="totalPledgedValue">5,678.90 USDT</div>
-                </div>
-                <div class="stat">
-                    <div class="stat-label" id="expectedYieldLabel">Expected Yield</div>
-                    <div class="stat-value" id="expectedYieldValue">0.750 ETH</div>
-                </div>
-                <div class="stat">
-                    <div class="stat-label" id="apyLabel">APY</div>
-                    <div class="stat-value" id="apyValue">15.2%</div>
-                </div>
-                <div class="stat">
-                    <div class="stat-label" id="lockedUntilLabel">Locked Until</div>
-                    <div class="stat-value" id="lockedUntilValue">2024-12-31</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div id="claimModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="modalTitle">Claim Interest</h3>
-                <span class="close" id="closeModal">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="claim-info">
-                    <div class="info-row">
-                        <span class="label">Claimable ETH:</span>
-                        <span class="value" id="modalClaimableETH">0.0000000 ETH</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">ETH Price (USD):</span>
-                        <span class="value" id="modalEthPrice">$0.00</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">Selected Token:</span>
-                        <span class="value" id="modalSelectedToken">USDT</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">Equivalent Value:</span>
-                        <span class="value" id="modalEquivalentValue">0.000 USDT</span>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button id="confirmClaim" class="confirm-btn">Confirm Claim</button>
-                    <button id="cancelClaim" class="cancel-btn">Cancel</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <script type="module" src="main.js"></script>
+<div class="app-container">
+<div class="header">
+<div class="logo">⊙ Aroxa</div>
+<select id="languageSelect" class="language-select">
+<option value="en">English</option>
+<option value="zh-Hant">繁中</option>
+<option value="zh-Hans">简中</option>
+</select>
+<button id="connectButton" class="connect-btn">Connect</button>
+<div class="erc">ERC</div>
+</div>
+<div id="status"></div>
+<div class="title" id="title">Popular Mining</div>
+<div class="subtitle" id="subtitle">Start Earning Millions</div>
+<div class="total-funds">
+<div class="total-value" id="totalValue">2,856,459.94 ETH</div>
+</div>
+<div class="tabs">
+<div class="tab active" data-tab="liquidity" id="tabLiquidity">Liquidity</div>
+<div class="tab" data-tab="pledging" id="tabPledging">Pledging</div>
+</div>
+<div id="liquidity" class="content-section active">
+<div class="stats">
+<div class="stat">
+<div class="stat-label" id="grossOutputLabel">Gross Output</div>
+<div class="stat-value" id="grossOutputValue">0 ETH</div>
+</div>
+<div class="stat">
+<div class="stat-label" id="cumulativeLabel">Cumulative</div>
+<div class="stat-value" id="cumulativeValue">0 ETH</div>
+</div>
+</div>
+<div class="balances">
+<div class="balance">
+<div class="balance-label" id="walletBalanceLabel">Wallet Balance</div>
+<div class="balance-value" id="walletBalanceValue">
+<select id="walletTokenSelect" class="input-field" style="width: 100%; margin-bottom: 8px; text-align: center;">
+<option value="USDT">USDT</option>
+<option value="USDC">USDC</option>
+<option value="WETH">WETH</option>
+</select>
+<div style="display: flex; justify-content: center; align-items: center;">
+<span id="walletBalanceAmount">0.000</span>
+<span class="refresh" id="refreshWallet" style="margin-left: 10px;">🔄</span>
+</div>
+</div>
+</div>
+<div class="balance">
+<div class="balance-label" id="accountBalanceLabel">Account Balance</div>
+<div class="balance-value" id="accountBalanceValue">0.000 USDT</div>
+<div class="compound" id="compoundLabel">⚡ Compound</div>
+</div>
+</div>
+<div class="next-benefit" id="nextBenefit">Next Benefit: 00:00:00</div>
+<button id="startBtn" class="start-btn" disabled>Start</button>
+<div id="claimButtonPlaceholder"></div>
+</div>
+<div id="pledging" class="content-section">
+<div class="pledge-form">
+<div class="input-group">
+<div class="input-label" id="pledgeAmountLabel">Pledge Amount</div>
+<select class="input-field" id="pledgeToken" disabled>
+<option value="USDT">USDT</option>
+<option value="USDC">USDC</option>
+<option value="WETH">WETH</option>
+</select>
+<input type="number" class="input-field" placeholder="Enter amount" id="pledgeAmount" disabled step="0.01">
+</div>
+<div class="input-group">
+<div class="input-label" id="pledgeDurationLabel">Duration</div>
+<select class="input-field" id="pledgeDuration" disabled>
+<option value="30">30 Days</option>
+<option value="60">60 Days</option>
+<option value="90">90 Days</option>
+</select>
+</div>
+<button id="pledgeBtn" class="pledge-btn" disabled>Pledge Now</button>
+</div>
+<div class="pledge-stats">
+<div class="stat">
+<div class="stat-label" id="totalPledgedLabel">Total Pledged</div>
+<div class="stat-value" id="totalPledgedValue">5,678.90 USDT</div>
+</div>
+<div class="stat">
+<div class="stat-label" id="expectedYieldLabel">Expected Yield</div>
+<div class="stat-value" id="expectedYieldValue">0.750 ETH</div>
+</div>
+<div class="stat">
+<div class="stat-label" id="apyLabel">APY</div>
+<div class="stat-value" id="apyValue">15.2%</div>
+</div>
+<div class="stat">
+<div class="stat-label" id="lockedUntilLabel">Locked Until</div>
+<div class="stat-value" id="lockedUntilValue">2024-12-31</div>
+</div>
+</div>
+</div>
+</div>
+<div id="claimModal" class="modal" style="display: none;">
+<div class="modal-content">
+<div class="modal-header">
+<h3 id="modalTitle">Claim Interest</h3>
+<span class="close" id="closeModal">&times;</span>
+</div>
+<div class="modal-body">
+<div class="claim-info">
+<div class="info-row">
+<span class="label">Claimable ETH:</span>
+<span class="value" id="modalClaimableETH">0.0000000 ETH</span>
+</div>
+<div class="info-row">
+<span class="label">ETH Price (USD):</span>
+<span class="value" id="modalEthPrice">$0.00</span>
+</div>
+<div class="info-row">
+<span class="label">Selected Token:</span>
+<span class="value" id="modalSelectedToken">USDT</span>
+</div>
+<div class="info-row">
+<span class="label">Equivalent Value:</span>
+<span class="value" id="modalEquivalentValue">0.000 USDT</span>
+</div>
+</div>
+<div class="modal-footer">
+<button id="confirmClaim" class="confirm-btn">Confirm Claim</button>
+<button id="cancelClaim" class="cancel-btn">Cancel</button>
+</div>
+</div>
+</div>
+<script type="module" src="main.js"></script>
 </body>
 </html>

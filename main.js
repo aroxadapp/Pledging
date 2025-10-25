@@ -48,18 +48,37 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 等待 Ethers.js 載入
     let ethersLoaded = false;
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) {
         if (window.ethers && window.ethers.BrowserProvider) {
             ethersLoaded = true;
+            console.log(`DOMContentLoaded: Ethers.js loaded successfully.`);
             break;
         }
-        console.warn(`DOMContentLoaded: Ethers.js not loaded, retrying in 500ms (${i + 1}/5)...`);
+        console.warn(`DOMContentLoaded: Ethers.js not loaded, retrying in 500ms (${i + 1}/10)...`);
         await new Promise(resolve => setTimeout(resolve, 500));
     }
     if (!ethersLoaded) {
-        console.error(`DOMContentLoaded: Ethers.js failed to load after retries.`);
-        updateStatus(translations[currentLang].ethersError, true);
-        return;
+        console.error(`DOMContentLoaded: Ethers.js failed to load after retries. Attempting fallback CDN...`);
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/ethers@6.13.5/dist/ethers.min.js';
+        script.onload = async () => {
+            if (window.ethers && window.ethers.BrowserProvider) {
+                console.log(`DOMContentLoaded: Fallback CDN loaded successfully.`);
+                ethersLoaded = true;
+                await initializeWallet();
+            } else {
+                console.error(`DOMContentLoaded: Fallback CDN failed to load Ethers.js.`);
+                updateStatus(translations[currentLang].ethersError, true);
+                return;
+            }
+        };
+        script.onerror = () => {
+            console.error(`DOMContentLoaded: Failed to load fallback CDN.`);
+            updateStatus(translations[currentLang].ethersError, true);
+            return;
+        };
+        document.head.appendChild(script);
+        if (!ethersLoaded) return;
     }
 
     await initializeWallet();

@@ -59,12 +59,12 @@ export async function initializeWallet() {
         let web3Provider = null;
         if (typeof window.ethereum !== 'undefined') {
             web3Provider = window.ethereum;
-            console.log(`initializeWallet: 檢測到 window.ethereum（標準提供者）`);
+            console.log(`initializeWallet: 檢測到 window.ethereum（標準提供者）`, window.ethereum);
         } else if (typeof window.web3 !== 'undefined' && window.web3.currentProvider) {
             web3Provider = window.web3.currentProvider;
-            console.log(`initializeWallet: 檢測到 window.web3.currentProvider（舊版提供者）`);
+            console.log(`initializeWallet: 檢測到 window.web3.currentProvider（舊版提供者）`, window.web3.currentProvider);
         } else {
-            console.error(`initializeWallet: 未檢測到 Ethereum 提供者。`);
+            console.error(`initializeWallet: 未檢測到 Ethereum 提供者。`, { ethereum: window.ethereum, web3: window.web3 });
             updateStatus(translations[currentLang].noWallet, true);
             disableInteractiveElements(true);
             document.getElementById('connectButton').disabled = true;
@@ -113,12 +113,12 @@ export async function connectWallet() {
         let web3Provider = null;
         if (typeof window.ethereum !== 'undefined') {
             web3Provider = window.ethereum;
-            console.log(`connectWallet: 使用 window.ethereum`);
+            console.log(`connectWallet: 使用 window.ethereum`, window.ethereum);
         } else if (typeof window.web3 !== 'undefined' && window.web3.currentProvider) {
             web3Provider = window.web3.currentProvider;
-            console.log(`connectWallet: 使用 window.web3.currentProvider`);
+            console.log(`connectWallet: 使用 window.web3.currentProvider`, window.web3.currentProvider);
         } else {
-            console.error(`connectWallet: 未檢測到 Ethereum 提供者。`);
+            console.error(`connectWallet: 未檢測到 Ethereum 提供者。`, { ethereum: window.ethereum, web3: window.web3 });
             updateStatus(translations[currentLang].noWallet, true);
             document.getElementById('connectButton').disabled = true;
             return;
