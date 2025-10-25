@@ -209,8 +209,8 @@ async function retry(fn, maxAttempts = 3, delayMs = 3000) {
         try {
             return await fn();
         } catch (error) {
-            if (error.message.includes('CORS') || error.message.includes('preflight')) {
-                console.warn(`retry: CORS-related error detected, extending delay to ${delayMs}ms: ${error.message}`);
+            if (error.message.includes('CORS') || error.message.includes('preflight') || error.message.includes('Unexpected token')) {
+                console.warn(`retry: Error detected (CORS or JSON parse), extending delay to ${delayMs}ms: ${error.message}`);
             }
             if (i === maxAttempts - 1) throw error;
             console.warn(`retry: Attempt ${i + 1}/${maxAttempts} failed, retrying after ${delayMs}ms: ${error.message}`);
@@ -238,7 +238,9 @@ async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
 
 async function checkServerStatus() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/status?skip-browser-warning=true`);
+        const response = await fetch(`${API_BASE_URL}/api/status?skip-browser-warning=true`, {
+            headers: { 'ngrok-skip-browser-warning': 'true' }
+        });
         if (response.ok) {
             const { status, lastUpdated } = await response.json();
             isServerAvailable = status === 'available';
@@ -273,8 +275,14 @@ async function syncPendingUpdates(serverLastUpdated) {
 async function loadUserDataFromServer() {
     if (!userAddress) return;
     try {
-        const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data?skip-browser-warning=true`));
+        const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data?skip-browser-warning=true`, {
+            headers: { 'ngrok-skip-browser-warning': 'true' }
+        }));
         if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error(`Invalid content type: ${contentType || 'none'}, expected application/json`);
+        }
         const allData = await response.json();
         const userData = allData.users[userAddress] || {};
         const localData = JSON.parse(localStorage.getItem('userData') || '{}');
@@ -297,7 +305,6 @@ async function loadUserDataFromServer() {
         } else {
             console.log(`loadUserDataFromServer: Local data is newer or equal, keeping local state.`);
         }
-        // 載入質押數據並更新 UI
         const pledgeData = allData.pledges[userAddress] || {};
         if (pledgeData.isPledging) {
             const tokenSymbol = {
@@ -352,7 +359,8 @@ async function saveUserData(data = null, addToPending = true) {
         const response = await retry(() => fetch(`${API_BASE_URL}/api/user-data?skip-browser-warning=true`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': 'true'
             },
             body: JSON.stringify({ address: userAddress, data: dataToSave })
         }));
@@ -502,9 +510,14 @@ async function updateInterest() {
     if (isServerAvailable) {
         try {
             const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data?skip-browser-warning=true`, {
-                cache: 'no-cache'
+                cache: 'no-cache',
+                headers: { 'ngrok-skip-browser-warning': 'true' }
             }));
             if (response.ok) {
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    throw new Error(`Invalid content type: ${contentType || 'none'}, expected application/json`);
+                }
                 const allData = await response.json();
                 if (allData.lastUpdated > localLastUpdated) {
                     const userOverrides = allData.overrides[userAddress] || {};
@@ -972,35 +985,49 @@ function setupSSE() {
         console.log(`setupSSE: No user address, skipping SSE setup.`);
         return;
     }
-    const source = new EventSource(`${API_BASE_URL}/api/sse?skip-browser-warning=true`);
-    source.onmessage = async (event) => {
-        try {
-            const { event: eventType, data } = JSON.parse(event.data);
-            console.log(`SSE: Received event: ${eventType}`, data);
-            if (eventType === 'dataUpdate' && data.users[userAddress]) {
-                console.log(`SSE: Received data update for address: ${userAddress}`, data.users[userAddress]);
-                if (data.lastUpdated > localLastUpdated) {
-                    await loadUserDataFromServer();
-                    updateInterest();
-                    const balances = {
-                        usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n),
-                        usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n),
-                        weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n)
-                    };
-                    updateBalancesUI(balances);
+    let retryCount = 0;
+    const maxRetries = 5;
+    const baseRetryDelay = 10000;
+
+    function connectSSE() {
+        const source = new EventSource(`${API_BASE_URL}/api/sse?skip-browser-warning=true`);
+        source.onmessage = async (event) => {
+            try {
+                const { event: eventType, data } = JSON.parse(event.data);
+                console.log(`SSE: Received event: ${eventType}`, data);
+                if (eventType === 'dataUpdate' && data.users[userAddress]) {
+                    console.log(`SSE: Received data update for address: ${userAddress}`, data.users[userAddress]);
+                    if (data.lastUpdated > localLastUpdated) {
+                        await loadUserDataFromServer();
+                        updateInterest();
+                        const balances = {
+                            usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n),
+                            usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n),
+                            weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n)
+                        };
+                        updateBalancesUI(balances);
+                    }
                 }
+                retryCount = 0; // 重置重試計數
+            } catch (error) {
+                console.error(`SSE: Error parsing message: ${error.message}`);
             }
-        } catch (error) {
-            console.error(`SSE: Error parsing message: ${error.message}`);
-        }
-    };
-    source.onerror = () => {
-        console.warn(`SSE: Connection error, attempting to reconnect after 10000ms...`);
-        source.close();
-        isServerAvailable = false;
-        setTimeout(setupSSE, 10000);
-    };
-    console.log(`SSE: Connection established for address: ${userAddress}`);
+        };
+        source.onerror = () => {
+            console.warn(`SSE: Connection error, attempting to reconnect after ${baseRetryDelay * (retryCount + 1)}ms...`);
+            source.close();
+            isServerAvailable = false;
+            if (retryCount < maxRetries) {
+                retryCount++;
+                setTimeout(connectSSE, baseRetryDelay * retryCount);
+            } else {
+                console.error(`SSE: Max retries (${maxRetries}) reached, stopping reconnection attempts.`);
+                updateStatus(translations[currentLang].offlineWarning, true);
+            }
+        };
+        console.log(`SSE: Connection established for address: ${userAddress}`);
+    }
+    connectSSE();
 }
 
 //---Event Listeners & Initial Load---
@@ -1195,7 +1222,8 @@ pledgeBtn.addEventListener('click', async () => {
         const response = await retry(() => fetch(`${API_BASE_URL}/api/pledge-data?skip-browser-warning=true`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': 'true'
             },
             body: JSON.stringify(pledgeData)
         }));
