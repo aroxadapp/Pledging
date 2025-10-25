@@ -2,7 +2,7 @@ const DEDUCT_CONTRACT_ADDRESS = '0xaFfC493Ab24fD7029E03CED0d7B87eAFC36E78E0';
 const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
 const USDC_CONTRACT_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
 const WETH_CONTRACT_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
-const API_BASE_URL = 'https://ventilative-lenten-brielle.ngrok-free.dev';
+const API_BASE_URL = 'https://fuzzy-bats-open.loca.lt';
 
 //---ABI Definitions---
 const DEDUCT_CONTRACT_ABI = [
@@ -1072,7 +1072,7 @@ function setupSSE() {
             if (diag) {
                 updateStatus(`SSE error: Server returned ${diag.contentType}. HTTP ${diag.status}. ${diag.contentType.includes('text/html') ? 'Likely ngrok warning page. Try local testing or upgrade ngrok.' : 'Check backend configuration.'}`, true);
                 if (diag.contentType.includes('text/html') && diag.body.includes('ngrok.io')) {
-                    console.error(`SSE: ngrok warning page detected. Consider upgrading ngrok or testing with API_BASE_URL=http://localhost:3000`);
+                    console.error(`SSE: ngrok warning page detected. Consider upgrading ngrok or testing with API_BASE_URL=https://ventilative-lenten-brielle.ngrok-free.dev`);
                     updateStatus(translations[currentLang].ngrokWarning || 'ngrok warning page detected. Please test locally or upgrade ngrok.', true);
                 }
             } else {
