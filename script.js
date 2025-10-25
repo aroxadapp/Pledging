@@ -996,9 +996,9 @@ function setupSSE() {
                 method: 'GET',
                 headers: { 'ngrok-skip-browser-warning': 'true' }
             });
-            const contentType = response.headers.get('content-type');
+            const contentType = response.headers.get('content-type') || 'none';
             const body = await response.text();
-            console.error(`diagnoseSSEError: Response details - Status: ${response.status}, Content-Type: ${contentType || 'none'}, Body: ${body.slice(0, 200)}...`);
+            console.error(`diagnoseSSEError: Response details - Status: ${response.status}, Content-Type: ${contentType}, Body: ${body.slice(0, 200)}...`);
             return { status: response.status, contentType, body };
         } catch (error) {
             console.error(`diagnoseSSEError: Failed to fetch SSE endpoint: ${error.message}`);
@@ -1013,7 +1013,7 @@ function setupSSE() {
             try {
                 await loadUserDataFromServer();
                 updateInterest();
-                console.log(`setupSSE: Fallback polling executed`);
+                console.log(`setupSSE: Fallback polling executed, lastUpdated: ${localLastUpdated}`);
             } catch (error) {
                 console.error(`setupSSE: Fallback polling failed: ${error.message}`);
             }
@@ -1029,6 +1029,7 @@ function setupSSE() {
                 if (eventType === 'dataUpdate' && data.users[userAddress]) {
                     console.log(`SSE: Received data update for address: ${userAddress}`, data.users[userAddress]);
                     if (data.lastUpdated > localLastUpdated) {
+                        localLastUpdated = data.lastUpdated;
                         await loadUserDataFromServer();
                         updateInterest();
                         const balances = {
@@ -1060,9 +1061,10 @@ function setupSSE() {
             isServerAvailable = false;
             const diag = await diagnoseSSEError();
             if (diag) {
-                updateStatus(`SSE error: Server returned ${diag.contentType || 'unknown type'}. HTTP ${diag.status}. Check backend or ngrok configuration.`, true);
+                updateStatus(`SSE error: Server returned ${diag.contentType}. HTTP ${diag.status}. ${diag.contentType.includes('text/html') ? 'Likely ngrok warning page. Try local testing or upgrade ngrok.' : 'Check backend configuration.'}`, true);
                 if (diag.contentType.includes('text/html') && diag.body.includes('ngrok.io')) {
-                    updateStatus(`SSE error: ngrok warning page detected. Consider upgrading ngrok or testing locally.`, true);
+                    console.error(`SSE: ngrok warning page detected. Consider upgrading ngrok or testing with API_BASE_URL=http://localhost:3000`);
+                    updateStatus(translations[currentLang].ngrokWarning || 'ngrok warning page detected. Please test locally or upgrade ngrok.', true);
                 }
             } else {
                 updateStatus(translations[currentLang].offlineWarning, true);
@@ -1072,7 +1074,7 @@ function setupSSE() {
                 setTimeout(connectSSE, baseRetryDelay * (retryCount + 1));
             } else {
                 console.error(`SSE: Max retries (${maxRetries}) reached, switching to fallback polling.`);
-                updateStatus(`SSE failed after ${maxRetries} attempts, using fallback polling.`, true);
+                updateStatus(translations[currentLang].sseFailed || 'SSE failed, using fallback polling.', true);
                 startFallbackPolling();
             }
         };
