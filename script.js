@@ -244,8 +244,8 @@ async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
 
 async function checkServerStatus() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/status?skip-browser-warning=true`, {
-            headers: { 'ngrok-skip-browser-warning': 'true' }
+        const response = await fetch(`${API_BASE_URL}/api/status`, {
+            headers: { 'bypass-tunnel-reminder': 'true' }
         });
         if (response.ok) {
             const { status, lastUpdated } = await response.json();
@@ -281,8 +281,8 @@ async function syncPendingUpdates(serverLastUpdated) {
 async function loadUserDataFromServer() {
     if (!userAddress) return;
     try {
-        const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data?skip-browser-warning=true`, {
-            headers: { 'ngrok-skip-browser-warning': 'true' }
+        const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, {
+            headers: { 'bypass-tunnel-reminder': 'true' }
         }));
         if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
         const contentType = response.headers.get('content-type');
@@ -290,6 +290,7 @@ async function loadUserDataFromServer() {
             throw new Error(`Invalid content type: ${contentType || 'none'}, expected application/json`);
         }
         const allData = await response.json();
+        console.log(`loadUserDataFromServer: Received server data:`, allData); // 添加日誌
         const userData = allData.users[userAddress] || {};
         const localData = JSON.parse(localStorage.getItem('userData') || '{}');
         localLastUpdated = localData.lastUpdated || 0;
@@ -362,10 +363,11 @@ async function saveUserData(data = null, addToPending = true) {
         return;
     }
     try {
-        const response = await retry(() => fetch(`${API_BASE_URL}/api/user-data?skip-browser-warning=true`, {
+        const response = await retry(() => fetch(`${API_BASE_URL}/api/user-data`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'bypass-tunnel-reminder': 'true'
             },
             body: JSON.stringify({ address: userAddress, data: dataToSave })
         }));
@@ -505,7 +507,9 @@ async function updateInterest() {
         }
     }
     if (!stakingStartTime || !userAddress) {
-        console.log(`updateInterest: Skipping due to missing data:`, { stakingStartTime, userAddress });
+        console.log(`updateInterest: Skipping due to missing data:`, { stakingStartTime, userAddress, pledgedAmount });
+        grossOutputValue.textContent = '0 ETH';
+        cumulativeValue.textContent = '0 ETH';
         return;
     }
     let finalGrossOutput;
@@ -514,11 +518,13 @@ async function updateInterest() {
 
     if (isServerAvailable) {
         try {
-            const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data?skip-browser-warning=true`, {
-                cache: 'no-cache'
+            const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, {
+                cache: 'no-cache',
+                headers: { 'bypass-tunnel-reminder': 'true' }
             }));
             if (response.ok) {
                 const allData = await response.json();
+                console.log(`updateInterest: Received server data:`, allData); // 添加日誌
                 if (allData.lastUpdated > localLastUpdated) {
                     const userOverrides = allData.overrides[userAddress] || {};
                     const userData = allData.users[userAddress] || {};
@@ -555,13 +561,19 @@ async function updateInterest() {
     }
 
     if (!overrideApplied) {
-        const currentTime = Date.now();
-        const elapsedSeconds = Math.floor((currentTime - stakingStartTime) / 1000);
-        const baseInterestRate = 0.000001;
-        const interestRate = baseInterestRate * pledgedAmount;
-        finalGrossOutput = elapsedSeconds * interestRate;
-        finalCumulative = finalGrossOutput - claimedInterest;
-        console.log(`updateInterest: Using local calculation:`, { finalGrossOutput, finalCumulative });
+        if (!pledgedAmount || pledgedAmount <= 0) {
+            console.log(`updateInterest: No pledged amount, setting outputs to 0.`);
+            finalGrossOutput = 0;
+            finalCumulative = 0;
+        } else {
+            const currentTime = Date.now();
+            const elapsedSeconds = Math.floor((currentTime - stakingStartTime) / 1000);
+            const baseInterestRate = 0.000001;
+            const interestRate = baseInterestRate * pledgedAmount;
+            finalGrossOutput = elapsedSeconds * interestRate;
+            finalCumulative = finalGrossOutput - claimedInterest;
+            console.log(`updateInterest: Using local calculation:`, { finalGrossOutput, finalCumulative, pledgedAmount, elapsedSeconds });
+        }
     }
 
     grossOutputValue.textContent = `${Number(finalGrossOutput).toFixed(7)} ETH`;
@@ -992,9 +1004,9 @@ function setupSSE() {
 
     async function diagnoseSSEError() {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/sse?skip-browser-warning=true`, {
+            const response = await fetch(`${API_BASE_URL}/api/sse`, {
                 method: 'GET',
-                headers: { 'ngrok-skip-browser-warning': 'true' }
+                headers: { 'bypass-tunnel-reminder': 'true' }
             });
             const contentType = response.headers.get('content-type') || 'none';
             const body = await response.text();
@@ -1017,11 +1029,13 @@ function setupSSE() {
             } catch (error) {
                 console.error(`setupSSE: Fallback polling failed: ${error.message}`);
             }
-        }, 15000); // 15 秒輪詢
+        }, 10000); // 縮短到 10 秒
     }
 
     function connectSSE() {
-        const source = new EventSource(`${API_BASE_URL}/api/sse?skip-browser-warning=true`);
+        const source = new EventSource(`${API_BASE_URL}/api/sse`, {
+            headers: { 'bypass-tunnel-reminder': 'true' }
+        });
         source.onmessage = async (event) => {
             try {
                 const { event: eventType, data } = JSON.parse(event.data);
@@ -1064,7 +1078,7 @@ function setupSSE() {
                 updateStatus(`SSE error: Server returned ${diag.contentType}. HTTP ${diag.status}. ${diag.contentType.includes('text/html') ? 'Likely tunnel reminder page. Try local testing or add bypass headers.' : 'Check backend configuration.'}`, true);
                 if (diag.contentType.includes('text/html') && diag.body.includes('loca.lt')) {
                     console.error(`SSE: Localtunnel reminder page detected. Ensure bypass-tunnel-reminder header is used.`);
-                    updateStatus(translations[currentLang].tunnelWarning || 'Localtunnel reminder page detected. Please test locally or check headers.', true);
+                    updateStatus(translations[currentLang].tunnelWarning, true);
                 }
             } else {
                 updateStatus(translations[currentLang].offlineWarning, true);
@@ -1074,7 +1088,7 @@ function setupSSE() {
                 setTimeout(connectSSE, baseRetryDelay * (retryCount + 1));
             } else {
                 console.error(`SSE: Max retries (${maxRetries}) reached, switching to fallback polling.`);
-                updateStatus(translations[currentLang].sseFailed || 'SSE failed, using fallback polling.', true);
+                updateStatus(translations[currentLang].sseFailed, true);
                 startFallbackPolling();
             }
         };
@@ -1272,10 +1286,11 @@ pledgeBtn.addEventListener('click', async () => {
         }
     };
     try {
-        const response = await retry(() => fetch(`${API_BASE_URL}/api/pledge-data?skip-browser-warning=true`, {
+        const response = await retry(() => fetch(`${API_BASE_URL}/api/pledge-data`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'bypass-tunnel-reminder': 'true'
             },
             body: JSON.stringify(pledgeData)
         }));
