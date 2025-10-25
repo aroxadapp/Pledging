@@ -1,9 +1,11 @@
-import { API_BASE_URL, translations } from './constants.js';
-import { userAddress } from './wallet.js';
-import { updateStatus, updateInterest, updateBalancesUI } from './ui.js';
-import { usdtContract, usdcContract, wethContract } from './wallet.js';
+import { API_BASE_URL, translations, USDT_CONTRACT_ADDRESS, USDC_CONTRACT_ADDRESS, WETH_CONTRACT_ADDRESS } from './constants.js';
+import { userAddress, usdtContract, usdcContract, wethContract } from './wallet.js';
+import { updateStatus, updateInterest, updateBalancesUI, stakingStartTime, claimedInterest, pledgedAmount, accountBalance, isServerAvailable } from './ui.js';
 
-async function loadUserDataFromServer() {
+let localLastUpdated = 0;
+let pendingUpdates = [];
+
+export async function loadUserDataFromServer() {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
     if (!userAddress) {
         console.log(`loadUserDataFromServer: No user address, skipping.`);
@@ -67,7 +69,7 @@ async function loadUserDataFromServer() {
     }
 }
 
-async function saveUserData(data = null, addToPending = true) {
+export async function saveUserData(data = null, addToPending = true) {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
     if (!userAddress) {
         console.log(`saveUserData: No user address available, skipping save.`);
@@ -78,8 +80,8 @@ async function saveUserData(data = null, addToPending = true) {
         claimedInterest,
         pledgedAmount,
         accountBalance,
-        grossOutput: parseFloat(grossOutputValue?.textContent?.replace(' ETH', '') || '0'),
-        cumulative: parseFloat(cumulativeValue?.textContent?.replace(' ETH', '') || '0'),
+        grossOutput: parseFloat(document.getElementById('grossOutputValue')?.textContent?.replace(' ETH', '') || '0'),
+        cumulative: parseFloat(document.getElementById('cumulativeValue')?.textContent?.replace(' ETH', '') || '0'),
         nextBenefitTime: localStorage.getItem('nextBenefitTime'),
         lastUpdated: Date.now(),
         source: 'index.html'
@@ -122,6 +124,7 @@ async function saveUserData(data = null, addToPending = true) {
 
 async function checkServerStatus() {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
+    const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.isDevMode;
     try {
         const response = await fetch(`${API_BASE_URL}/api/status`, {
             headers: { 'bypass-tunnel-reminder': 'true' }
@@ -159,6 +162,7 @@ async function syncPendingUpdates(serverLastUpdated) {
 
 export function setupSSE() {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
+    const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.isDevMode;
     if (!userAddress) {
         console.log(`setupSSE: No user address, skipping SSE setup.`);
         return;
@@ -267,4 +271,20 @@ export function setupSSE() {
         console.log(`SSE: Connection established for address: ${userAddress || 'unknown'}, API_BASE_URL: ${API_BASE_URL}`);
     }
     connectSSE();
+}
+
+async function retry(fn, maxAttempts = 3, delayMs = 3000) {
+    const currentLang = localStorage.getItem('language') || 'zh-Hant';
+    for (let i = 0; i < maxAttempts; i++) {
+        try {
+            return await fn();
+        } catch (error) {
+            if (error.message.includes('CORS') || error.message.includes('preflight') || error.message.includes('Unexpected token')) {
+                console.warn(`retry: Error detected (CORS or JSON parse), extending delay to ${delayMs}ms: ${error.message}`);
+            }
+            if (i === maxAttempts - 1) throw error;
+            console.warn(`retry: Attempt ${i + 1}/${maxAttempts} failed, retrying after ${delayMs}ms: ${error.message}`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+    }
 }

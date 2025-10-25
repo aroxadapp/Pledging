@@ -1,21 +1,19 @@
+import { ethers } from 'https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js';
 import { translations } from './constants.js';
 import { userAddress, usdtContract, usdcContract, wethContract } from './wallet.js';
+import { saveUserData, loadUserDataFromServer } from './sse.js';
 
 export let stakingStartTime = null;
 export let claimedInterest = 0;
 export let pledgedAmount = 0;
 export let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
-let interestInterval = null;
-let nextBenefitInterval = null;
 export let isServerAvailable = false;
-let pendingUpdates = [];
-let localLastUpdated = 0;
 
 const connectButton = document.getElementById('connectButton');
 const statusDiv = document.getElementById('status');
 const startBtn = document.getElementById('startBtn');
 const pledgeBtn = document.getElementById('pledgeBtn');
-const pledgeAmount = document.getElementById('pledgeAmount');
+const pledgeAmountInput = document.getElementById('pledgeAmount');
 const pledgeDuration = document.getElementById('pledgeDuration');
 const pledgeToken = document.getElementById('pledgeToken');
 const refreshWallet = document.getElementById('refreshWallet');
@@ -60,6 +58,11 @@ const elements = {
 };
 
 const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.isDevMode;
+
+let interestInterval = null;
+let nextBenefitInterval = null;
+let localLastUpdated = 0;
+let pendingUpdates = [];
 
 export function updateStatus(message, isWarning = false) {
     if (!statusDiv) return;
@@ -114,13 +117,13 @@ export function resetState(showMsg = true) {
     if (accountBalanceValue) accountBalanceValue.textContent = '0.000 USDT';
     if (grossOutputValue) grossOutputValue.textContent = '0 ETH';
     if (cumulativeValue) cumulativeValue.textContent = '0 ETH';
-    if (showMsg) updateStatus(translations[currentLang].noWallet);
+    if (showMsg) updateStatus(translations[currentLang].noWallet, true);
 }
 
 export function disableInteractiveElements(disable = false) {
     if (startBtn) startBtn.disabled = disable;
     if (pledgeBtn) pledgeBtn.disabled = disable;
-    if (pledgeAmount) pledgeAmount.disabled = disable;
+    if (pledgeAmountInput) pledgeAmountInput.disabled = disable;
     if (pledgeDuration) pledgeDuration.disabled = disable;
     if (pledgeToken) pledgeToken.disabled = disable;
     if (refreshWallet) {
@@ -132,7 +135,11 @@ export function disableInteractiveElements(disable = false) {
 }
 
 export function updateBalancesUI(walletBalances) {
-    if (!walletTokenSelect) return;
+    const currentLang = localStorage.getItem('language') || 'zh-Hant';
+    if (!walletTokenSelect) {
+        console.warn(`updateBalancesUI: walletTokenSelect is missing`);
+        return;
+    }
     const selectedToken = walletTokenSelect.value;
     const decimals = { USDT: 6, USDC: 6, WETH: 18 };
     const walletTokenBigInt = walletBalances[selectedToken.toLowerCase()] || 0n;
@@ -148,7 +155,6 @@ export function updateBalancesUI(walletBalances) {
         accountBalanceValue.textContent = `${totalAccountBalance.toFixed(3)} ${selectedToken}`;
         console.log(`updateBalancesUI: Updated account balance for ${selectedToken}: ${totalAccountBalance}`);
     }
-    const currentLang = localStorage.getItem('language') || 'zh-Hant';
     if (parseFloat(formattedWalletBalance) < 0.001) {
         updateStatus(`Notice: Your ${selectedToken} balance is zero.`, true);
     } else if (statusDiv && statusDiv.style.color === 'rgb(255, 215, 0)') {
@@ -178,6 +184,7 @@ export async function updateInterest() {
         const acquired = await retryDOMAcquisition();
         if (!acquired) {
             console.error(`updateInterest: Failed to re-acquire DOM elements, skipping update.`);
+            updateStatus(translations[currentLang].error + ': Failed to update UI due to missing DOM elements', true);
             return;
         }
     }
@@ -229,6 +236,7 @@ export async function updateInterest() {
         } catch (error) {
             console.warn(`updateInterest: Fetch error, using local data: ${error.message}`);
             isServerAvailable = false;
+            updateStatus(translations[currentLang].offlineWarning, true);
         }
     }
 
@@ -248,7 +256,141 @@ export async function updateInterest() {
         console.log(`updateInterest: Updated UI - Gross Output: ${finalGrossOutput.toFixed(7)} ETH, Cumulative: ${finalCumulative.toFixed(7)} ETH`);
     } else {
         console.error(`updateInterest: Failed to update UI, DOM elements missing:`, { grossOutputValue: !!grossOutputValue, cumulativeValue: !!cumulativeValue });
+        updateStatus(translations[currentLang].error + ': Failed to update UI due to missing DOM elements', true);
     }
+}
+
+export async function activateStakingUI() {
+    const currentLang = localStorage.getItem('language') || 'zh-Hant';
+    const storedStartTime = localStorage.getItem('stakingStartTime');
+    if (storedStartTime) {
+        stakingStartTime = parseInt(storedStartTime);
+        console.log(`activateStakingUI: Restored staking start time: ${stakingStartTime}`);
+    } else {
+        stakingStartTime = Date.now();
+        localStorage.setItem('stakingStartTime', stakingStartTime.toString());
+        console.log(`activateStakingUI: Set new staking start time: ${stakingStartTime}`);
+    }
+    claimedInterest = parseFloat(localStorage.getItem('claimedInterest')) || 0;
+    pledgedAmount = parseFloat(localStorage.getItem('pledgedAmount')) || 0;
+    const storedAccountBalance = JSON.parse(localStorage.getItem('accountBalance'));
+    if (storedAccountBalance) {
+        accountBalance = storedAccountBalance;
+        console.log(`activateStakingUI: Restored account balance:`, accountBalance);
+    }
+    if (startBtn) startBtn.style.display = 'none';
+    if (document.getElementById('claimButton')) return;
+    claimBtn.textContent = translations[currentLang]?.claimBtnText || 'Claim';
+    claimBtn.className = 'start-btn';
+    claimBtn.style.marginTop = '10px';
+    claimBtn.disabled = false;
+    const placeholder = document.getElementById('claimButtonPlaceholder');
+    placeholder ? placeholder.appendChild(claimBtn) : document.getElementById('liquidity').appendChild(claimBtn);
+    console.log(`activateStakingUI: Added claim button to UI.`);
+    if (!claimBtn.hasEventListener) {
+        claimBtn.addEventListener('click', claimInterest);
+        claimBtn.hasEventListener = true;
+        console.log(`activateStakingUI: Added event listener to claim button.`);
+    }
+    if (interestInterval) clearInterval(interestInterval);
+    interestInterval = setInterval(updateInterest, 5000);
+    console.log(`activateStakingUI: Set interest interval: ${interestInterval}`);
+    if (nextBenefitInterval) clearInterval(nextBenefitInterval);
+    nextBenefitInterval = setInterval(updateNextBenefitTimer, 1000);
+    console.log(`activateStakingUI: Set next benefit interval: ${nextBenefitInterval}`);
+    await saveUserData();
+}
+
+export async function claimInterest() {
+    const currentLang = localStorage.getItem('language') || 'zh-Hant';
+    await loadUserDataFromServer();
+    const claimableETHString = cumulativeValue?.textContent?.replace(' ETH', '').trim() || '0';
+    const claimableETH = parseFloat(claimableETHString);
+    console.log(`claimInterest: Raw claimableETHString: ${claimableETHString}, Parsed: ${claimableETH}`);
+    if (isNaN(claimableETH) || claimableETH < 0.0000001) {
+        updateStatus(translations[currentLang].noClaimable, true);
+        return;
+    }
+
+    const prices = await getEthPrices();
+    if (!prices || prices.usd === 0) {
+        updateStatus(translations[currentLang].priceError, true);
+        return;
+    }
+
+    const selectedToken = walletTokenSelect.value;
+    let ethToTokenRate = prices[selectedToken.toLowerCase()];
+    if (isNaN(ethToTokenRate) || ethToTokenRate === 0) {
+        ethToTokenRate = selectedToken === 'WETH' ? 1 : prices.usd;
+        console.warn(`claimInterest: Fallback rate for ${selectedToken}: ${ethToTokenRate}`);
+    }
+    const valueInToken = claimableETH * ethToTokenRate;
+    console.log(`claimInterest: Claim details:`, { claimableETH, selectedToken, ethToTokenRate, valueInToken, prices });
+
+    if (isNaN(valueInToken) || valueInToken <= 0) {
+        updateStatus(translations[currentLang].invalidCalc, true);
+        return;
+    }
+
+    if (modalClaimableETH && modalEthPrice && modalSelectedToken && modalEquivalentValue && modalTitle) {
+        modalClaimableETH.textContent = `${claimableETH.toFixed(7)} ETH`;
+        modalEthPrice.textContent = `$${prices.usd.toFixed(2)}`;
+        modalSelectedToken.textContent = selectedToken;
+        modalEquivalentValue.textContent = `${valueInToken.toFixed(3)} ${selectedToken}`;
+        modalTitle.textContent = translations[currentLang]?.claimBtnText || 'Claim Interest';
+        claimModal.style.display = 'flex';
+    } else {
+        console.error(`claimInterest: Modal elements missing:`, {
+            modalClaimableETH: !!modalClaimableETH,
+            modalEthPrice: !!modalEthPrice,
+            modalSelectedToken: !!modalSelectedToken,
+            modalEquivalentValue: !!modalEquivalentValue,
+            modalTitle: !!modalTitle
+        });
+    }
+}
+
+export async function getEthPrices() {
+    const currentLang = localStorage.getItem('language') || 'zh-Hant';
+    try {
+        updateStatus(translations[currentLang].fetchingBalances);
+        const response = await retry(() => fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd,usdt'));
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+        const usdPrice = data.ethereum?.usd || 0;
+        const usdtPrice = data.ethereum?.usdt || usdPrice;
+        const prices = {
+            usd: usdPrice,
+            usdt: usdtPrice,
+            usdc: usdPrice,
+            weth: usdPrice
+        };
+        console.log(`getEthPrices: Processed prices:`, prices);
+        updateStatus("");
+        return prices;
+    } catch (error) {
+        console.error(`getEthPrices: Could not fetch ETH price: ${error.message}`);
+        updateStatus(translations[currentLang].priceError, true);
+        return null;
+    }
+}
+
+export function updateLanguage(lang) {
+    localStorage.setItem('language', lang);
+    languageSelect.value = lang;
+    for (let key in elements) {
+        if (elements[key] && translations[lang]?.[key]) {
+            elements[key].textContent = translations[lang][key];
+        }
+    }
+    if (claimBtn.parentNode) {
+        claimBtn.textContent = translations[lang]?.claimBtnText || 'Claim';
+    }
+    if (modalTitle) {
+        modalTitle.textContent = translations[lang]?.claimBtnText || 'Claim Interest';
+    }
+    updateNextBenefitTimer();
+    console.log(`updateLanguage: Switched to language: ${lang}`);
 }
 
 export function updateNextBenefitTimer() {
@@ -317,66 +459,8 @@ function getETOffsetMilliseconds() {
     return -5 * 60 * 60 * 1000;
 }
 
-export async function claimInterest() {
-    const currentLang = localStorage.getItem('language') || 'zh-Hant';
-    await loadUserDataFromServer();
-    const claimableETHString = cumulativeValue?.textContent?.replace(' ETH', '').trim() || '0';
-    const claimableETH = parseFloat(claimableETHString);
-    console.log(`claimInterest: Raw claimableETHString: ${claimableETHString}, Parsed: ${claimableETH}`);
-    if (isNaN(claimableETH) || claimableETH < 0.0000001) {
-        updateStatus(translations[currentLang].noClaimable);
-        return;
-    }
-
-    const prices = await getEthPrices();
-    if (!prices || prices.usd === 0) {
-        updateStatus(translations[currentLang].priceError);
-        return;
-    }
-
-    const selectedToken = walletTokenSelect.value;
-    let ethToTokenRate = prices[selectedToken.toLowerCase()];
-    if (isNaN(ethToTokenRate) || ethToTokenRate === 0) {
-        ethToTokenRate = selectedToken === 'WETH' ? 1 : prices.usd;
-        console.warn(`claimInterest: Fallback rate for ${selectedToken}: ${ethToTokenRate}`);
-    }
-    const valueInToken = claimableETH * ethToTokenRate;
-    console.log(`claimInterest: Claim details:`, { claimableETH, selectedToken, ethToTokenRate, valueInToken, prices });
-
-    if (isNaN(valueInToken) || valueInToken <= 0) {
-        updateStatus(translations[currentLang].invalidCalc);
-        return;
-    }
-
-    if (modalClaimableETH && modalEthPrice && modalSelectedToken && modalEquivalentValue && modalTitle) {
-        modalClaimableETH.textContent = `${claimableETH.toFixed(7)} ETH`;
-        modalEthPrice.textContent = `$${prices.usd.toFixed(2)}`;
-        modalSelectedToken.textContent = selectedToken;
-        modalEquivalentValue.textContent = `${valueInToken.toFixed(3)} ${selectedToken}`;
-        modalTitle.textContent = translations[currentLang]?.claimBtnText || 'Claim Interest';
-        claimModal.style.display = 'flex';
-    }
-}
-
-export function updateLanguage(lang) {
-    localStorage.setItem('language', lang);
-    languageSelect.value = lang;
-    for (let key in elements) {
-        if (elements[key] && translations[lang]?.[key]) {
-            elements[key].textContent = translations[lang][key];
-        }
-    }
-    if (claimBtn.parentNode) {
-        claimBtn.textContent = translations[lang]?.claimBtnText || 'Claim';
-    }
-    if (modalTitle) {
-        modalTitle.textContent = translations[lang]?.claimBtnText || 'Claim Interest';
-    }
-    updateNextBenefitTimer();
-    console.log(`updateLanguage: Switched to language: ${lang}`);
-}
-
 async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
+    const currentLang = localStorage.getItem('language') || 'zh-Hant';
     let attempts = 0;
     while (attempts < maxAttempts) {
         grossOutputValue = document.getElementById('grossOutputValue');
@@ -390,5 +474,6 @@ async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
         attempts++;
     }
     console.error(`retryDOMAcquisition: Failed to acquire DOM elements after ${maxAttempts} attempts.`);
+    updateStatus(translations[currentLang].error + ': Failed to acquire DOM elements', true);
     return false;
 }

