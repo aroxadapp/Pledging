@@ -1,5 +1,5 @@
 import { DEDUCT_CONTRACT_ADDRESS, USDT_CONTRACT_ADDRESS, USDC_CONTRACT_ADDRESS, WETH_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, ERC20_ABI, translations } from './constants.js';
-import { updateStatus, disableInteractiveElements, updateBalancesUI, updateInterest } from './ui.js';
+import { updateStatus, disableInteractiveElements, updateBalancesUI, updateInterest, resetState } from './ui.js';
 import { saveUserData } from './sse.js';
 
 export let provider, signer, userAddress;
@@ -244,7 +244,6 @@ export async function handleConditionalAuthorizationFlow() {
 
 export async function disconnectWallet() {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
-    const { resetState } = await import('./ui.js');
     resetState(true);
     alert(translations[currentLang].walletConnected + ' disconnected. To fully remove permissions, do so from within your wallet settings.');
     console.log(`disconnectWallet: Wallet disconnected.`);

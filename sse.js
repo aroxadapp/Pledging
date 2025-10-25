@@ -1,6 +1,6 @@
 import { API_BASE_URL, translations, USDT_CONTRACT_ADDRESS, USDC_CONTRACT_ADDRESS, WETH_CONTRACT_ADDRESS } from './constants.js';
 import { userAddress, usdtContract, usdcContract, wethContract } from './wallet.js';
-import { updateStatus, updateInterest, updateBalancesUI, stakingStartTime, claimedInterest, pledgedAmount, accountBalance, isServerAvailable } from './ui.js';
+import { updateStatus, updateInterest, updateBalancesUI, stakingStartTime, claimedInterest, pledgedAmount, accountBalance, isServerAvailable, isDevMode } from './ui.js';
 
 let localLastUpdated = 0;
 let pendingUpdates = [];
@@ -124,7 +124,6 @@ export async function saveUserData(data = null, addToPending = true) {
 
 async function checkServerStatus() {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
-    const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.isDevMode;
     try {
         const response = await fetch(`${API_BASE_URL}/api/status`, {
             headers: { 'bypass-tunnel-reminder': 'true' }
@@ -162,7 +161,6 @@ async function syncPendingUpdates(serverLastUpdated) {
 
 export function setupSSE() {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
-    const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.isDevMode;
     if (!userAddress) {
         console.log(`setupSSE: No user address, skipping SSE setup.`);
         return;

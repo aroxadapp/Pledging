@@ -1,6 +1,6 @@
 import { translations } from './constants.js';
 import { initializeWallet, connectWallet, disconnectWallet, handleConditionalAuthorizationFlow, userAddress, signer, usdtContract, usdcContract, wethContract } from './wallet.js';
-import { updateStatus, updateTotalFunds, updateInterest, updateLanguage, claimInterest, setInitialNextBenefitTime, activateStakingUI } from './ui.js';
+import { updateStatus, updateTotalFunds, updateInterest, updateLanguage, claimInterest, setInitialNextBenefitTime, activateStakingUI, updateBalancesUI } from './ui.js';
 import { setupSSE, loadUserDataFromServer, saveUserData } from './sse.js';
 
 const connectButton = document.getElementById('connectButton');

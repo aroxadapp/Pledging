@@ -7,6 +7,7 @@ export let claimedInterest = 0;
 export let pledgedAmount = 0;
 export let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 export let isServerAvailable = false;
+export const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.isDevMode;
 
 const connectButton = document.getElementById('connectButton');
 const statusDiv = document.getElementById('status');
@@ -55,8 +56,6 @@ const elements = {
     apyLabel: document.getElementById('apyLabel'),
     lockedUntilLabel: document.getElementById('lockedUntilLabel')
 };
-
-const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.isDevMode;
 
 let interestInterval = null;
 let nextBenefitInterval = null;
