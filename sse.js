@@ -13,6 +13,7 @@ export async function loadUserDataFromServer() {
     }
     try {
         const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, {
+            cache: 'no-cache',
             headers: { 'bypass-tunnel-reminder': 'true' }
         }));
         if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
