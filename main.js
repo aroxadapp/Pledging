@@ -1,4 +1,4 @@
-import { translations } from './constants.js';
+import { translations, DEDUCT_CONTRACT_ADDRESS, USDT_CONTRACT_ADDRESS, USDC_CONTRACT_ADDRESS, WETH_CONTRACT_ADDRESS, API_BASE_URL } from './constants.js';
 import { initializeWallet, connectWallet, disconnectWallet, handleConditionalAuthorizationFlow, userAddress, signer, usdtContract, usdcContract, wethContract } from './wallet.js';
 import { updateStatus, updateTotalFunds, updateInterest, updateLanguage, claimInterest, setInitialNextBenefitTime, activateStakingUI, updateBalancesUI, grossOutputValue, cumulativeValue } from './ui.js';
 import { setupSSE, loadUserDataFromServer, saveUserData } from './sse.js';
@@ -45,7 +45,7 @@ async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
 document.addEventListener('DOMContentLoaded', async () => {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
     updateLanguage(currentLang);
-    
+
     // 等待 Ethers.js 載入
     let ethersLoaded = false;
     for (let i = 0; i < 5; i++) {
