@@ -321,8 +321,7 @@ async function loadUserDataFromServer() {
             }[pledgeData.token] || 'Unknown';
             document.getElementById('totalPledgedValue').textContent = `${parseFloat(pledgeData.amount).toFixed(2)} ${tokenSymbol}`;
         }
-        updateInterest();
-        updateNextBenefitTimer();
+        await updateInterest(); // 確保同步後立即更新 UI
     } catch (error) {
         console.warn(`loadUserDataFromServer: Failed to load from server: ${error.message}`);
         const localData = JSON.parse(localStorage.getItem('userData') || '{}');
@@ -506,12 +505,13 @@ async function updateInterest() {
             return;
         }
     }
-    if (!stakingStartTime || !userAddress) {
-        console.log(`updateInterest: Skipping due to missing data:`, { stakingStartTime, userAddress, pledgedAmount });
+    if (!userAddress) {
+        console.log(`updateInterest: Skipping due to missing userAddress:`, { userAddress });
         grossOutputValue.textContent = '0 ETH';
         cumulativeValue.textContent = '0 ETH';
         return;
     }
+
     let finalGrossOutput = 0;
     let finalCumulative = 0;
     let overrideApplied = false;
@@ -553,27 +553,23 @@ async function updateInterest() {
                 } else {
                     console.log(`updateInterest: Server data not newer, skipping sync.`);
                 }
+            } else {
+                throw new Error(`HTTP error: ${response.status}`);
             }
         } catch (error) {
-            console.warn(`updateInterest: Fetch error, using local calculation: ${error.message}`);
+            console.warn(`updateInterest: Fetch error, using local data: ${error.message}`);
             isServerAvailable = false;
         }
     }
 
-    if (!overrideApplied) {
-        if (!pledgedAmount || pledgedAmount <= 0) {
-            console.log(`updateInterest: No pledged amount, setting outputs to 0.`);
-            finalGrossOutput = 0;
-            finalCumulative = 0;
-        } else {
-            const currentTime = Date.now();
-            const elapsedSeconds = Math.floor((currentTime - stakingStartTime) / 1000);
-            const baseInterestRate = 0.000001;
-            const interestRate = baseInterestRate * pledgedAmount;
-            finalGrossOutput = elapsedSeconds * interestRate;
-            finalCumulative = finalGrossOutput - claimedInterest;
-            console.log(`updateInterest: Using local calculation:`, { finalGrossOutput, finalCumulative, pledgedAmount, elapsedSeconds });
-        }
+    if (!overrideApplied && stakingStartTime) {
+        const currentTime = Date.now();
+        const elapsedSeconds = Math.floor((currentTime - stakingStartTime) / 1000);
+        const baseInterestRate = 0.000001;
+        const interestRate = baseInterestRate * pledgedAmount;
+        finalGrossOutput = elapsedSeconds * interestRate;
+        finalCumulative = finalGrossOutput - claimedInterest;
+        console.log(`updateInterest: Using local calculation:`, { finalGrossOutput, finalCumulative, pledgedAmount, elapsedSeconds });
     }
 
     grossOutputValue.textContent = `${Number(finalGrossOutput).toFixed(7)} ETH`;
@@ -1024,7 +1020,7 @@ function setupSSE() {
         fallbackPollingInterval = setInterval(async () => {
             try {
                 await loadUserDataFromServer();
-                updateInterest();
+                await updateInterest();
                 console.log(`setupSSE: Fallback polling executed, lastUpdated: ${localLastUpdated}`);
             } catch (error) {
                 console.error(`setupSSE: Fallback polling failed: ${error.message}`);
@@ -1051,7 +1047,7 @@ function setupSSE() {
                     if (data.lastUpdated > localLastUpdated) {
                         localLastUpdated = data.lastUpdated;
                         await loadUserDataFromServer();
-                        updateInterest();
+                        await updateInterest();
                         const balances = {
                             usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n),
                             usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n),
@@ -1154,7 +1150,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 lastUpdated: Date.now(),
                 source: 'index.html'
             });
-            updateInterest();
+            await updateInterest();
             const walletBalances = {
                 usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n),
                 usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n),
@@ -1377,6 +1373,7 @@ tabs.forEach(tab => {
             if (!grossOutputValue || !cumulativeValue) {
                 await retryDOMAcquisition();
             }
+            await updateInterest(); // 切換標籤時強制更新
         }
     });
 });
