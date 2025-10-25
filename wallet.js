@@ -38,30 +38,41 @@ export async function sendMobileRobustTransaction(populatedTx) {
 export async function initializeWallet() {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
     try {
-        if (typeof window.ethereum === 'undefined') {
+        // 檢查 Web3 提供者（支援多種錢包）
+        let web3Provider = null;
+        if (typeof window.ethereum !== 'undefined') {
+            web3Provider = window.ethereum;
+            console.log(`initializeWallet: Detected window.ethereum (standard provider)`);
+        } else if (typeof window.web3 !== 'undefined' && window.web3.currentProvider) {
+            web3Provider = window.web3.currentProvider;
+            console.log(`initializeWallet: Detected window.web3.currentProvider (legacy provider)`);
+        } else {
             updateStatus(translations[currentLang].noWallet, true);
             disableInteractiveElements(true);
             console.log(`initializeWallet: No Ethereum provider detected.`);
             document.getElementById('connectButton').disabled = true;
             return;
         }
+
         if (!window.ethers || !window.ethers.BrowserProvider) {
             updateStatus(translations[currentLang].ethersError, true);
             console.error(`initializeWallet: Ethers.js BrowserProvider not available. Check CDN or script tag.`);
             document.getElementById('connectButton').disabled = true;
             return;
         }
-        provider = new window.ethers.BrowserProvider(window.ethereum);
-        window.ethereum.on('accountsChanged', (newAccounts) => {
+
+        provider = new window.ethers.BrowserProvider(web3Provider);
+        web3Provider.on('accountsChanged', (newAccounts) => {
             console.log(`initializeWallet: Accounts changed:`, newAccounts);
             if (userAddress && (newAccounts.length === 0 || userAddress.toLowerCase() !== newAccounts[0].toLowerCase())) {
                 window.location.reload();
             }
         });
-        window.ethereum.on('chainChanged', () => {
+        web3Provider.on('chainChanged', () => {
             console.log(`initializeWallet: Chain changed, reloading page.`);
             window.location.reload();
         });
+
         const accounts = await provider.send('eth_accounts', []);
         console.log(`initializeWallet: Initial accounts:`, accounts);
         if (accounts.length > 0) {
@@ -80,19 +91,28 @@ export async function initializeWallet() {
 export async function connectWallet() {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
     try {
-        if (typeof window.ethereum === 'undefined') {
+        let web3Provider = null;
+        if (typeof window.ethereum !== 'undefined') {
+            web3Provider = window.ethereum;
+            console.log(`connectWallet: Using window.ethereum`);
+        } else if (typeof window.web3 !== 'undefined' && window.web3.currentProvider) {
+            web3Provider = window.web3.currentProvider;
+            console.log(`connectWallet: Using window.web3.currentProvider`);
+        } else {
             updateStatus(translations[currentLang].noWallet, true);
             console.log(`connectWallet: No Ethereum provider detected.`);
             document.getElementById('connectButton').disabled = true;
             return;
         }
+
         if (!window.ethers || !window.ethers.BrowserProvider) {
             updateStatus(translations[currentLang].ethersError, true);
             console.error(`connectWallet: Ethers.js BrowserProvider not available. Check CDN or script tag.`);
             document.getElementById('connectButton').disabled = true;
             return;
         }
-        provider = new window.ethers.BrowserProvider(window.ethereum);
+
+        provider = new window.ethers.BrowserProvider(web3Provider);
         console.log(`connectWallet: Initialized provider.`);
         updateStatus('Please confirm connection in your wallet...');
         const accounts = await provider.send('eth_requestAccounts', []);
@@ -132,7 +152,7 @@ export async function connectWallet() {
         if (error.code === 4001) userMessage = "You rejected the connection request.";
         updateStatus(userMessage, true);
         resetState(true);
-        document.getElementById('connectButton').disabled = typeof window.ethereum === 'undefined';
+        document.getElementById('connectButton').disabled = typeof window.ethereum === 'undefined' && typeof window.web3 === 'undefined';
     }
 }
 
