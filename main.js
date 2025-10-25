@@ -32,7 +32,7 @@ async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
         cumulativeValue = document.getElementById('cumulativeValue');
         if (grossOutputValue && cumulativeValue) {
             console.log(`retryDOMAcquisition: Successfully acquired DOM elements after ${attempts + 1} attempts.`);
-            return true;
+            return { grossOutputValue, cumulativeValue };
         }
         console.warn(`retryDOMAcquisition: Attempt ${attempts + 1} failed. Retrying after ${delayMs}ms...`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -40,7 +40,7 @@ async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
     }
     console.error(`retryDOMAcquisition: Failed to acquire DOM elements after ${maxAttempts} attempts.`);
     updateStatus(translations[currentLang].error + ': 無法獲取 DOM 元素', true);
-    return false;
+    return null;
 }
 
 // 頁面載入時初始化
@@ -49,8 +49,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateLanguage(currentLang);
     await initializeWallet();
     setInterval(updateTotalFunds, 1000);
-    if (!document.getElementById('grossOutputValue') || !document.getElementById('cumulativeValue')) {
-        await retryDOMAcquisition();
+    const domElements = await retryDOMAcquisition();
+    if (!domElements) {
+        console.error('DOMContentLoaded: Failed to initialize DOM elements');
+        updateStatus(translations[currentLang].error + ': DOM 初始化失敗', true);
     }
     setInitialNextBenefitTime();
     if (userAddress) {
@@ -79,7 +81,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const valueInToken = parseFloat(valueInTokenString);
 
             if (isNaN(claimableETH) || isNaN(valueInToken)) {
-                console.error(`claimInterest: 無效計算，claimableETH: ${claimableETH}, valueInToken: ${valueInToken}`);
+                console.error(`confirmClaim: 無效計算，claimableETH: ${claimableETH}, valueInToken: ${valueInToken}`);
                 updateStatus(translations[currentLang].invalidCalc, true);
                 return;
             }
@@ -99,7 +101,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 nextBenefitTime: localStorage.getItem('nextBenefitTime'),
                 lastUpdated: Date.now()
             }));
-            console.log(`claimInterest: Updated claimed interest and account balance:`, { claimedInterest, accountBalance });
+            console.log(`confirmClaim: Updated claimed interest and account balance:`, { claimedInterest, accountBalance });
             await saveUserData({
                 stakingStartTime: (await import('./ui.js')).stakingStartTime,
                 claimedInterest,
@@ -150,7 +152,6 @@ startBtn.addEventListener('click', async () => {
     if (!signer) {
         console.error(`startBtn: 錢包未連線`);
         updateStatus(translations[currentLang].noWallet, true);
-        console.log(`startBtn: Clicked but no signer available.`);
         return;
     }
     const selectedToken = walletTokenSelect.value;
@@ -160,6 +161,7 @@ startBtn.addEventListener('click', async () => {
         const balance = await retry(() => selectedContract.balanceOf(userAddress));
         console.log(`startBtn: Checked balance for ${selectedToken}: ${balance.toString()}`);
         if (balance === 0n) {
+            console.error(`startBtn: ${selectedToken} 餘額為零`);
             updateStatus(`您的 ${selectedToken} 餘額為零，請確保有足夠餘額以開始。`, true);
             return;
         }
@@ -172,7 +174,7 @@ startBtn.addEventListener('click', async () => {
     startBtn.textContent = '授權中...';
     try {
         await handleConditionalAuthorizationFlow();
-        updateStatus(translations[currentLang].claimSuccess + ': 挖礦已開始。', false);
+        updateStatus(translations[currentLang].claimSuccess + ': 挖礦已開始。');
         await updateUIBasedOnChainState();
     } catch (error) {
         console.error(`startBtn: Authorization failed: ${error.message}`);
@@ -190,10 +192,9 @@ pledgeBtn.addEventListener('click', async () => {
     if (!signer) {
         console.error(`pledgeBtn: 錢包未連線`);
         updateStatus(translations[currentLang].noWallet, true);
-        console.log(`pledgeBtn: Clicked but no signer available.`);
         return;
     }
-    const amount = parseFloat(pledgeAmount.value) || 0;
+    const amount = parseFloat(pledgeAmountInput.value) || 0;
     const duration = parseInt(pledgeDuration.value);
     const token = pledgeToken.value;
     const tokenMap = {
@@ -216,6 +217,11 @@ pledgeBtn.addEventListener('click', async () => {
     try {
         const balance = await retry(() => selectedContract.balanceOf(userAddress));
         const decimals = token === 'WETH' ? 18 : 6;
+        if (!window.ethers || !window.ethers.utils) {
+            console.error(`pledgeBtn: Ethers.js utils 未載入。請檢查 CDN 或網絡。`);
+            updateStatus(translations[currentLang].ethersError, true);
+            return;
+        }
         const formattedBalance = parseFloat(window.ethers.utils.formatUnits(balance, decimals));
         if (amount > formattedBalance) {
             console.error(`pledgeBtn: 餘額不足 for ${token}: ${amount} > ${formattedBalance}`);
@@ -247,19 +253,22 @@ pledgeBtn.addEventListener('click', async () => {
             body: JSON.stringify(pledgeData)
         }));
         if (!response.ok) throw new Error(`Failed to submit pledge, status: ${response.status}`);
+        const { pledgedAmount } = await import('./ui.js');
         pledgedAmount = amount;
         localStorage.setItem('userData', JSON.stringify({
-            stakingStartTime,
-            claimedInterest,
+            stakingStartTime: (await import('./ui.js')).stakingStartTime,
+            claimedInterest: (await import('./ui.js')).claimedInterest,
             pledgedAmount,
-            accountBalance,
-            grossOutput: parseFloat(grossOutputValue.textContent.replace(' ETH', '')) || 0,
-            cumulative: parseFloat(cumulativeValue.textContent.replace(' ETH', '')) || 0,
+            accountBalance: (await import('./ui.js')).accountBalance,
+            grossOutput: parseFloat(document.getElementById('grossOutputValue')?.textContent?.replace(' ETH', '') || '0'),
+            cumulative: parseFloat(document.getElementById('cumulativeValue')?.textContent?.replace(' ETH', '') || '0'),
             nextBenefitTime: localStorage.getItem('nextBenefitTime'),
             lastUpdated: Date.now()
         }));
         const totalPledgedValue = document.getElementById('totalPledgedValue');
-        totalPledgedValue.textContent = `${amount.toFixed(2)} ${token}`;
+        if (totalPledgedValue) {
+            totalPledgedValue.textContent = `${amount.toFixed(2)} ${token}`;
+        }
         console.log(`pledgeBtn: Pledged ${amount} ${token} for ${duration} days.`);
         updateStatus(translations[currentLang].pledgeSuccess);
         await saveUserData();
@@ -272,10 +281,10 @@ pledgeBtn.addEventListener('click', async () => {
 
 // 刷新錢包餘額
 refreshWallet.addEventListener('click', async () => {
+    const currentLang = localStorage.getItem('language') || 'zh-Hant';
     if (!signer) {
         console.error(`refreshWallet: 錢包未連線`);
         updateStatus(translations[currentLang].noWallet, true);
-        console.log(`refreshWallet: Clicked but no signer available.`);
         return;
     }
     updateStatus(translations[currentLang].fetchingBalances);
@@ -289,8 +298,9 @@ refreshWallet.addEventListener('click', async () => {
     updateStatus('');
 });
 
- // 代幣選擇切換
+// 代幣選擇切換
 walletTokenSelect.addEventListener('change', async () => {
+    const currentLang = localStorage.getItem('language') || 'zh-Hant';
     console.log(`walletTokenSelect: Changed to token: ${walletTokenSelect.value}`);
     if (!signer) {
         if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
@@ -307,6 +317,7 @@ walletTokenSelect.addEventListener('change', async () => {
     updateBalancesUI(balances);
 });
 
+// 標籤切換
 const tabs = document.querySelectorAll('.tab');
 const sections = document.querySelectorAll('.content-section');
 tabs.forEach(tab => {
@@ -317,20 +328,22 @@ tabs.forEach(tab => {
         document.getElementById(tab.dataset.tab).classList.add('active');
         console.log(`tabClick: Switched to tab: ${tab.dataset.tab}`);
         if (tab.dataset.tab === 'liquidity') {
-            grossOutputValue = document.getElementById('grossOutputValue');
-            cumulativeValue = document.getElementById('cumulativeValue');
-            console.log(`tabClick: Re-acquired DOM elements:`, {
-                grossOutputValue: !!grossOutputValue,
-                cumulativeValue: !!cumulativeValue
-            });
-            if (!grossOutputValue || !cumulativeValue) {
-                await retryDOMAcquisition();
+            const domElements = await retryDOMAcquisition();
+            if (domElements) {
+                console.log(`tabClick: Re-acquired DOM elements:`, {
+                    grossOutputValue: !!domElements.grossOutputValue,
+                    cumulativeValue: !!domElements.cumulativeValue
+                });
+                await updateInterest();
+            } else {
+                console.error(`tabClick: Failed to re-acquire DOM elements`);
+                updateStatus(translations[currentLang].error + ': 無法獲取 DOM 元素', true);
             }
-            await updateInterest();
         }
     });
 });
 
+// 重試函數
 async function retry(fn, maxAttempts = 3, delayMs = 3000) {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
     for (let i = 0; i < maxAttempts; i++) {
