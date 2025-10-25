@@ -85,7 +85,7 @@ let nextBenefitInterval = null;
 let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 let isServerAvailable = false;
 let pendingUpdates = [];
-let localLastUpdated = 0;
+let localLastUpdated = 0; // 新增：追蹤本地數據最後更新時間
 
 // 環境檢測：判斷是否為開發模式
 const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.isDevMode;
@@ -127,9 +127,8 @@ const translations = {
         invalidPledgeAmount: 'Please enter a valid pledge amount greater than 0.',
         invalidPledgeToken: 'Please select a valid token.',
         insufficientBalance: 'Insufficient balance for selected token.',
-        ngrokWarning: 'ngrok warning page detected, please test locally or upgrade ngrok.',
-        sseFailed: 'SSE connection failed, using fallback polling.',
-        offlineWarning: 'Server offline, please check network connection.'
+        tunnelWarning: 'Localtunnel reminder page detected. Please test locally or check headers.',
+        sseFailed: 'SSE connection failed, using fallback polling.'
     },
     'zh-Hant': {
         title: '熱門挖礦',
@@ -166,9 +165,8 @@ const translations = {
         invalidPledgeAmount: '請輸入大於 0 的有效質押金額。',
         invalidPledgeToken: '請選擇有效的代幣。',
         insufficientBalance: '選定代幣餘額不足。',
-        ngrokWarning: '檢測到 ngrok 警告頁面，請嘗試本地測試或升級 ngrok。',
-        sseFailed: 'SSE 連線失敗，使用後備輪詢更新數據。',
-        offlineWarning: '伺服器離線，請檢查網路連線。'
+        tunnelWarning: '檢測到 Localtunnel 提示頁面，請嘗試本地測試或檢查標頭配置。',
+        sseFailed: 'SSE 連線失敗，使用後備輪詢更新數據。'
     },
     'zh-Hans': {
         title: '热门挖矿',
@@ -204,10 +202,9 @@ const translations = {
         pledgeError: '质押失败，请重试。',
         invalidPledgeAmount: '请输入大于 0 的有效质押金额。',
         invalidPledgeToken: '请选择有效的代币。',
-        insufficientBalance: '选定代币余额不足。'
-        ngrokWarning: '检测到 ngrok 警告页面，请尝试本地测试或升级 ngrok。 ',
-        sseFailed: 'SSE 连线失败，使用后备轮询更新数据。 ',
-        offlineWarning: '伺服器离线，请检查网路连线。 ',
+        insufficientBalance: '选定代币余额不足。',
+        tunnelWarning: '检测到 Localtunnel 提示页面，请尝试本地测试或检查标头配置。',
+        sseFailed: 'SSE 连线失败，使用后备轮询更新数据。'
     }
 };
 let currentLang = localStorage.getItem('language') || 'zh-Hant';
@@ -368,8 +365,7 @@ async function saveUserData(data = null, addToPending = true) {
         const response = await retry(() => fetch(`${API_BASE_URL}/api/user-data?skip-browser-warning=true`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true'
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({ address: userAddress, data: dataToSave })
         }));
@@ -519,14 +515,9 @@ async function updateInterest() {
     if (isServerAvailable) {
         try {
             const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data?skip-browser-warning=true`, {
-                cache: 'no-cache',
-                headers: { 'ngrok-skip-browser-warning': 'true' }
+                cache: 'no-cache'
             }));
             if (response.ok) {
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    throw new Error(`Invalid content type: ${contentType || 'none'}, expected application/json`);
-                }
                 const allData = await response.json();
                 if (allData.lastUpdated > localLastUpdated) {
                     const userOverrides = allData.overrides[userAddress] || {};
@@ -1026,7 +1017,7 @@ function setupSSE() {
             } catch (error) {
                 console.error(`setupSSE: Fallback polling failed: ${error.message}`);
             }
-        }, 15000); // 縮短為每 15 秒輪詢
+        }, 15000); // 15 秒輪詢
     }
 
     function connectSSE() {
@@ -1070,10 +1061,10 @@ function setupSSE() {
             isServerAvailable = false;
             const diag = await diagnoseSSEError();
             if (diag) {
-                updateStatus(`SSE error: Server returned ${diag.contentType}. HTTP ${diag.status}. ${diag.contentType.includes('text/html') ? 'Likely ngrok warning page. Try local testing or upgrade ngrok.' : 'Check backend configuration.'}`, true);
-                if (diag.contentType.includes('text/html') && diag.body.includes('ngrok.io')) {
-                    console.error(`SSE: ngrok warning page detected. Consider upgrading ngrok or testing with API_BASE_URL=https://ventilative-lenten-brielle.ngrok-free.dev`);
-                    updateStatus(translations[currentLang].ngrokWarning || 'ngrok warning page detected. Please test locally or upgrade ngrok.', true);
+                updateStatus(`SSE error: Server returned ${diag.contentType}. HTTP ${diag.status}. ${diag.contentType.includes('text/html') ? 'Likely tunnel reminder page. Try local testing or add bypass headers.' : 'Check backend configuration.'}`, true);
+                if (diag.contentType.includes('text/html') && diag.body.includes('loca.lt')) {
+                    console.error(`SSE: Localtunnel reminder page detected. Ensure bypass-tunnel-reminder header is used.`);
+                    updateStatus(translations[currentLang].tunnelWarning || 'Localtunnel reminder page detected. Please test locally or check headers.', true);
                 }
             } else {
                 updateStatus(translations[currentLang].offlineWarning, true);
@@ -1284,8 +1275,7 @@ pledgeBtn.addEventListener('click', async () => {
         const response = await retry(() => fetch(`${API_BASE_URL}/api/pledge-data?skip-browser-warning=true`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true'
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(pledgeData)
         }));
