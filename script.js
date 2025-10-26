@@ -228,7 +228,6 @@ await new Promise(resolve=>setTimeout(resolve,delayMs));
 attempts++;
 }
 console.error(`retryDOMAcquisition: Failed to acquire DOM elements after ${maxAttempts} attempts.`);
-updateStatus(translations[currentLang].error+': 無法獲取 DOM 元素',true);
 return false;
 }
 async function checkServerStatus(){
@@ -259,7 +258,7 @@ for(const update of pendingUpdates){
 if(update.timestamp>serverLastUpdated){
 await saveUserData(update.data,false);
 console.log(`syncPendingUpdates: Synced update with timestamp: ${update.timestamp}`);
-}else{
+} else {
 console.log(`syncPendingUpdates: Skipped outdated update with timestamp: ${update.timestamp}`);
 }
 }
@@ -517,15 +516,13 @@ const allData=await response.json();
 console.log(`updateInterest: Received server data:`,allData);
 if(allData.lastUpdated>localLastUpdated){
 const userOverrides=allData.overrides[userAddress]||{};
-const userData=allData.users[userAddress]||{};
-if(userOverrides.grossOutput!=null&&userOverrides.cumulative!=null){
+if(userOverrides.grossOutput!==undefined&&userOverrides.cumulative!==undefined){
 finalGrossOutput=Number(userOverrides.grossOutput);
 finalCumulative=Number(userOverrides.cumulative);
-if(!isNaN(finalGrossOutput)&&!isNaN(finalCumulative)){
 overrideApplied=true;
-console.log(`updateInterest: Admin override applied:`,{finalGrossOutput,finalCumulative});
+console.log(`updateInterest: Applied overrides - Gross: ${finalGrossOutput}, Cumulative: ${finalCumulative}`);
 }
-}
+const userData=allData.users[userAddress]||{};
 stakingStartTime=userData.stakingStartTime?parseInt(userData.stakingStartTime):stakingStartTime;
 claimedInterest=userData.claimedInterest?parseFloat(userData.claimedInterest):claimedInterest;
 pledgedAmount=userData.pledgedAmount?parseFloat(userData.pledgedAmount):pledgedAmount;
@@ -558,14 +555,9 @@ finalGrossOutput=elapsedSeconds*interestRate;
 finalCumulative=finalGrossOutput-claimedInterest;
 console.log(`updateInterest: Using local calculation:`,{finalGrossOutput,finalCumulative,pledgedAmount,elapsedSeconds});
 }
-if(grossOutputValue&&cumulativeValue){
-grossOutputValue.textContent=`${Number(finalGrossOutput).toFixed(7)} ETH`;
-cumulativeValue.textContent=`${Number(finalCumulative).toFixed(7)} ETH`;
-console.log(`updateInterest: Updated UI - Gross Output: ${finalGrossOutput.toFixed(7)} ETH, Cumulative: ${finalCumulative.toFixed(7)} ETH`);
-}else{
-console.error(`updateInterest: Failed to update UI, DOM elements missing:`,{grossOutputValue:!!grossOutputValue,cumulativeValue:!!cumulativeValue});
-updateStatus(translations[currentLang].error+': Failed to update UI due to missing DOM elements',true);
-}
+grossOutputValue.textContent=`${finalGrossOutput.toFixed(7)} ETH`;
+cumulativeValue.textContent=`${finalCumulative.toFixed(7)} ETH`;
+console.log(`updateInterest: UI updated - Gross: ${finalGrossOutput.toFixed(7)} ETH, Cumulative: ${finalCumulative.toFixed(7)} ETH`);
 }
 function updateLanguage(lang){
 currentLang=lang;
@@ -728,7 +720,7 @@ let ethersLoaded=false;
 for(let i=0;i<30;i++){
 if(window.ethers&&window.ethers.providers&&window.ethers.providers.Web3Provider){
 ethersLoaded=true;
-console.log(`initializeWallet: Ethers.js v5 loaded successfully.`);
+console.log(`initializeWallet: Ethers.js loaded successfully.`);
 break;
 }
 console.warn(`initializeWallet: Ethers.js not loaded, retrying in 2000ms (${i+1}/30)...`);
@@ -1236,7 +1228,7 @@ if(e.target===claimModal)claimModal.style.display='none';
 });
 }
 });
-languageSelect.addEventListener('change',async(e)=>{
+languageSelect.addEventListener('change',(e)=>{
 const lang=e.target.value;
 updateLanguage(lang);
 });
@@ -1392,7 +1384,7 @@ console.log(`refreshWallet: Refreshed balances:`,balances);
 updateBalancesUI(balances);
 updateStatus('');
 });
-walletTokenSelect.addEventListener('change',async()=>{
+walletTokenSelect.addEventListener('change',async () =>{
 const currentLang=localStorage.getItem('language')||'zh-Hant';
 console.log(`walletTokenSelect: Changed to token: ${walletTokenSelect.value}`);
 if(!signer){
@@ -1412,7 +1404,7 @@ updateBalancesUI(balances);
 const tabs=document.querySelectorAll('.tab');
 const sections=document.querySelectorAll('.content-section');
 tabs.forEach(tab=>{
-tab.addEventListener('click',async()=>{
+tab.addEventListener('click',async () =>{
 tabs.forEach(t=>t.classList.remove('active'));
 tab.classList.add('active');
 sections.forEach(s=>s.classList.remove('active'));
