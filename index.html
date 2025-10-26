@@ -5,8 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Aroxa Staking Mining dApp</title>
 <link rel="icon" href="data:;base64,iVBORw0KGgo=">
-<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js"></script>
-<script type="text/javascript" src="https://cdn.ethers.io/lib/6.13.5/ethers.umd.min.js" onerror="console.error('Main CDN failed, fallback loaded.')"></script>
+<script type="text/javascript" async=false src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<script type="text/javascript" async=false src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" onerror="console.error('Main CDN failed, trying first fallback.')"></script>
+<script type="text/javascript" async=false src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js" onerror="console.error('First fallback CDN failed, trying second fallback.')"></script>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -139,6 +140,6 @@
 </div>
 </div>
 </div>
-<script type="text/javascript" src="script.js"></script>
+<script type="text/javascript" async=false src="script.js"></script>
 </body>
 </html>

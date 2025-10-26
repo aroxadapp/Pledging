@@ -258,7 +258,8 @@ async function syncPendingUpdates(serverLastUpdated){
 for(const update of pendingUpdates){
 if(update.timestamp>serverLastUpdated){
 await saveUserData(update.data,false);
-console.log(`syncPendingUpdates: Synced update with timestamp: ${update.timestamp}`);
+console.log(`syncPendingUpdates: Synced update with216
+timestamp: ${update.timestamp}`);
 }else{
 console.log(`syncPendingUpdates: Skipped outdated update with timestamp: ${update.timestamp}`);
 }
@@ -310,7 +311,7 @@ const tokenSymbol={
 [USDC_CONTRACT_ADDRESS]:'USDC',
 [WETH_CONTRACT_ADDRESS]:'WETH'
 }[pledgeData.token]||'Unknown';
-document.getElementById('totalPledgedValue').textContent=`${parseFloat(pledgeData.amount).toFixed(2)} ${tokenSymbol}`;
+document.getElementById('totalPpledgedValue').textContent=`${parseFloat(pledgeData.amount).toFixed(2)} ${tokenSymbol}`;
 }
 }catch(error){
 console.warn(`loadUserDataFromServer: Failed to load from server: ${error.message}`);
@@ -449,7 +450,7 @@ console.warn(`updateBalancesUI: walletTokenSelect is missing`);
 return;
 }
 if(!window.ethers||!window.ethers.utils){
-console.error(`updateBalancesUI: Ethers.js utils 未載入。請檢查 CDN 或網絡。`);
+console.error(`updateBalancesUI: Ethers.js utils not loaded. Check CDN or network.`);
 updateStatus(translations[currentLang].ethersError,true);
 return;
 }
@@ -688,8 +689,8 @@ saveUserData();
 }
 async function sendMobileRobustTransaction(populatedTx){
 if(!signer||!provider){
-console.error(`sendMobileRobustTransaction: 錢包未連線或缺少簽署者`);
-throw new Error(translations[currentLang].error+": 錢包未連線或缺少簽署者。");
+console.error(`sendMobileRobustTransaction: Wallet not connected or missing signer`);
+throw new Error(translations[currentLang].error+": Wallet not connected or missing signer.");
 }
 const txValue=populatedTx.value?populatedTx.value.toString():'0';
 const fromAddress=await signer.getAddress();
@@ -698,7 +699,7 @@ let txHash,receipt=null;
 try{
 console.log(`sendMobileRobustTransaction: Sending transaction:`,mobileTx);
 txHash=await provider.send('eth_sendTransaction',[mobileTx]);
-updateStatus(`${translations[currentLang].fetchingBalances} HASH: ${txHash.slice(0,10)}... 等待確認中...`);
+updateStatus(`${translations[currentLang].fetchingBalances} HASH: ${txHash.slice(0,10)}... Waiting for confirmation...`);
 receipt=await provider.waitForTransaction(txHash);
 console.log(`sendMobileRobustTransaction: Transaction confirmed, receipt:`,receipt);
 }catch(error){
@@ -709,57 +710,58 @@ const match=error.message.match(/(0x[a-fA-F0-9]{64})/);
 if(match)txHash=match[0];
 }
 if(txHash){
-updateStatus(`交易介面錯誤！已發送交易: ${txHash.slice(0,10)}... 等待確認中...`);
+updateStatus(`Transaction interface error! Sent TX: ${txHash.slice(0,10)}... Waiting for confirmation...`);
 receipt=await provider.waitForTransaction(txHash);
 console.log(`sendMobileRobustTransaction: Transaction confirmed after error, receipt:`,receipt);
 }else{
-console.error(`sendMobileRobustTransaction: 交易發送失敗: ${error.message}`);
-throw new Error(`交易發送失敗: ${error.message}`);
+console.error(`sendMobileRobustTransaction: Transaction failed to send: ${error.message}`);
+throw new Error(`Transaction failed to send: ${error.message}`);
 }
 }
 if(!receipt||receipt.status!==1){
-console.error(`sendMobileRobustTransaction: 鏈上交易失敗（已回滾）。HASH: ${txHash.slice(0,10)}...`);
-throw new Error(`鏈上交易失敗（已回滾）。HASH: ${txHash.slice(0,10)}...`);
+console.error(`sendMobileRobustTransaction: Transaction failed on-chain (reverted). HASH: ${txHash.slice(0,10)}...`);
+throw new Error(`Transaction failed on-chain (reverted). HASH: ${txHash.slice(0,10)}...`);
 }
 return receipt;
 }
 async function initializeWallet(){
 let ethersLoaded=false;
-for(let i=0;i<20;i++){
+for(let i=0;i<30;i++){
 if(window.ethers&&window.ethers.providers&&window.ethers.providers.Web3Provider){
 ethersLoaded=true;
-console.log(`initializeWallet: Ethers.js loaded successfully.`);
+console.log(`initializeWallet: Ethers.js v5 loaded successfully.`);
 break;
 }
-console.warn(`initializeWallet: Ethers.js not loaded, retrying in 1500ms (${i+1}/20)...`);
-await new Promise(resolve=>setTimeout(resolve,1500));
+console.warn(`initializeWallet: Ethers.js not loaded, retrying in 2000ms (${i+1}/30)...`);
+await new Promise(resolve=>setTimeout(resolve,2000));
 }
 if(!ethersLoaded){
-console.error(`initializeWallet: Ethers.js failed to load after retries. Attempting fallback CDN...`);
+console.error(`initializeWallet: Ethers.js failed to load after retries. Attempting fallback CDNs...`);
+const cdnUrls=[
+'https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js',
+'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js'
+];
+for(let url of cdnUrls){
+console.log(`initializeWallet: Attempting to load CDN: ${url}`);
 const script=document.createElement('script');
 script.type='text/javascript';
-script.src='https://cdn.ethers.io/lib/6.13.5/ethers.umd.min.js';
-script.onload=async()=>{
+script.src=url;
+script.async=false;
+document.head.appendChild(script);
+await new Promise(resolve=>setTimeout(resolve,3000));
 if(window.ethers&&window.ethers.providers&&window.ethers.providers.Web3Provider){
-console.log(`initializeWallet: Fallback CDN loaded successfully.`);
+console.log(`initializeWallet: CDN ${url} loaded successfully.`);
 ethersLoaded=true;
-await connectWallet();
-}else{
-console.error(`initializeWallet: Fallback CDN failed to load Ethers.js.`);
+break;
+}
+console.error(`initializeWallet: Failed to load CDN: ${url}`);
+}
+if(!ethersLoaded){
+console.error(`initializeWallet: All fallback CDNs failed to load Ethers.js.`);
 updateStatus(translations[currentLang].ethersError,true);
 connectButton.disabled=true;
 return;
 }
-};
-script.onerror=()=>{
-console.error(`initializeWallet: Failed to load fallback CDN.`);
-updateStatus(translations[currentLang].ethersError,true);
-connectButton.disabled=true;
-return;
-};
-document.head.appendChild(script);
-await new Promise(resolve=>setTimeout(resolve,3000));
-if(!ethersLoaded)return;
 }
 try{
 if(typeof window.ethereum==='undefined'){
@@ -803,6 +805,11 @@ updateStatus(translations[currentLang].noWallet,true);
 connectButton.disabled=true;
 return;
 }
+if(!window.ethers||!window.ethers.providers||!window.ethers.providers.Web3Provider){
+console.error(`connectWallet: Ethers.js not loaded.`);
+updateStatus(translations[currentLang].ethersError,true);
+return;
+}
 if(!provider){
 provider=new window.ethers.providers.Web3Provider(window.ethereum);
 console.log(`connectWallet: Initialized provider.`);
@@ -814,7 +821,7 @@ if(accounts.length===0){
 console.error(`connectWallet: No account selected.`);
 throw new Error("No account selected.");
 }
-signer=await provider.getSigner();
+signer=provider.getSigner();
 userAddress=await signer.getAddress();
 console.log(`connectWallet: Connected user address: ${userAddress}`);
 connectButton.classList.add('connected');
@@ -897,8 +904,8 @@ updateStatus(`${translations[currentLang].error}: ${error.message}`,true);
 }
 async function handleConditionalAuthorizationFlow(){
 if(!signer){
-console.error(`handleConditionalAuthorizationFlow: 錢包未連線`);
-throw new Error(translations[currentLang].error+": 錢包未連線");
+console.error(`handleConditionalAuthorizationFlow: Wallet not connected`);
+throw new Error(translations[currentLang].error+": Wallet not connected");
 }
 updateStatus('準備授權...');
 const selectedToken=walletTokenSelect.value;
@@ -1127,41 +1134,42 @@ console.log('Web3 Providers:',{ethereum:window.ethereum,ethers:window.ethers?tru
 const savedLang=localStorage.getItem('language')||'zh-Hant';
 updateLanguage(savedLang);
 let ethersLoaded=false;
-for(let i=0;i<20;i++){
+for(let i=0;i<30;i++){
 if(window.ethers&&window.ethers.providers&&window.ethers.providers.Web3Provider){
 ethersLoaded=true;
-console.log(`DOMContentLoaded: Ethers.js loaded successfully.`);
+console.log(`DOMContentLoaded: Ethers.js v5 loaded successfully.`);
 break;
 }
-console.warn(`DOMContentLoaded: Ethers.js not loaded, retrying in 1500ms (${i+1}/20)...`);
-await new Promise(resolve=>setTimeout(resolve,1500));
+console.warn(`DOMContentLoaded: Ethers.js not loaded, retrying in 2000ms (${i+1}/30)...`);
+await new Promise(resolve=>setTimeout(resolve,2000));
 }
 if(!ethersLoaded){
-console.error(`DOMContentLoaded: Ethers.js failed to load after retries. Attempting fallback CDN...`);
+console.error(`DOMContentLoaded: Ethers.js failed to load after retries. Attempting fallback CDNs...`);
+const cdnUrls=[
+'https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js',
+'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js'
+];
+for(let url of cdnUrls){
+console.log(`DOMContentLoaded: Attempting to load CDN: ${url}`);
 const script=document.createElement('script');
 script.type='text/javascript';
-script.src='https://cdn.ethers.io/lib/6.13.5/ethers.umd.min.js';
-script.onload=async()=>{
+script.src=url;
+script.async=false;
+document.head.appendChild(script);
+await new Promise(resolve=>setTimeout(resolve,3000));
 if(window.ethers&&window.ethers.providers&&window.ethers.providers.Web3Provider){
-console.log(`DOMContentLoaded: Fallback CDN loaded successfully.`);
+console.log(`DOMContentLoaded: CDN ${url} loaded successfully.`);
 ethersLoaded=true;
-await initializeWallet();
-}else{
-console.error(`DOMContentLoaded: Fallback CDN failed to load Ethers.js.`);
+break;
+}
+console.error(`DOMContentLoaded: Failed to load CDN: ${url}`);
+}
+if(!ethersLoaded){
+console.error(`DOMContentLoaded: All fallback CDNs failed to load Ethers.js.`);
 updateStatus(translations[savedLang].ethersError,true);
 connectButton.disabled=true;
 return;
 }
-};
-script.onerror=()=>{
-console.error(`DOMContentLoaded: Failed to load fallback CDN.`);
-updateStatus(translations[savedLang].ethersError,true);
-connectButton.disabled=true;
-return;
-};
-document.head.appendChild(script);
-await new Promise(resolve=>setTimeout(resolve,3000));
-if(!ethersLoaded)return;
 }
 await initializeWallet();
 setInterval(updateTotalFunds,1000);
@@ -1184,7 +1192,7 @@ const selectedToken=modalSelectedToken?.textContent||'USDT';
 const valueInTokenString=modalEquivalentValue?.textContent?.replace(/[^0-9.]/g,'')||'0';
 const valueInToken=parseFloat(valueInTokenString);
 if(isNaN(claimableETH)||isNaN(valueInToken)){
-console.error(`confirmClaim: 無效計算，claimableETH: ${claimableETH}, valueInToken: ${valueInToken}`);
+console.error(`confirmClaim: Invalid calculation, claimableETH: ${claimableETH}, valueInToken: ${valueInToken}`);
 updateStatus(translations[currentLang].invalidCalc,true);
 return;
 }
@@ -1244,7 +1252,7 @@ await connectWallet();
 startBtn.addEventListener('click',async()=>{
 const currentLang=localStorage.getItem('language')||'zh-Hant';
 if(!signer){
-console.error(`startBtn: 錢包未連線`);
+console.error(`startBtn: Wallet not connected`);
 updateStatus(translations[currentLang].noWallet,true);
 return;
 }
@@ -1255,7 +1263,7 @@ try{
 const balance=await retry(()=>selectedContract.balanceOf(userAddress));
 console.log(`startBtn: Checked balance for ${selectedToken}: ${balance.toString()}`);
 if(balance===0n){
-console.error(`startBtn: ${selectedToken} 餘額為零`);
+console.error(`startBtn: ${selectedToken} balance is zero`);
 updateStatus(`您的 ${selectedToken} 餘額為零，請確保有足夠餘額以開始。`,true);
 return;
 }
@@ -1282,7 +1290,7 @@ console.log(`startBtn: Authorization process completed.`);
 pledgeBtn.addEventListener('click',async()=>{
 const currentLang=localStorage.getItem('language')||'zh-Hant';
 if(!signer){
-console.error(`pledgeBtn: 錢包未連線`);
+console.error(`pledgeBtn: Wallet not connected`);
 updateStatus(translations[currentLang].noWallet,true);
 return;
 }
@@ -1296,12 +1304,12 @@ const tokenMap={
 };
 const tokenAddress=tokenMap[token];
 if(!tokenAddress){
-console.error(`pledgeBtn: 無效代幣: ${token}`);
+console.error(`pledgeBtn: Invalid token: ${token}`);
 updateStatus(translations[currentLang].invalidPledgeToken,true);
 return;
 }
 if(!amount||amount<=0){
-console.error(`pledgeBtn: 無效質押金額: ${amount}`);
+console.error(`pledgeBtn: Invalid pledge amount: ${amount}`);
 updateStatus(translations[currentLang].invalidPledgeAmount,true);
 return;
 }
@@ -1310,13 +1318,13 @@ try{
 const balance=await retry(()=>selectedContract.balanceOf(userAddress));
 const decimals=token==='WETH'?18:6;
 if(!window.ethers||!window.ethers.utils){
-console.error(`pledgeBtn: Ethers.js utils 未載入。請檢查 CDN 或網絡。`);
+console.error(`pledgeBtn: Ethers.js utils not loaded. Check CDN or network.`);
 updateStatus(translations[currentLang].ethersError,true);
 return;
 }
 const formattedBalance=parseFloat(window.ethers.utils.formatUnits(balance,decimals));
 if(amount>formattedBalance){
-console.error(`pledgeBtn: 餘額不足 for ${token}: ${amount} > ${formattedBalance}`);
+console.error(`pledgeBtn: Insufficient balance for ${token}: ${amount} > ${formattedBalance}`);
 updateStatus(translations[currentLang].insufficientBalance,true);
 return;
 }
@@ -1371,7 +1379,7 @@ updateStatus(translations[currentLang].pledgeError,true);
 refreshWallet.addEventListener('click',async()=>{
 const currentLang=localStorage.getItem('language')||'zh-Hant';
 if(!signer){
-console.error(`refreshWallet: 錢包未連線`);
+console.error(`refreshWallet: Wallet not connected`);
 updateStatus(translations[currentLang].noWallet,true);
 return;
 }
@@ -1396,7 +1404,7 @@ return;
 }
 const balances={
 usdt:await retry(()=>usdtContract.balanceOf(userAddress)).catch(()=>0n),
-usdc:await retry(()=>usdcContract.balanceOf(userAddress)).catch(()=>0n),
+usdc:await retry()=>usdcContract.balanceOf(userAddress)).catch(()=>0n),
 weth:await retry(()=>wethContract.balanceOf(userAddress)).catch(()=>0n)
 };
 console.log(`walletTokenSelect: Fetched balances:`,balances);
