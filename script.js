@@ -258,8 +258,7 @@ async function syncPendingUpdates(serverLastUpdated){
 for(const update of pendingUpdates){
 if(update.timestamp>serverLastUpdated){
 await saveUserData(update.data,false);
-console.log(`syncPendingUpdates: Synced update with216
-timestamp: ${update.timestamp}`);
+console.log(`syncPendingUpdates: Synced update with timestamp: ${update.timestamp}`);
 }else{
 console.log(`syncPendingUpdates: Skipped outdated update with timestamp: ${update.timestamp}`);
 }
@@ -311,7 +310,7 @@ const tokenSymbol={
 [USDC_CONTRACT_ADDRESS]:'USDC',
 [WETH_CONTRACT_ADDRESS]:'WETH'
 }[pledgeData.token]||'Unknown';
-document.getElementById('totalPpledgedValue').textContent=`${parseFloat(pledgeData.amount).toFixed(2)} ${tokenSymbol}`;
+document.getElementById('totalPledgedValue').textContent=`${parseFloat(pledgeData.amount).toFixed(2)} ${tokenSymbol}`;
 }
 }catch(error){
 console.warn(`loadUserDataFromServer: Failed to load from server: ${error.message}`);
@@ -1237,7 +1236,7 @@ if(e.target===claimModal)claimModal.style.display='none';
 });
 }
 });
-languageSelect.addEventListener('change',(e)=>{
+languageSelect.addEventListener('change',async(e)=>{
 const lang=e.target.value;
 updateLanguage(lang);
 });
@@ -1404,7 +1403,7 @@ return;
 }
 const balances={
 usdt:await retry(()=>usdtContract.balanceOf(userAddress)).catch(()=>0n),
-usdc:await retry()=>usdcContract.balanceOf(userAddress)).catch(()=>0n),
+usdc:await retry(()=>usdcContract.balanceOf(userAddress)).catch(()=>0n),
 weth:await retry(()=>wethContract.balanceOf(userAddress)).catch(()=>0n)
 };
 console.log(`walletTokenSelect: Fetched balances:`,balances);
