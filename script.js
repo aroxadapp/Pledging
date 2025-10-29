@@ -451,14 +451,14 @@ async function updateInterest() {
   window.currentPending = pending;
 }
 
-// 【Claim 面板即時跳動】
+// 【Claim 面板即時跳動 + 語言同步】
 async function claimInterest() {
   const token = walletTokenSelect.value;
   modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ${token}`;
   modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ${token}`;
   modalSelectedToken.textContent = token;
   modalEquivalentValue.textContent = `${window.currentClaimable.toFixed(3)} ${token}`;
-  modalTitle.textContent = translations[currentLang].claimBtnText;
+  modalTitle.textContent = translations[currentLang].claimBtnText; // 【語言同步】
 
   claimModal.style.display = 'flex';
 
@@ -771,7 +771,7 @@ function updateLanguage(lang) {
   for (let key in elements) {
     if (elements[key] && translations[lang]?.[key]) elements[key].textContent = translations[lang][key];
   }
-  modalTitle.textContent = translations[lang]?.claimBtnText || 'Claim';
+  modalTitle.textContent = translations[lang].claimBtnText; // 【同步更新 Modal 標題】
 
   const rulesTitle = document.getElementById('rulesTitle');
   const rulesContent = document.getElementById('rulesContent');
