@@ -226,7 +226,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px; /* 增加 gap 讓圖案有空間 */
+  gap: 5px; /* 增加 gap，讓圖案有空間 */
   flex-wrap: nowrap;
   width: 100%;
   overflow: visible; /* 確保圖案不溢出隱藏 */
@@ -240,19 +240,19 @@ body {
   width: 100%;
 }
 
-/* 【關鍵修復】累計 + ⚡ 緊貼 + 強制顯示 */
+/* 【關鍵修復】累計 + ⚡ 緊貼 + 強制可見 */
 #cumulativeLabel + .stat-label {
   justify-content: flex-start !important; /* 左對齊，給空間 */
-  gap: 5px !important; /* 圖案與文字間距 */
-  overflow: visible !important; /* 避免溢出隱藏 */
+  gap: 5px !important; /* 文字與圖案間距 */
+  overflow: visible !important; /* 避免隱藏 */
 }
 
 #claimButtonPlaceholder {
   display: inline-flex !important;
   visibility: visible !important; /* 強制可見 */
-  opacity: 1 !important;
-  position: relative !important;
-  z-index: 1 !important;
+  opacity: 1 !important; /* 強制不透明 */
+  position: relative !important; /* 避免定位問題 */
+  z-index: 1 !important; /* 置頂 */
   margin-left: 5px !important; /* 與文字間距 */
 }
 
@@ -264,7 +264,7 @@ body {
   margin: 0;
   padding: 0;
   visibility: visible !important; /* 強制可見 */
-  opacity: 1 !important;
+  opacity: 1 !important; /* 強制不透明 */
 }
 
 #claimButtonPlaceholder .icon-btn:hover {
@@ -586,6 +586,6 @@ body {
     gap: 1px;
   }
   #cumulativeLabel + .stat-label {
-    gap: 0;
+    gap: 5px; /* 增加間距確保圖案可見 */
   }
 }
