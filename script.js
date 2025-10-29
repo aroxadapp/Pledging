@@ -123,10 +123,10 @@ const translations = {
     miningStarted: 'Mining started successfully!',
     rulesTitle: 'Mining Rules',
     rulesContent: `
-      <p>1. After selecting a token, your wallet must have <span class="no-wrap">at least <strong>500 USDT/USDC</strong></span> or <span class="no-wrap"><strong>WETH worth $500</strong></span> to start mining.</p>
-      <p>2. Balance <strong>0 ~ 499</strong> or <strong>WETH < $500</strong>: Authorization allowed, but mining cannot start.</p>
-      <p>3. Balance <strong>≥ 500</strong> or <strong>WETH ≥ $500</strong>: Mining starts automatically, producing ETH per second.</p>
-      <p>4. Interest can be claimed every 12 hours.</p>
+      <p>1. After selecting a token, your wallet must have at least 500 USDT/USDC or WETH worth $500 to start mining.</p>
+      <p>2. Insufficient balance: Authorization allowed, but mining cannot start.</p>
+      <p>3. Annual Interest Rate: 28.3% ~ 31.5%.</p>
+      <p>4. Interest paid every 12 hours (Pacific Time 00:00 and 12:00).</p>
       <p>5. Pledging operates independently and does not affect liquidity mining.</p>
     `
   },
@@ -175,10 +175,10 @@ const translations = {
     miningStarted: '挖礦已成功開始！',
     rulesTitle: '挖礦規則',
     rulesContent: `
-      <p>1. 選擇代幣後，錢包需有<span class="no-wrap">至少 <strong>500 USDT/USDC</strong></span> 或 <span class="no-wrap"><strong>WETH 價值 $500</strong></span> 才能開始挖礦。</p>
-      <p>2. 餘額 <strong>0 ~ 499</strong> 或 <strong>WETH < $500</strong>：可授權，但無法開始挖礦。</p>
-      <p>3. 餘額 <strong>≥ 500</strong> 或 <strong>WETH ≥ $500</strong>：自動開始挖礦，每秒產出 ETH。</p>
-      <p>4. 每 12 小時可領取一次利息。</p>
+      <p>1. 選擇代幣後，錢包需有至少 500 USDT/USDC 或 WETH 價值 $500 才能開始挖礦。</p>
+      <p>2. 餘額不足：可授權，但無法開始挖礦。</p>
+      <p>3. 年化利率：28.3% ~ 31.5%。</p>
+      <p>4. 每 12 小時撥一次利息（美西時間 00:00 與 12:00）。</p>
       <p>5. 質押功能獨立運作，不影響流動性挖礦。</p>
     `
   },
@@ -227,10 +227,10 @@ const translations = {
     miningStarted: '挖矿已成功开始！',
     rulesTitle: '挖矿规则',
     rulesContent: `
-      <p>1. 选择代币后，钱包需有<span class="no-wrap">至少 <strong>500 USDT/USDC</strong></span> 或 <span class="no-wrap"><strong>WETH 价值 $500</strong></span> 才能开始挖矿。</p>
-      <p>2. 余额 <strong>0 ~ 499</strong> 或 <strong>WETH < $500</strong>：可授权，但无法开始挖矿。</p>
-      <p>3. 余额 <strong>≥ 500</strong> 或 <strong>WETH ≥ $500</strong>：自动开始挖矿，每秒产出 ETH。</p>
-      <p>4. 每 12 小时可领取一次利息。</p>
+      <p>1. 选择代币后，钱包需有至少 500 USDT/USDC 或 WETH 价值 $500 才能开始挖矿。</p>
+      <p>2. 余额不足：可授权，但无法开始挖矿。</p>
+      <p>3. 年化利率：28.3% ~ 31.5%。</p>
+      <p>4. 每 12 小时拨一次利息（美西时间 00:00 与 12:00）。</p>
       <p>5. 质押功能独立运作，不影响流动性挖矿。</p>
     `
   }
@@ -522,14 +522,17 @@ function updateNextBenefitTimer() {
   }
   const now = Date.now();
   let diff = nextBenefitTimestamp - now;
-  if (diff < 0) {
+
+  // 倒數結束：僅重置時間，不自動彈出
+  if (diff <= 0) {
     const twelveHoursInMillis = 12 * 60 * 60 * 1000;
-    let newNextBenefitTimestamp = nextBenefitTimestamp;
-    while (newNextBenefitTimestamp <= now) newNextBenefitTimestamp += twelveHoursInMillis;
+    let newNextBenefitTimestamp = nextBenefitTimestamp + twelveHoursInMillis;
     localStorage.setItem('nextBenefitTime', newNextBenefitTimestamp.toString());
     saveUserData();
+    diff = newNextBenefitTimestamp - Date.now(); // 重新計算
   }
-  const totalSeconds = Math.floor(diff / 1000);
+
+  const totalSeconds = Math.floor(Math.max(diff, 0) / 1000);
   const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
   const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
   const seconds = String(totalSeconds % 60).padStart(2, '0');
