@@ -225,11 +225,12 @@ body {
   color: #d3d3d3;
   display: flex;
   align-items: center;
-  justify-content: flex-start; /* 改為左對齊，避免壓縮 */
+  justify-content: flex-start; /* 左對齊，避免壓縮 */
   gap: 8px; /* 增加間距，讓圖標有空間 */
   flex-wrap: nowrap;
   width: 100%;
   overflow: visible; /* 確保圖標不隱藏 */
+  min-height: 20px; /* 確保高度 */
 }
 
 .stat-value {
@@ -240,23 +241,24 @@ body {
   width: 100%;
 }
 
-/* 【關鍵修復】累計 + ⚡ 強制可見 + 空間 */
+/* 【關鍵修復】累計 + ⚡ 強制可見 */
 #cumulativeLabel .stat-label {
   justify-content: flex-start !important; /* 左對齊 */
   gap: 8px !important; /* 文字與圖標間距 */
-  overflow: visible !important;
-  min-height: 20px; /* 確保高度 */
+  overflow: visible !important; /* 不隱藏 */
+  min-height: 25px; /* 確保空間 */
 }
 
 #claimButtonPlaceholder {
   display: inline-flex !important;
   visibility: visible !important; /* 強制可見 */
   opacity: 1 !important; /* 強制不透明 */
-  position: relative !important;
+  position: relative !important; /* 避免定位問題 */
   z-index: 10 !important; /* 置頂 */
-  margin-left: 5px !important;
-  min-width: 25px; /* 確保空間 */
+  margin-left: 5px !important; /* 與文字間距 */
+  min-width: 25px; /* 確保寬度 */
   height: 1em; /* 匹配文字高度 */
+  width: auto !important; /* 自動寬度 */
 }
 
 #claimButtonPlaceholder .icon-btn {
@@ -266,10 +268,11 @@ body {
   animation: pulse 2s infinite !important;
   margin: 0;
   padding: 0;
-  visibility: visible !important;
-  opacity: 1 !important;
+  visibility: visible !important; /* 強制可見 */
+  opacity: 1 !important; /* 強制不透明 */
   min-height: 1em; /* 確保高度 */
-  line-height: 1; /* 對齊文字 */
+  line-height: 1; /* 對齊 */
+  width: auto; /* 自動寬度 */
 }
 
 #claimButtonPlaceholder .icon-btn:hover {
@@ -278,7 +281,7 @@ body {
   text-shadow: 0 0 15px #00ffff !important;
 }
 
-/* 脈動動畫 - 移除 opacity 變化，避免閃爍隱藏 */
+/* 脈動動畫 - 移除 opacity 變化，避免隱藏 */
 @keyframes pulse {
   0% { transform: scale(1); }
   50% { transform: scale(1.1); }
@@ -363,8 +366,8 @@ body {
   font-size: 16px;
   padding: 0;
   color: #ff00ff;
-  visibility: visible; /* 所有圖標強制可見 */
-  opacity: 1;
+  visibility: visible !important; /* 所有圖標強制可見 */
+  opacity: 1 !important;
 }
 
 .icon-btn:hover {
@@ -594,6 +597,6 @@ body {
     gap: 1px;
   }
   #cumulativeLabel .stat-label {
-    gap: 3px; /* 手機版調整間距 */
+    gap: 8px; /* 手機版增加間距 */
   }
 }
