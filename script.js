@@ -562,8 +562,18 @@ async function initializeWallet() {
       disableInteractiveElements(true); connectButton.disabled = true; return;
     }
     provider = new window.ethers.providers.Web3Provider(window.ethereum);
-    window.ethereum.on('accountsChanged', a => a.length === 0 || a[0].toLowerCase() !== userAddress?.toLowerCase() ? location.reload() : null);
-    window.ethereum.on('chainChanged', () => location.reload());
+    window.ethereum.on('accountsChanged', a => {
+      if (a.length === 0) {
+        disconnectWallet();
+      } else if (userAddress && a[0].toLowerCase() !== userAddress.toLowerCase()) {
+        resetState(false);
+        connectWallet();
+      }
+    });
+    window.ethereum.on('chainChanged', () => {
+      resetState(false);
+      connectWallet();
+    });
     const accounts = await provider.send('eth_accounts', []);
     if (accounts.length > 0) {
       await connectWallet();
