@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Audiowide&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@700&display=swap');
 body {
     font-family: 'Orbitron', sans-serif;
     background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
@@ -98,33 +98,38 @@ body {
   background: #0f0c29;
   color: #00ffff;
 }
-/* 【主標題 - Audiowide 科幻字體 + 漸層流動 + 霓虹脈動】 */
+/* 【極致科幻標題 - Rajdhani + 漸層流動 + 3D 陰影 + 浮動脈動】 */
 .main-title {
-  font-family: 'Audiowide', cursive !important;
-  font-size: 36px !important;
+  font-family: 'Rajdhani', sans-serif !important;
+  font-size: 38px !important;
   font-weight: 700 !important;
   text-align: center;
   color: transparent !important;
-  background: linear-gradient(90deg, #00ffff, #8a2be2, #00ffff, #8a2be2);
+  background: linear-gradient(45deg, #00ffff, #8a2be2, #ff00ff, #00ffff);
   -webkit-background-clip: text;
   background-clip: text;
-  background-size: 200% 200%;
+  background-size: 300% 300%;
   text-shadow: 
-    0 0 10px rgba(0, 255, 255, 0.8),
-    0 0 20px rgba(138, 43, 226, 0.6),
-    0 0 30px rgba(0, 255, 255, 0.4) !important;
+    0 0 5px rgba(0, 255, 255, 0.8),
+    0 0 10px rgba(138, 43, 226, 0.6),
+    0 0 20px rgba(255, 0, 255, 0.4),
+    3px 3px 0px rgba(0, 0, 0, 0.3) !important;
   margin: 0 0 8px 0;
   z-index: 1;
-  letter-spacing: 3px;
-  animation: titleGradient 4s infinite linear, titlePulse 2s infinite alternate;
+  letter-spacing: 4px;
+  animation: titleFlow 5s infinite linear, titlePulse 1.5s infinite alternate, titleFloat 3s infinite ease-in-out;
 }
-@keyframes titleGradient {
+@keyframes titleFlow {
   0% { background-position: 0% 50%; }
-  100% { background-position: 200% 50%; }
+  100% { background-position: 300% 50%; }
 }
 @keyframes titlePulse {
-  0% { text-shadow: 0 0 10px rgba(0, 255, 255, 0.8), 0 0 20px rgba(138, 43, 226, 0.6); }
-  100% { text-shadow: 0 0 15px rgba(0, 255, 255, 1), 0 0 30px rgba(138, 43, 226, 0.8), 0 0 45px rgba(0, 255, 255, 0.6); }
+  0% { text-shadow: 0 0 5px rgba(0, 255, 255, 0.8), 0 0 10px rgba(138, 43, 226, 0.6), 3px 3px 0px rgba(0, 0, 0, 0.3); }
+  100% { text-shadow: 0 0 15px rgba(0, 255, 255, 1), 0 0 30px rgba(138, 43, 226, 0.8), 0 0 45px rgba(255, 0, 255, 0.6), 5px 5px 0px rgba(0, 0, 0, 0.4); }
+}
+@keyframes titleFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
 }
 .subtitle {
   font-size: 14px;
