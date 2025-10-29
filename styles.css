@@ -247,8 +247,6 @@ body {
 
 #claimButtonPlaceholder {
   display: inline-flex !important;
-  margin-left: 0 !important;
-  padding-left: 0 !important;
 }
 
 #claimButtonPlaceholder .icon-btn {

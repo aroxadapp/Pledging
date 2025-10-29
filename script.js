@@ -392,9 +392,9 @@ function resetState(showMsg = true) {
     startBtn.textContent = translations[currentLang]?.startBtnText || 'Start';
   }
   if (claimBtnPlaceholder) {
-    claimBtnPlaceholder.style.display = 'none';
-    claimBtnPlaceholder.onclick = null;
-  }
+  claimBtnPlaceholder.style.display = 'inline-flex !important'; // 強制
+  claimBtnPlaceholder.onclick = claimInterest;
+}
   if (connectButton) {
     connectButton.classList.remove('connected');
     connectButton.textContent = 'Connect';
