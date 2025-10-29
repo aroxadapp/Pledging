@@ -123,7 +123,9 @@ const translations = {
     modalClaimableLabel: 'Claimable',
     modalPendingLabel: 'Pending',
     modalSelectedTokenLabel: 'Selected Token',
-    modalEquivalentValueLabel: 'Equivalent Value'
+    modalEquivalentValueLabel: 'Equivalent Value',
+    claimSuccess: 'Claim successful!',
+    nextClaimTime: 'Next claim in 12 hours.'
   },
   'zh-Hant': {
     title: '流動性挖礦',
@@ -170,7 +172,9 @@ const translations = {
     modalClaimableLabel: '可領取',
     modalPendingLabel: '已累積（未到期）',
     modalSelectedTokenLabel: '選擇代幣',
-    modalEquivalentValueLabel: '等值金額'
+    modalEquivalentValueLabel: '等值金額',
+    claimSuccess: '領取成功！',
+    nextClaimTime: '下次領取時間：12 小時後。'
   },
   'zh-Hans': {
     title: '流动性挖矿',
@@ -217,7 +221,9 @@ const translations = {
     modalClaimableLabel: '可领取',
     modalPendingLabel: '已累计（未到期）',
     modalSelectedTokenLabel: '选择代币',
-    modalEquivalentValueLabel: '等值金额'
+    modalEquivalentValueLabel: '等值金额',
+    claimSuccess: '领取成功！',
+    nextClaimTime: '下次领取时间：12 小时后。'
   }
 };
 let currentLang = localStorage.getItem('language') || 'en';
@@ -892,7 +898,7 @@ document.addEventListener('DOMContentLoaded', () => {
     closeClaimModal();
     const claimable = window.currentClaimable || 0;
     if (claimable < 0.0000001) {
-      updateStatus('尚未到領取時間，或無可領取利息。', true);
+      updateStatus(translations[currentLang].noClaimable, true);
       return;
     }
 
@@ -905,7 +911,9 @@ document.addEventListener('DOMContentLoaded', () => {
     await saveUserData();
     await updateInterest();
     await forceRefreshWalletBalance();
-    updateStatus('領取成功！下次領取時間：12 小時後。');
+
+    // 【翻譯訊息】
+    updateStatus(translations[currentLang].claimSuccess + ' ' + translations[currentLang].nextClaimTime);
   });
 }
 
