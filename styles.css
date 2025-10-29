@@ -137,7 +137,7 @@ body {
   from { text-shadow: 0 0 5px #00ffff; }
   to { text-shadow: 0 0 15px #00ffff, 0 0 25px #00ffff; }
 }
-/* tabs + ? 圖案 */
+/* tabs */
 .tabs {
   display: flex;
   justify-content: space-around;
@@ -162,16 +162,6 @@ body {
   box-shadow: 0 0 15px #00ffff;
   color: #ffffff;
 }
-.tab-icon {
-  font-size: 18px;
-  color: #8a2be2;
-  cursor: pointer;
-  margin-left: 10px;
-}
-.tab-icon:hover {
-  color: #00ffff;
-  transform: scale(1.2);
-}
 .content-section {
   display: none;
 }
@@ -183,6 +173,31 @@ body {
   grid-template-columns: 1fr 1fr;
   gap: 15px;
   margin-bottom: 25px;
+  position: relative;
+}
+/* 【問號在中央】 */
+.rules-button-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 14px;
+  color: #8a2be2;
+  cursor: pointer;
+  z-index: 10;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(138, 43, 226, 0.5);
+}
+.rules-button-center:hover {
+  color: #00ffff;
+  transform: translate(-50%, -50%) scale(1.2);
+  box-shadow: 0 0 12px #00ffff;
 }
 .stat {
   background: rgba(0, 255, 255, 0.1);
@@ -194,6 +209,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  position: relative;
+  z-index: 1;
 }
 /* 【文字置中】標籤與數值 */
 .stat-label {
@@ -201,6 +218,7 @@ body {
   color: #d3d3d3;
   text-align: center !important;
   margin-bottom: 4px;
+  width: 100%;
 }
 .stat-value {
   font-size: 18px;
@@ -209,28 +227,36 @@ body {
   text-align: center !important;
   margin-bottom: 8px;
   flex-grow: 1;
+  width: 100%;
 }
-/* 【按鈕在數字下方置中】 */
-.claim-button-below {
+/* 【按鈕在文字右邊】 */
+.cumulative-with-button {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  width: 32px !important;
-  height: 32px !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+.claim-button-inline {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 28px !important;
+  height: 28px !important;
   padding: 0 !important;
-  margin: 0 auto !important;
+  margin: 0 !important;
   background: transparent !important;
   border: none !important;
   cursor: pointer !important;
 }
-.claim-button-below svg {
-  width: 20px !important;
-  height: 20px !important;
+.claim-button-inline svg {
+  width: 18px !important;
+  height: 18px !important;
   fill: #ff00ff !important;
   stroke: #ff00ff !important;
   animation: pulse 2s infinite !important;
 }
-.claim-button-below:hover svg {
+.claim-button-inline:hover svg {
   fill: #00ffff !important;
   stroke: #00ffff !important;
   transform: scale(1.3);
@@ -493,9 +519,6 @@ body {
     padding: 8px 15px;
     font-size: 14px;
   }
-  .tab-icon {
-    font-size: 16px;
-  }
   .rules-info {
     font-size: 13px;
     line-height: 1.5;
@@ -508,5 +531,13 @@ body {
   }
   #walletBalanceLabel + .stat {
     min-height: 120px;
+  }
+  .cumulative-with-button {
+    gap: 6px;
+  }
+  .rules-button-center {
+    font-size: 12px;
+    width: 20px;
+    height: 20px;
   }
 }

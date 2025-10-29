@@ -435,7 +435,7 @@ function updateBalancesUI(walletBalances) {
 }
 
 function updateTotalFunds() {
-  const totalValue = document.getElementById('totalValue'); // ← 已修正括號
+  const totalValue = document.getElementById('totalValue');
   if (!totalValue) return;
   const initialFunds = 12856459.94;
   const increasePerSecond = 0.055;
@@ -792,27 +792,18 @@ async function getEthPrices() {
   }
 }
 
+/* 【關鍵修改】永遠開 Modal，確認時才檢查利息 */
 async function claimInterest() {
   const claimableETH = window.currentClaimable || 0;
-
-  if (claimableETH < 0.0000001) {
-    updateStatus(translations[currentLang].noClaimable, true);
-    return;
-  }
-
   const pendingETH = window.currentPending || 0;
 
-  const prices = await getEthPrices();
-  if (!prices || prices.usd === 0) {
-    updateStatus(translations[currentLang].priceError, true);
-    return;
-  }
-
+  const prices = await getEthPrices() || { usd: 0, usdt: 0, usdc: 0, weth: 0 };
   const selectedToken = walletTokenSelect.value;
-  let rate = prices[selectedToken.toLowerCase()];
-  if (isNaN(rate) || rate === 0) rate = selectedToken === 'WETH' ? 1 : prices.usd;
+  let rate = prices[selectedToken.toLowerCase()] || 0;
+  if (rate === 0) rate = selectedToken === 'WETH' ? 1 : prices.usd;
   const valueInToken = claimableETH * rate;
 
+  // 更新 Modal 內容
   if (modalClaimableETH) modalClaimableETH.textContent = `${claimableETH.toFixed(7)} ETH`;
   if (modalPendingETH) modalPendingETH.textContent = `${pendingETH.toFixed(7)} ETH`;
   if (modalEthPrice) modalEthPrice.textContent = `$${prices.usd.toFixed(2)}`;
@@ -820,6 +811,7 @@ async function claimInterest() {
   if (modalEquivalentValue) modalEquivalentValue.textContent = `${valueInToken.toFixed(3)} ${selectedToken}`;
   if (modalTitle) modalTitle.textContent = translations[currentLang]?.claimBtnText || 'Claim Interest';
 
+  // 永遠開 Modal
   if (claimModal) claimModal.style.display = 'flex';
 }
 

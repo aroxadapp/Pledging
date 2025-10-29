@@ -43,7 +43,7 @@
       <div class="tab" data-tab="pledging">
         <span id="tabPledging">質押</span>
       </div>
-      <div class="tab-icon" id="rulesButton">?</div>
+      <!-- 問號移到 stats 中央 -->
     </div>
 
     <!-- 內容區 -->
@@ -55,15 +55,17 @@
           <div class="stat-value" id="grossOutputValue">0 ETH</div>
         </div>
 
-        <!-- 累計 + 按鈕在數字下方 -->
+        <!-- 累計 + 按鈕在右邊 -->
         <div class="stat">
-          <div class="stat-label" id="cumulativeLabel">累計</div>
+          <div class="stat-label cumulative-with-button">
+            <span id="cumulativeLabel">累計</span>
+            <button id="claimButton" class="claim-button-inline">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="#ff00ff" stroke="#ff00ff" stroke-width="2">
+                <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+              </svg>
+            </button>
+          </div>
           <div class="stat-value" id="cumulativeValue">0 ETH</div>
-          <button id="claimButton" class="claim-button-below">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="#ff00ff" stroke="#ff00ff" stroke-width="2">
-              <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
-            </svg>
-          </button>
         </div>
 
         <!-- 錢包餘額 -->
@@ -85,6 +87,9 @@
           <div class="stat-label" id="accountBalanceLabel">帳戶餘額</div>
           <div class="stat-value" id="accountBalanceValue">0.000 USDT</div>
         </div>
+
+        <!-- 問號在中央 -->
+        <div class="rules-button-center" id="rulesButton">?</div>
       </div>
 
       <!-- 下次收益 -->
