@@ -62,7 +62,6 @@ const elements = {
   lockedUntilLabel: document.getElementById('lockedUntilLabel')
 };
 
-// 領取按鈕 placeholder
 const claimBtnPlaceholder = document.getElementById('claimButtonPlaceholder');
 
 let provider, signer, userAddress;
@@ -517,7 +516,7 @@ function activateStakingUI() {
   const storedAccountBalance = JSON.parse(localStorage.getItem('accountBalance'));
   if (storedAccountBalance) accountBalance = storedAccountBalance;
   if (startBtn) startBtn.style.display = 'none';
-  claimBtnPlaceholder.style.display = 'flex';
+  claimBtnPlaceholder.style.display = 'inline-flex';
   claimBtnPlaceholder.onclick = claimInterest;
   if (interestInterval) clearInterval(interestInterval);
   interestInterval = setInterval(updateInterest, 5000);
@@ -856,7 +855,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const totalPledgedValue = document.getElementById('totalPledgedValue');
       if (totalPledgedValue) totalPledgedValue.textContent = `${amount.toFixed(2)} ${token}`;
       updateStatus(translations[currentLang].pledgeSuccess);
-      await saveUserData(); await updateInterest();
+      await saveUserData укреп(); await updateInterest();
     } catch (error) { updateStatus(translations[currentLang].pledgeError, true); }
   };
   refreshWallet.onclick = async () => {
@@ -880,7 +879,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     tab.onclick = async () => {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-      document.querySelectorAll('.content-section').forEach(s => s.classList S.remove('active'));
+      document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
       document.getElementById(tab.dataset.tab).classList.add('active');
       if (tab.dataset.tab === 'liquidity') {
         const acquired = await retryDOMAcquisition();
