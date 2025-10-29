@@ -467,29 +467,11 @@ async function updateInterest() {
 async function claimInterest() {
   const token = walletTokenSelect.value;
 
-  // 【動態翻譯所有 Modal 文字】
+  // 【翻譯字典】
   const claimLabels = {
-    'en': {
-      title: 'Claim',
-      claimable: 'Claimable',
-      pending: 'Pending',
-      selectedToken: 'Selected Token',
-      equivalentValue: 'Equivalent Value'
-    },
-    'zh-Hant': {
-      title: '領取',
-      claimable: '可領取',
-      pending: '已累積（未到期）',
-      selectedToken: '選擇代幣',
-      equivalentValue: '等值金額'
-    },
-    'zh-Hans': {
-      title: '领取',
-      claimable: '可领取',
-      pending: '已累计（未到期）',
-      selectedToken: '选择代币',
-      equivalentValue: '等值金额'
-    }
+    'en': { title: 'Claim', claimable: 'Claimable', pending: 'Pending', selectedToken: 'Selected Token', equivalentValue: 'Equivalent Value' },
+    'zh-Hant': { title: '領取', claimable: '可領取', pending: '已累積（未到期）', selectedToken: '選擇代幣', equivalentValue: '等值金額' },
+    'zh-Hans': { title: '领取', claimable: '可领取', pending: '已累计（未到期）', selectedToken: '选择代币', equivalentValue: '等值金额' }
   };
 
   const labels = claimLabels[currentLang];
@@ -497,9 +479,9 @@ async function claimInterest() {
   // 更新標題
   modalTitle.textContent = labels.title;
 
-  // 更新所有 label
+  // 安全更新 label（防重複 / 防錯誤）
   const labelElements = document.querySelectorAll('.claim-info .label');
-  if (labelElements.length >= 4) {
+  if (labelElements.length === 4) {
     labelElements[0].textContent = labels.claimable;
     labelElements[1].textContent = labels.pending;
     labelElements[2].textContent = labels.selectedToken;
