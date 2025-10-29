@@ -8,8 +8,10 @@
 </head>
 <body>
   <div class="app-container">
+    <!-- Status -->
     <div id="status"></div>
 
+    <!-- Header -->
     <div class="header">
       <div class="logo" id="title">熱門挖礦</div>
       <select id="languageSelect" class="language-select">
@@ -20,15 +22,18 @@
     </div>
     <p class="subtitle" id="subtitle">開始賺取數百萬</p>
 
+    <!-- Total Funds -->
     <div class="total-funds">
       <div class="total-value" id="totalValue">12,856,459.94 ETH</div>
     </div>
 
+    <!-- Tabs -->
     <div class="tabs">
       <div class="tab active" data-tab="liquidity">流動性</div>
       <div class="tab" data-tab="pledging">質押</div>
     </div>
 
+    <!-- Liquidity Tab -->
     <div id="liquidity" class="content-section active">
       <div class="stats">
         <div class="stat">
@@ -39,7 +44,8 @@
           <div class="stat-label" id="cumulativeLabel">累計</div>
           <div class="inline-flex">
             <div class="stat-value" id="cumulativeValue">0 ETH</div>
-            <button id="claimButton" class="icon-btn" title="領取" style="display: none;" disabled>⚡</button>
+            <!-- 動態插入 ⚡ 按鈕 -->
+            <div id="claimButtonPlaceholder"></div>
           </div>
         </div>
         <div class="stat">
@@ -61,6 +67,7 @@
       <div class="next-benefit" id="nextBenefit">下次收益: 00:00:00</div>
     </div>
 
+    <!-- Pledging Tab -->
     <div id="pledging" class="content-section">
       <div class="pledge-form">
         <div class="input-group">
@@ -95,6 +102,7 @@
     </div>
   </div>
 
+  <!-- Claim Modal -->
   <div id="claimModal" class="modal" style="display: none;">
     <div class="modal-content">
       <div class="modal-header">
