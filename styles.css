@@ -37,338 +37,356 @@ body {
     display: none;
 }
 
-/* 原始 header：左熱門挖礦 + 語言，Connect 移到右上角 */
-.header {
-    display: flex;
-    justify-content: flex-start;
-    align-items: center;
-    margin-bottom: 15px;
-    position: relative;
+/* 右上角：語言 + Connect */
+.header-right {
+  position: absolute;
+  top: 20px;
+  right: 25px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  z-index: 2;
 }
 
-.logo {
-    font-size: 28px;
-    font-weight: 700;
-    color: #00ffff;
-    text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
-    margin-right: 15px;
-}
-
-.language-select {
-    background: #000000;
-    border: 1px solid rgba(0, 255, 255, 0.5);
-    color: #ffffff;
-    padding: 5px 10px;
-    border-radius: 15px;
-    cursor: pointer;
-    font-size: 14px;
-}
-
-/* Connect 按鈕：右上角固定 */
-.right-top-connect {
-    position: absolute;
-    top: -10px;
-    right: 0;
-    background: linear-gradient(45deg, #8a2be2, #00ffff);
-    border: none;
-    color: #ffffff;
-    padding: 10px 20px;
-    border-radius: 30px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: transform 0.3s, box-shadow 0.3s;
-}
-
-.right-top-connect:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 15px #00ffff;
-}
-
-/* 其他樣式 100% 照你提供的 */
-.title {
-    font-size: 24px;
-    font-weight: 700;
-    text-align: center;
-    margin-bottom: 10px;
-    color: #00ffff;
-    text-shadow: 0 0 10px #00ffff;
+/* 主標題：流動性挖礦 */
+.main-title {
+  font-size: 32px;
+  font-weight: 700;
+  text-align: center;
+  color: #00ffff;
+  text-shadow: 0 0 15px #00ffff, 0 0 30px #00ffff;
+  margin: 20px 0 10px;
+  z-index: 1;
 }
 
 .subtitle {
-    font-size: 14px;
-    text-align: center;
-    color: #d3d3d3;
-    margin-bottom: 25px;
-    text-shadow: 0 0 5px #d3d3d3;
+  font-size: 14px;
+  text-align: center;
+  color: #d3d3d3;
+  margin: 0 0 25px;
+  text-shadow: 0 0 5px #d3d3d3;
 }
 
 .total-funds {
-    background: rgba(138, 43, 226, 0.2);
-    border-radius: 15px;
-    padding: 15px;
-    text-align: center;
-    margin-bottom: 25px;
-    box-shadow: 0 0 10px rgba(138, 43, 226, 0.5);
+  background: rgba(138, 43, 226, 0.2);
+  border-radius: 15px;
+  padding: 15px;
+  text-align: center;
+  margin-bottom: 25px;
+  box-shadow: 0 0 10px rgba(138, 43, 226, 0.5);
 }
 
 .total-value {
-    font-size: 22px;
-    font-weight: 700;
-    color: #00ffff;
-    text-shadow: 0 0 5px #00ffff;
+  font-size: 22px;
+  font-weight: 700;
+  color: #00ffff;
+  text-shadow: 0 0 5px #00ffff;
 }
 
 .tabs {
-    display: flex;
-    justify-content: space-around;
-    margin-bottom: 25px;
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 25px;
 }
 
 .tab {
-    background: rgba(255, 255, 255, 0.1);
-    color: #ffffff;
-    padding: 10px 25px;
-    border-radius: 25px;
-    cursor: pointer;
-    transition: background 0.3s, box-shadow 0.3s;
-    text-shadow: 0 0 5px #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  padding: 10px 25px;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: background 0.3s, box-shadow 0.3s;
+  text-shadow: 0 0 5px #ffffff;
 }
 
 .tab:hover, .tab.active {
-    background: linear-gradient(45deg, #8a2be2, #00ffff);
-    box-shadow: 0 0 15px #00ffff;
-    color: #ffffff;
+  background: linear-gradient(45deg, #8a2be2, #00ffff);
+  box-shadow: 0 0 15px #00ffff;
+  color: #ffffff;
 }
 
 .content-section {
-    display: none;
+  display: none;
 }
 
 .content-section.active {
-    display: block;
+  display: block;
 }
 
-.stats, .balances, .pledge-stats {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 15px;
-    margin-bottom: 25px;
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-bottom: 25px;
 }
 
-.stat, .balance {
-    background: rgba(0, 255, 255, 0.1);
-    border-radius: 15px;
-    padding: 15px;
-    text-align: center;
-    box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+.stat {
+  background: rgba(0, 255, 255, 0.1);
+  border-radius: 15px;
+  padding: 15px;
+  text-align: center;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
 }
 
-.stat-value, .balance-value {
-    font-size: 18px;
-    font-weight: 600;
-    margin-top: 5px;
-    color: #00ffff;
+.stat-label {
+  font-size: 12px;
+  color: #d3d3d3;
 }
 
-.stat-label, .balance-label {
-    font-size: 12px;
-    color: #d3d3d3;
+.stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  margin-top: 5px;
+  color: #00ffff;
 }
 
 .inline-flex {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
 }
 
-.icon-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 16px;
-    padding: 0;
-    color: #ff00ff;
+.full-width {
+  width: 100%;
+  justify-content: space-between;
 }
 
-.icon-btn:hover {
-    transform: scale(1.2);
+/* Claim 圖案在「累計」右邊 */
+#cumulativeLabel + .inline-flex {
+  justify-content: flex-start;
 }
 
-.start-btn, .pledge-btn {
-    background: linear-gradient(45deg, #8a2be2, #00ffff);
-    color: #ffffff;
-    padding: 15px;
-    border-radius: 30px;
-    text-align: center;
-    font-weight: 600;
-    cursor: pointer;
-    width: 100%;
-    border: none;
-    transition: transform 0.3s, box-shadow 0.3s;
-    margin-top: 10px;
+/* 下拉選單霓虹風格 */
+select {
+  font-family: 'Orbitron', sans-serif;
+  background: rgba(0, 0, 0, 0.6) !important;
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(0, 255, 255, 0.6) !important;
+  color: #00ffff !important;
+  text-shadow: 0 0 8px rgba(0, 255, 255, 0.8);
+  padding: 6px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2300ffff' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px;
+  min-width: 70px;
+  transition: all 0.3s ease;
 }
 
-.start-btn:hover, .pledge-btn:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 20px #00ffff;
+select:hover {
+  border-color: #8a2be2 !important;
+  box-shadow: 0 0 15px rgba(138, 43, 226, 0.6);
+  transform: scale(1.02);
+}
+
+select:focus {
+  outline: none;
+  border-color: #00ffff !important;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+}
+
+/* 代幣選擇器 */
+.token-select {
+  min-width: 70px;
+  text-align: center;
+}
+
+/* 按鈕 */
+.connect-btn, .start-btn, .pledge-btn {
+  background: linear-gradient(45deg, #8a2be2, #00ffff);
+  color: #ffffff;
+  padding: 15px;
+  border-radius: 30px;
+  text-align: center;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  border: none;
+  transition: transform 0.3s, box-shadow 0.3s;
+  margin-top: 10px;
+}
+
+.connect-btn:hover, .start-btn:hover, .pledge-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 20px #00ffff;
 }
 
 .start-btn:disabled, .pledge-btn:disabled {
-    background: gray;
-    cursor: not-allowed;
+  background: gray;
+  cursor: not-allowed;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
+  color: #ff00ff;
+}
+
+.icon-btn:hover {
+  transform: scale(1.2);
 }
 
 .pledge-form {
-    display: grid;
-    gap: 15px;
+  display: grid;
+  gap: 15px;
 }
 
 .input-group {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 15px;
-    padding: 15px;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  padding: 15px;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
 }
 
 .input-label {
-    font-size: 12px;
-    color: #d3d3d3;
-    margin-bottom: 5px;
+  font-size: 12px;
+  color: #d3d3d3;
+  margin-bottom: 5px;
 }
 
 .input-field {
-    background: transparent;
-    border: 1px solid rgba(0, 255, 255, 0.5);
-    color: #ffffff;
-    padding: 10px;
-    border-radius: 10px;
-    width: 100%;
-    box-sizing: border-box;
-    font-family: 'Orbitron', sans-serif;
-    margin-top: 5px;
+  background: transparent;
+  border: 1px solid rgba(0, 255, 255, 0.5);
+  color: #ffffff;
+  padding: 10px;
+  border-radius: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: 'Orbitron', sans-serif;
+  margin-top: 5px;
 }
 
 .input-field:disabled {
-    background: rgba(255, 255, 255, 0.05);
-    cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: not-allowed;
 }
 
 .next-benefit {
-    text-align: center;
-    font-size: 14px;
-    color: #d3d3d3;
-    margin: 20px 0;
-    text-shadow: 0 0 5px #d3d3d3;
+  text-align: center;
+  font-size: 14px;
+  color: #d3d3d3;
+  margin: 20px 0;
+  text-shadow: 0 0 5px #d3d3d3;
 }
 
 /* Modal */
 .modal {
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.8);
-    backdrop-filter: blur(10px);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .modal-content {
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(15px);
-    border-radius: 20px;
-    box-shadow: 0 0 40px rgba(138, 43, 226, 0.5), 0 0 20px rgba(0, 255, 255, 0.3);
-    width: 90%;
-    max-width: 400px;
-    padding: 20px;
-    border: 1px solid rgba(0, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(15px);
+  border-radius: 20px;
+  box-shadow: 0 0 40px rgba(138, 43, 226, 0.5), 0 0 20px rgba(0, 255, 255, 0.3);
+  width: 90%;
+  max-width: 400px;
+  padding: 20px;
+  border: 1px solid rgba(0, 255, 255, 0.2);
 }
 
 .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-    color: #00ffff;
-    text-shadow: 0 0 10px #00ffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  color: #00ffff;
+  text-shadow: 0 0 10px #00ffff;
 }
 
 .modal-header h3 {
-    margin: 0;
-    font-size: 20px;
+  margin: 0;
+  font-size: 20px;
 }
 
 .close {
-    font-size: 28px;
-    font-weight: bold;
-    cursor: pointer;
-    color: #ff00ff;
-    text-shadow: 0 0 5px #ff00ff;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  color: #ff00ff;
+  text-shadow: 0 0 5px #ff00ff;
 }
 
 .close:hover {
-    color: #ffffff;
+  color: #ffffff;
 }
 
 .claim-info {
-    margin-bottom: 20px;
+  margin-bottom: 20px;
 }
 
 .info-row {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 10px;
-    padding: 10px;
-    background: rgba(0, 255, 255, 0.1);
-    border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding: 10px;
+  background: rgba(0, 255, 255, 0.1);
+  border-radius: 10px;
 }
 
 .label {
-    color: #d3d3d3;
-    font-size: 14px;
+  color: #d3d3d3;
+  font-size: 14px;
 }
 
 .value {
-    color: #00ffff;
-    font-weight: 600;
-    font-size: 16px;
-    text-shadow: 0 0 5px #00ffff;
+  color: #00ffff;
+  font-weight: 600;
+  font-size: 16px;
+  text-shadow: 0 0 5px #00ffff;
 }
 
 .modal-footer {
-    display: flex;
-    gap: 10px;
+  display: flex;
+  gap: 10px;
 }
 
 .confirm-btn, .cancel-btn {
-    flex: 1;
-    padding: 12px;
-    border-radius: 15px;
-    border: none;
-    cursor: pointer;
-    font-weight: 600;
-    transition: transform 0.3s, box-shadow 0.3s;
+  flex: 1;
+  padding: 12px;
+  border-radius: 15px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: transform 0.3s, box-shadow 0.3s;
 }
 
 .confirm-btn {
-    background: linear-gradient(45deg, #8a2be2, #00ffff);
-    color: #ffffff;
+  background: linear-gradient(45deg, #8a2be2, #00ffff);
+  color: #ffffff;
 }
 
 .confirm-btn:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 15px #00ffff;
+  transform: scale(1.05);
+  box-shadow: 0 0 15px #00ffff;
 }
 
 .cancel-btn {
-    background: rgba(255, 255, 255, 0.1);
-    color: #ffffff;
-    border: 1px solid rgba(0, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px solid rgba(0, 255, 255, 0.5);
 }
 
 .cancel-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.2);
 }
