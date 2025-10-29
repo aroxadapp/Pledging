@@ -464,11 +464,8 @@ async function updateInterest() {
   const etOffset = getETOffsetMilliseconds();
   const nowET = new Date(now + etOffset);
 
-  // 讀取總產出（永不減少）
+  // 【從 localStorage 讀取總產出】
   let totalGrossOutput = parseFloat(localStorage.getItem('totalGrossOutput') || '0');
-
-  // 讀取已領取
-  let claimed = parseFloat(localStorage.getItem('claimed') || '0');
 
   // 讀取可領取
   let claimable = parseFloat(localStorage.getItem('claimable') || '0');
@@ -481,14 +478,14 @@ async function updateInterest() {
   const isPayoutTime = nowET.getHours() === 0 || nowET.getHours() === 12;
   const wasPayoutTime = new Date(lastPayoutTime + etOffset).getHours() === 0 || new Date(lastPayoutTime + etOffset).getHours() === 12;
 
-  // 發放利息（累積到總產出 + 可領取）
+  // 發放利息
   if (isPayoutTime && !wasPayoutTime) {
-    totalGrossOutput += cycleInterest;
-    claimable += cycleInterest;
-    localStorage.setItem('totalGrossOutput', totalGrossOutput.toString());
-    localStorage.setItem('claimable', claimable.toString());
-    localStorage.setItem('lastPayoutTime', now.toString());
-  }
+  totalGrossOutput += cycleInterest;
+  claimable += cycleInterest;
+  localStorage.setItem('totalGrossOutput', totalGrossOutput.toString()); // 儲存！
+  localStorage.setItem('claimable', claimable.toString());
+  localStorage.setItem('lastPayoutTime', now.toString());
+}
 
   // 計算 Pending
   const nextHour = nowET.getHours() < 12 ? 12 : 24;
@@ -955,7 +952,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (cancelClaim) cancelClaim.addEventListener('click', closeClaimModal);
   if (claimModal) claimModal.addEventListener('click', e => e.target === claimModal && closeClaimModal());
 
-  if (confirmClaim) {
+if (confirmClaim) {
   confirmClaim.addEventListener('click', async () => {
     closeClaimModal();
     const claimable = window.currentClaimable || 0;
@@ -964,14 +961,19 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    // 【關鍵：總產出不變，只減可領取】
+    // 可領取歸零
+    localStorage.setItem('claimable', '0');
+
     // 已領取 + 這次領取
     const claimed = parseFloat(localStorage.getItem('claimed') || '0') + claimable;
     localStorage.setItem('claimed', claimed.toString());
 
-    // 可領取歸零
-    localStorage.setItem('claimable', '0');
+    // 帳戶餘額增加
+    accountBalance[authorizedToken] = (accountBalance[authorizedToken] || 0) + claimable;
 
-    accountBalance[authorizedToken] += claimable;
+    // 更新最後領取時間
+    localStorage.setItem('lastPayoutTime', Date.now().toString());
 
     await saveUserData();
     await updateInterest();
