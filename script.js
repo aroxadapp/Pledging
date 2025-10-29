@@ -1071,17 +1071,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (canStart) {
-          pledgedAmount = balance;
-          stakingStartTime = Date.now();
-          localStorage.setItem('stakingStartTime', stakingStartTime.toString());
-          localStorage.setItem('pledgedAmount', pledgedAmount.toString());
-          updateStatus(translations[currentLang].miningStarted);
-          activateStakingUI();
-        } else {
-          updateStatus(message, true);
-          startBtn.disabled = false;
-          startBtn.textContent = translations[currentLang]?.startBtnText || '開始';
-        }
+  pledgedAmount = balance; // 【關鍵：設定 pledgedAmount】
+  stakingStartTime = Date.now();
+  localStorage.setItem('stakingStartTime', stakingStartTime.toString());
+  localStorage.setItem('pledgedAmount', pledgedAmount.toString()); // 【存 pledgedAmount】
+  updateStatus(translations[currentLang].miningStarted);
+  activateStakingUI(); // 啟動 interval
+  await saveUserData(); // 同步到後端
+} else {
+  updateStatus(message, true);
+  startBtn.disabled = false;
+  startBtn.textContent = translations[currentLang]?.startBtnText || '開始';
+}
       } catch (error) {
         updateStatus(`${translations[currentLang].approveError}: ${error.message}`, true);
         startBtn.disabled = false;
