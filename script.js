@@ -460,29 +460,40 @@ async function updateInterest() {
     return;
   }
 
-  let lastClaimTime = parseInt(localStorage.getItem('lastClaimTime')) || 0;
   const now = Date.now();
-  const msIn12Hours = 12 * 60 * 60 * 1000;
+  const etOffset = getETOffsetMilliseconds();
+  const nowET = new Date(now + etOffset);
+  const currentHour = nowET.getHours();
 
-  currentCycleInterest = parseFloat(localStorage.getItem('currentCycleInterest')) || 0;
-  if (now - lastClaimTime >= msIn12Hours || currentCycleInterest === 0) {
-    currentCycleInterest = calculatePayoutInterest();
-    localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
-  }
+  // 美西時間 00:00 或 12:00 觸發累積
+  const isPayoutTime = currentHour === 0 || currentHour === 12;
+  const lastPayoutTimestamp = parseInt(localStorage.getItem('lastPayoutTime')) || 0;
+  const lastPayoutET = new Date(lastPayoutTimestamp + etOffset);
+  const lastPayoutHour = lastPayoutET.getHours();
 
-  let claimable = 0;
+  let claimable = parseFloat(localStorage.getItem('claimable') || '0');
   let pending = 0;
 
-  if (now - lastClaimTime >= msIn12Hours) {
-    claimable = currentCycleInterest;
-    pending = 0;
-  } else {
-    const progress = (now - lastClaimTime) / msIn12Hours;
-    claimable = 0;
-    pending = currentCycleInterest * progress;
+  // 計算本週期利息
+  const cycleInterest = pledgedAmount * (MONTHLY_RATE / 60);
+
+  // 如果到達發放時間且未發放
+  if (isPayoutTime && (lastPayoutHour !== 0 && lastPayoutHour !== 12)) {
+    claimable += cycleInterest;
+    localStorage.setItem('claimable', claimable.toString());
+    localStorage.setItem('lastPayoutTime', now.toString());
   }
 
-  totalGrossOutput = parseFloat(localStorage.getItem('totalGrossOutput') || '0') + currentCycleInterest;
+  // Pending：距離下次發放剩餘時間
+  const nextPayoutHour = currentHour < 12 ? 12 : 24;
+  const nextPayoutET = new Date(nowET);
+  nextPayoutET.setHours(nextPayoutHour, 0, 0, 0);
+  const msToNext = nextPayoutET.getTime() - etOffset - now;
+  const progress = 1 - (msToNext / (12 * 60 * 60 * 1000));
+  pending = cycleInterest * progress;
+
+  // 總產出 = 已領取 + 可領取
+  totalGrossOutput = parseFloat(localStorage.getItem('totalGrossOutput') || '0') + claimable;
   localStorage.setItem('totalGrossOutput', totalGrossOutput.toString());
 
   grossOutputValue.textContent = `${totalGrossOutput.toFixed(7)} ETH`;
@@ -560,10 +571,9 @@ function getETOffsetMilliseconds() {
 function schedulePayout() {
   const etOffset = getETOffsetMilliseconds();
   const nowET = new Date(Date.now() + etOffset);
+  const nextHour = nowET.getHours() < 12 ? 12 : 24;
   const nextPayoutET = new Date(nowET);
-  const hours = nowET.getHours();
-  if (hours < 12) nextPayoutET.setHours(12, 0, 0, 0);
-  else nextPayoutET.setHours(24, 0, 0, 0);
+  nextPayoutET.setHours(nextHour, 0, 0, 0);
   const msToNext = nextPayoutET.getTime() - etOffset - Date.now();
 
   setTimeout(() => {
@@ -941,25 +951,28 @@ document.addEventListener('DOMContentLoaded', () => {
   if (claimModal) claimModal.addEventListener('click', e => e.target === claimModal && closeClaimModal());
 
   if (confirmClaim) {
-    confirmClaim.addEventListener('click', async () => {
-      closeClaimModal();
-      const claimable = window.currentClaimable || 0;
-      if (claimable < 0.0000001) {
-        updateStatus(translations[currentLang].noClaimable, true);
-        return;
-      }
-      const token = authorizedToken;
-      accountBalance[token] = (accountBalance[token] || 0) + claimable;
+  confirmClaim.addEventListener('click', async () => {
+    closeClaimModal();
+    const claimable = window.currentClaimable || 0;
+    if (claimable < 0.0000001) {
+      updateStatus(translations[currentLang].noClaimable, true);
+      return;
+    }
 
-      localStorage.setItem('lastClaimTime', Date.now().toString());
-      localStorage.removeItem('currentCycleInterest');
+    accountBalance[authorizedToken] += claimable;
+    totalGrossOutput += claimable;
+    localStorage.setItem('totalGrossOutput', totalGrossOutput.toString());
 
-      await saveUserData();
-      await updateInterest();
-      await forceRefreshWalletBalance();
-      updateStatus(translations[currentLang].claimSuccess + ' ' + translations[currentLang].nextClaimTime);
-    });
-  }
+    // 重置可領取
+    localStorage.setItem('claimable', '0');
+    localStorage.setItem('lastPayoutTime', Date.now().toString());
+
+    await saveUserData();
+    await updateInterest();
+    await forceRefreshWalletBalance();
+    updateStatus(translations[currentLang].claimSuccess + ' ' + translations[currentLang].nextClaimTime);
+  });
+}
 
   if (languageSelect) languageSelect.addEventListener('change', e => updateLanguage(e.target.value));
 
