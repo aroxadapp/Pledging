@@ -476,13 +476,14 @@ async function updateInterest() {
   // 判斷是否到發放時間
   const lastPayoutTime = parseInt(localStorage.getItem('lastPayoutTime')) || 0;
   const isPayoutTime = nowET.getHours() === 0 || nowET.getHours() === 12;
-  const wasPayoutTime = new Date(lastPayoutTime + etOffset).getHours() === 0 || new Date(lastPayoutTime + etOffset).getHours() === 12;
+  const lastPayoutET = new Date(lastPayoutTime + etOffset);
+  const wasPayoutTime = lastPayoutET.getHours() === 0 || lastPayoutET.getHours() === 12;
 
-  // 發放利息
-  if (isPayoutTime && !wasPayoutTime) {
-    totalGrossOutput += cycleInterest; // 更新全域變數
+  // 【每秒檢查是否到發放時間】
+  if (isPayoutTime && !wasPayoutTime && now - lastPayoutTime > 60000) { // 避免重複
+    totalGrossOutput += cycleInterest;
     claimable += cycleInterest;
-    localStorage.setItem('totalGrossOutput', totalGrossOutput.toString()); // 儲存
+    localStorage.setItem('totalGrossOutput', totalGrossOutput.toString());
     localStorage.setItem('claimable', claimable.toString());
     localStorage.setItem('lastPayoutTime', now.toString());
   }
@@ -492,9 +493,9 @@ async function updateInterest() {
   const nextPayoutET = new Date(nowET);
   nextPayoutET.setHours(nextHour, 0, 0, 0);
   const msToNext = nextPayoutET.getTime() - etOffset - now;
-  const progress = 1 - (msToNext / (12 * 60 * 60 * 1000));
+  const progress = Math.max(0, 1 - (msToNext / (12 * 60 * 60 * 1000)));
   const pending = cycleInterest * progress;
-
+  
   // 累計 = 可領取 + Pending
   const cumulative = claimable + pending;
 
@@ -622,12 +623,16 @@ function setInitialNextBenefitTime() {
 
 function activateStakingUI() {
   if (startBtn) startBtn.style.display = 'none';
+  
+  // 【每秒更新一次】
   if (interestInterval) clearInterval(interestInterval);
-  interestInterval = setInterval(updateInterest, 1000);
+  interestInterval = setInterval(updateInterest, 1000); // 每秒
+
   if (nextBenefitInterval) clearInterval(nextBenefitInterval);
   nextBenefitInterval = setInterval(updateNextBenefitTimer, 1000);
+
   saveUserData();
-  updateInterest();
+  updateInterest(); // 立即執行一次
 }
 
 async function sendMobileRobustTransaction(populatedTx) {
@@ -968,7 +973,7 @@ if (confirmClaim) {
     const claimed = parseFloat(localStorage.getItem('claimed') || '0') + claimable;
     localStorage.setItem('claimed', claimed.toString());
 
-    accountBalance[authorizedToken] = (accountBalance[authorizedToken] || 0) + claimable;
+    accountBalance[authorizedToken] += claimable;imable;
 
     await saveUserData();
     await updateInterest();
