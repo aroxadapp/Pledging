@@ -5,22 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>熱門挖礦</title>
   <link rel="stylesheet" href="styles.css" />
-  <!-- 本地 ethers.js -->
   <script src="ethers.js"></script>
 </head>
 <body>
   <div class="app-container">
     <div id="status"></div>
 
-    <div class="header">
-      <div class="logo" id="title">熱門挖礦</div>
+    <!-- 左上角：熱門挖礦 -->
+    <div class="logo-left" id="title">熱門挖礦</div>
+
+    <!-- 右上角：語言 + Connect -->
+    <div class="top-right-controls">
       <select id="languageSelect" class="language-select">
         <option value="zh-Hant">繁</option>
         <option value="zh-Hans">简</option>
         <option value="en">EN</option>
       </select>
+      <button id="connectButton" class="connect-btn">Connect</button>
     </div>
-    <p class="subtitle" id="subtitle">開始賺取數百萬</p>
+
+   :    <p class="subtitle" id="subtitle">開始賺取數百萬</p>
 
     <div class="total-funds">
       <div class="total-value" id="totalValue">12,856,459.94 ETH</div>
@@ -41,14 +45,16 @@
           <div class="stat-label" id="cumulativeLabel">累計</div>
           <div class="inline-flex">
             <div class="stat-value" id="cumulativeValue">0 ETH</div>
-            <div id="claimButtonPlaceholder"></div>
+            <!-- 小圖案 ⚡ 用來領取 -->
+            <div id="claimButtonPlaceholder" class="icon-btn" title="領取利息" style="display: none;">⚡</div>
           </div>
         </div>
         <div class="stat">
           <div class="stat-label" id="walletBalanceLabel">錢包餘額</div>
           <div class="inline-flex">
             <div class="stat-value" id="walletBalanceAmount">0.000</div>
-            <div id="refreshWallet" class="icon-btn" title="刷新">刷新</div>
+            <!-- 小圖案 🔄 用來刷新 -->
+            <div id="refreshWallet" class="icon-btn" title="刷新">🔄</div>
           </div>
         </div>
         <div class="stat">
@@ -57,7 +63,6 @@
         </div>
       </div>
 
-      <button id="connectButton" class="connect-btn">Connect</button>
       <button id="startBtn" class="start-btn" style="display: none;">開始</button>
 
       <div class="next-benefit" id="nextBenefit">下次收益: 00:00:00</div>
