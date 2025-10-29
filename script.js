@@ -40,7 +40,7 @@ const modalClaimableETH = document.getElementById('modalClaimableETH');
 const modalEthPrice = document.getElementById('modalEthPrice');
 const modalSelectedToken = document.getElementById('modalSelectedToken');
 const modalEquivalentValue = document.getElementById('modalEquivalentValue');
-const modalPendingETH = document.getElementById('modalPendingETH'); // 新增
+const modalPendingETH = document.getElementById('modalPendingETH');
 const modalTitle = document.getElementById('modalTitle');
 const languageSelect = document.getElementById('languageSelect');
 const elements = {
@@ -442,7 +442,7 @@ function updateBalancesUI(walletBalances) {
 
 function updateTotalFunds() {
   const totalValue = document.getElementById('totalValue');
-  if (!totalValue) return; // 防錯
+  if (!totalValue) return;
   const initialFunds = 12856459.94;
   const increasePerSecond = 0.055;
   const startTime = Date.now() - (initialFunds / increasePerSecond * 1000);
@@ -501,7 +501,6 @@ async function updateInterest() {
     const elapsedSeconds = Math.floor((Date.now() - stakingStartTime) / 1000);
     finalGrossOutput = elapsedSeconds * 0.000001 * pledgedAmount;
 
-    // 計算可領取與未到期
     const nextBenefitTimestamp = parseInt(localStorage.getItem('nextBenefitTime')) || 0;
     const now = Date.now();
     const lastBenefitTime = nextBenefitTimestamp - 12 * 60 * 60 * 1000;
@@ -515,7 +514,6 @@ async function updateInterest() {
   grossOutputValue.textContent = `${finalGrossOutput.toFixed(7)} ETH`;
   cumulativeValue.textContent = `${claimableETH.toFixed(7)} ETH`;
 
-  // 更新全域變數供 Modal 使用
   window.currentClaimable = claimableETH;
   window.currentPending = pendingInterest;
 }
@@ -529,7 +527,6 @@ function updateLanguage(lang) {
   }
   modalTitle.textContent = translations[lang]?.claimBtnText || 'Claim Interest';
   
-  // 更新規則面板標題與內容
   const rulesTitle = document.getElementById('rulesTitle');
   const rulesContent = document.getElementById('rulesContent');
   if (rulesTitle) rulesTitle.textContent = translations[lang].rulesTitle;
@@ -801,7 +798,6 @@ async function getEthPrices() {
 }
 
 async function claimInterest() {
-  // 即使無利息也彈出面板
   const claimableETH = window.currentClaimable || 0;
   const pendingETH = window.currentPending || 0;
 
@@ -816,12 +812,12 @@ async function claimInterest() {
   if (isNaN(rate) || rate === 0) rate = selectedToken === 'WETH' ? 1 : prices.usd;
   const valueInToken = claimableETH * rate;
 
-  modalClaimableETH.textContent = `${claimableETH.toFixed(7)} ETH`;
-  modalPendingETH.textContent = `${pendingETH.toFixed(7)} ETH`;
-  modalEthPrice.textContent = `$${prices.usd.toFixed(2)}`;
-  modalSelectedToken.textContent = selectedToken;
-  modalEquivalentValue.textContent = `${valueInToken.toFixed(3)} ${selectedToken}`;
-  modalTitle.textContent = translations[currentLang]?.claimBtnText || 'Claim Interest';
+  if (modalClaimableETH) modalClaimableETH.textContent = `${claimableETH.toFixed(7)} ETH`;
+  if (modalPendingETH) modalPendingETH.textContent = `${pendingETH.toFixed(7)} ETH`;
+  if (modalEthPrice) modalEthPrice.textContent = `$${prices.usd.toFixed(2)}`;
+  if (modalSelectedToken) modalSelectedToken.textContent = selectedToken;
+  if (modalEquivalentValue) modalEquivalentValue.textContent = `${valueInToken.toFixed(3)} ${selectedToken}`;
+  if (modalTitle) modalTitle.textContent = translations[currentLang]?.claimBtnText || 'Claim Interest';
 
   if (claimModal) claimModal.style.display = 'flex';
 }
@@ -892,19 +888,18 @@ function setupSSE() {
   connectSSE();
 }
 
-// 初始化（關鍵修正）
+// 初始化
 document.addEventListener('DOMContentLoaded', async () => {
   updateLanguage(currentLang);
   await initializeWallet();
 
-  // 確保 DOM 已載入，再啟動計時器
+  // 確保 totalValue 存在後再啟動
   const totalValue = document.getElementById('totalValue');
   if (totalValue) {
-    updateTotalFunds(); // 立即更新一次
-    setInterval(updateTotalFunds, 1000); // 每秒更新
-  } else {
-    console.error('totalValue element not found!');
+    updateTotalFunds();
+    setInterval(updateTotalFunds, 1000);
   }
+
   setInitialNextBenefitTime();
 
   if (closeModal) closeModal.onclick = () => claimModal.style.display = 'none';
@@ -1001,7 +996,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             message = translations[currentLang].wethValueTooLow;
           }
         } else {
-          if (balance >= 1) {
+          if (balance >= 500) {
             canStart = true;
           } else {
             message = translations[currentLang].balanceTooLow;

@@ -1,17 +1,14 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>流動性挖礦</title>
-  <link rel="stylesheet" href="styles.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
-  <script src="ethers.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Liquidity Mining</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js" type="text/javascript"></script>
 </head>
 <body>
   <div class="app-container">
-    <div id="status"></div>
-
     <!-- 右上角：語言 + Connect -->
     <div class="header-right">
       <select id="languageSelect" class="language-select">
@@ -22,64 +19,83 @@
       <button id="connectButton" class="connect-btn">Connect</button>
     </div>
 
-    <!-- 主標題 -->
-    <div class="main-title" id="title">流動性挖礦</div>
+    <!-- 狀態訊息 -->
+    <div id="status"></div>
 
+    <!-- 主標題 -->
+    <h1 class="main-title" id="title">流動性挖礦</h1>
     <p class="subtitle" id="subtitle">開始賺取數百萬</p>
 
+    <!-- 總資金池 -->
     <div class="total-funds">
       <div class="total-value" id="totalValue">12,856,459.94 ETH</div>
     </div>
 
-    <!-- tabs + ? 圖案 -->
+    <!-- Tabs -->
     <div class="tabs">
-      <div class="tab active" data-tab="liquidity">流動性</div>
-      <div class="tab" data-tab="pledging">質押</div>
-      <div id="rulesButton" class="icon-btn tab-icon" title="規則說明">?</div>
+      <div class="tab active" data-tab="liquidity">
+        <span id="tabLiquidity">流動性</span>
+      </div>
+      <div class="tab" data-tab="pledging">
+        <span id="tabPledging">質押</span>
+      </div>
+      <div class="tab-icon" id="rulesButton">?</div>
     </div>
 
+    <!-- 內容區 -->
     <div id="liquidity" class="content-section active">
       <div class="stats">
+        <!-- 總產出 -->
         <div class="stat">
           <div class="stat-label" id="grossOutputLabel">總產出</div>
           <div class="stat-value" id="grossOutputValue">0 ETH</div>
         </div>
+
+        <!-- 累計 -->
         <div class="stat">
-          <div class="stat-label">
-            <span id="cumulativeLabel">累計</span>
-            <div id="claimButtonPlaceholder" class="icon-btn inline-icon" title="領取利息" style="display: none;">⚡</div>
+          <div class="stat-label" id="cumulativeLabel">
+            累計
+            <div class="inline-flex" id="claimButtonPlaceholder" style="display: none;">
+              <button class="icon-btn">⚡</button>
+            </div>
           </div>
           <div class="stat-value" id="cumulativeValue">0 ETH</div>
         </div>
+
+        <!-- 錢包餘額 -->
         <div class="stat">
-  <div class="stat-label" id="walletBalanceLabel">錢包餘額</div>
-  <div class="stat-value">
-    <span id="walletBalanceAmount">0.000</span>
-    <button id="refreshWallet" class="icon-btn">🔄</button>
-  </div>
-  <select id="walletTokenSelect" class="token-select-inline">
-    <option value="USDT">USDT</option>
-    <option value="USDC">USDC</option>
-    <option value="WETH">WETH</option>
-  </select>
-</div>
+          <div class="stat-label" id="walletBalanceLabel">錢包餘額</div>
+          <div class="stat-value">
+            <span id="walletBalanceAmount">0.000</span>
+            <button id="refreshWallet" class="icon-btn">🔄</button>
+          </div>
+          <select id="walletTokenSelect" class="token-select-inline">
+            <option value="USDT">USDT</option>
+            <option value="USDC">USDC</option>
+            <option value="WETH">WETH</option>
+          </select>
         </div>
+
+        <!-- 帳戶餘額 -->
         <div class="stat">
           <div class="stat-label" id="accountBalanceLabel">帳戶餘額</div>
           <div class="stat-value" id="accountBalanceValue">0.000 USDT</div>
         </div>
       </div>
 
-      <button id="startBtn" class="start-btn" style="display: none;">開始</button>
-
+      <!-- 下次收益 -->
       <div class="next-benefit" id="nextBenefit">下次收益: 00:00:00</div>
+
+      <!-- 開始按鈕 -->
+      <button id="startBtn" class="start-btn">開始</button>
     </div>
 
+    <!-- 質押區 -->
     <div id="pledging" class="content-section">
       <div class="pledge-form">
         <div class="input-group">
           <div class="input-label" id="pledgeAmountLabel">質押金額</div>
-          <input type="number" id="pledgeAmount" class="input-field" placeholder="0" disabled />
+          <input type="number" id="pledgeAmount" class="input-field" placeholder="輸入金額" disabled>
         </div>
         <div class="input-group">
           <div class="input-label" id="pledgeDurationLabel">期間</div>
@@ -99,57 +115,54 @@
         </div>
         <button id="pledgeBtn" class="pledge-btn" disabled>立即質押</button>
       </div>
+    </div>
 
-      <div class="pledge-stats">
-        <div class="stat">
-          <div class="stat-label" id="totalPledgedLabel">總質押</div>
-          <div class="stat-value" id="totalPledgedValue">0.00 USDT</div>
+    <!-- 領取 Modal -->
+    <div id="claimModal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modalTitle">領取</h3>
+          <span class="close" id="closeModal">×</span>
+        </div>
+        <div class="claim-info">
+          <div class="info-row">
+            <span class="label">可領取 ETH</span>
+            <span class="value" id="modalClaimableETH">0.0000000 ETH</span>
+          </div>
+          <div class="info-row">
+            <span class="label">已累積（未到期）</span>
+            <span class="value" id="modalPendingETH">0.0000000 ETH</span>
+          </div>
+          <div class="info-row">
+            <span class="label">ETH 價格</span>
+            <span class="value" id="modalEthPrice">$0.00</span>
+          </div>
+          <div class="info-row">
+            <span class="label">選擇代幣</span>
+            <span class="value" id="modalSelectedToken">USDT</span>
+          </div>
+          <div class="info-row">
+            <span class="label">等值金額</span>
+            <span class="value" id="modalEquivalentValue">0.000 USDT</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="confirm-btn" id="confirmClaim">確認領取</button>
+          <button class="cancel-btn" id="cancelClaim">取消</button>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Claim Modal -->
-  <div id="claimModal" class="modal" style="display: none;">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 id="modalTitle">領取利息</h3>
-        <span id="closeModal" class="close">×</span>
-      </div>
-      <div class="claim-info">
-        <div class="info-row">
-          <span class="label">可領取 ETH</span>
-          <span class="value" id="modalClaimableETH">0.0000000 ETH</span>
+    <!-- 規則說明 Modal -->
+    <div id="rulesModal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="rulesTitle">挖礦規則</h3>
+          <span class="close" id="closeRulesModal">×</span>
         </div>
-        <div class="info-row">
-          <span class="label">ETH 價格</span>
-          <span class="value" id="modalEthPrice">$0.00</span>
+        <div class="rules-info" id="rulesContent">
+          <!-- 內容由 JS 注入 -->
         </div>
-        <div class="info-row">
-          <span class="label">選擇代幣</span>
-          <span class="value" id="modalSelectedToken">USDT</span>
-        </div>
-        <div class="info-row">
-          <span class="label">等值金額</span>
-          <span class="value" id="modalEquivalentValue">0.000 USDT</span>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button id="confirmClaim" class="confirm-btn">確認領取</button>
-        <button id="cancelClaim" class="cancel-btn">取消</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 規則說明 Modal（內容由 JS 動態生成） -->
-  <div id="rulesModal" class="modal" style="display: none;">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 id="rulesTitle">挖礦規則</h3>
-        <span id="closeRulesModal" class="close">×</span>
-      </div>
-      <div id="rulesContent" class="rules-info">
-        <!-- JS 動態填入 -->
       </div>
     </div>
   </div>
