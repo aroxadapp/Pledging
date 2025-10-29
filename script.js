@@ -241,7 +241,8 @@ const translations = {
     `
   }
 };
-let currentLang = localStorage.getElementById('language') || 'en';
+// 【正確：預設英文】
+let currentLang = localStorage.getItem('language') || 'en';
 
 async function retry(fn, maxAttempts = 3, delayMs = 3000) {
   for (let i = 0; i < maxAttempts; i++) {
