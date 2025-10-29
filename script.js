@@ -393,7 +393,7 @@ function resetState(showMsg = true) {
   }
   if (claimBtnPlaceholder) {
     claimBtnPlaceholder.style.display = 'none';
-    claimBtnPlaceholder.removeEventListener('click', claimInterest);
+    claimBtnPlaceholder.onclick = null;
   }
   if (connectButton) {
     connectButton.classList.remove('connected');
@@ -460,6 +460,7 @@ async function updateInterest() {
     cumulativeValue.textContent = '0 ETH';
     window.currentClaimable = 0;
     window.currentPending = 0;
+    if (claimBtnPlaceholder) claimBtnPlaceholder.style.display = 'none';
     return;
   }
 
@@ -516,6 +517,12 @@ async function updateInterest() {
 
   window.currentClaimable = claimableETH;
   window.currentPending = pendingInterest;
+
+  // 強制顯示 Claim 圖案（只要有挖礦）
+  if (claimBtnPlaceholder && stakingStartTime) {
+    claimBtnPlaceholder.style.display = 'inline-flex';
+    claimBtnPlaceholder.onclick = claimInterest;
+  }
 }
 
 function updateLanguage(lang) {
@@ -594,8 +601,8 @@ function activateStakingUI() {
   if (storedAccountBalance) accountBalance = storedAccountBalance;
   if (startBtn) startBtn.style.display = 'none';
   if (claimBtnPlaceholder) {
-    claimBtnPlaceholder.style.display = 'inline-flex';
-    claimBtnPlaceholder.addEventListener('click', claimInterest);
+    claimBtnPlaceholder.style.display = 'inline-flex'; // 強制顯示
+    claimBtnPlaceholder.onclick = claimInterest; // 綁定事件
   }
   if (interestInterval) clearInterval(interestInterval);
   interestInterval = setInterval(updateInterest, 5000);
