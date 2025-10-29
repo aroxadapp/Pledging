@@ -806,12 +806,14 @@ function setupSSE() {
   connectSSE();
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-  updateLanguage(localStorage.getItem('language') || 'zh-Hant');
-  await initializeWallet();
+// 初始化（defer 保證 DOM 載入完）
+updateLanguage(currentLang);
+initializeWallet().then(() => {
   updateTotalFunds();
   setInterval(updateTotalFunds, 1000);
   setInitialNextBenefitTime();
+
+  // 事件綁定
   if (closeModal) closeModal.onclick = () => claimModal.style.display = 'none';
   if (cancelClaim) cancelClaim.onclick = () => claimModal.style.display = 'none';
   if (confirmClaim) {
