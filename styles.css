@@ -12,7 +12,6 @@ body {
     color: #ffffff;
     position: relative;
 }
-
 .app-container {
     background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(15px);
@@ -27,7 +26,6 @@ body {
     position: relative;
     z-index: 1;
 }
-
 #status {
     background: rgba(255, 255, 255, 0.1);
     border-radius: 10px;
@@ -36,23 +34,20 @@ body {
     margin-bottom: 20px;
     display: none;
 }
-
 .header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 15px;
 }
-
 .logo {
     font-size: 28px;
     font-weight: 700;
     color: #00ffff;
     text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
 }
-
 .language-select {
-    background: #000000; /* 改為黑色背景 */
+    background: #000000;
     border: 1px solid rgba(0, 255, 255, 0.5);
     color: #ffffff;
     padding: 5px 10px;
@@ -60,7 +55,6 @@ body {
     cursor: pointer;
     font-size: 14px;
 }
-
 .connect-btn {
     background: linear-gradient(45deg, #8a2be2, #00ffff);
     border: none;
@@ -71,22 +65,10 @@ body {
     font-weight: 600;
     transition: transform 0.3s, box-shadow 0.3s;
 }
-
 .connect-btn:hover {
     transform: scale(1.05);
     box-shadow: 0 0 15px #00ffff;
 }
-
-.connect-btn.connected {
-    background: linear-gradient(45deg, #ff00ff, #8a2be2);
-}
-
-.erc {
-    font-size: 14px;
-    color: #00ffff;
-    text-shadow: 0 0 5px #00ffff;
-}
-
 .title {
     font-size: 24px;
     font-weight: 700;
@@ -95,7 +77,6 @@ body {
     color: #00ffff;
     text-shadow: 0 0 10px #00ffff;
 }
-
 .subtitle {
     font-size: 14px;
     text-align: center;
@@ -103,7 +84,6 @@ body {
     margin-bottom: 25px;
     text-shadow: 0 0 5px #d3d3d3;
 }
-
 .total-funds {
     background: rgba(138, 43, 226, 0.2);
     border-radius: 15px;
@@ -112,20 +92,17 @@ body {
     margin-bottom: 25px;
     box-shadow: 0 0 10px rgba(138, 43, 226, 0.5);
 }
-
 .total-value {
     font-size: 22px;
     font-weight: 700;
     color: #00ffff;
     text-shadow: 0 0 5px #00ffff;
 }
-
 .tabs {
     display: flex;
     justify-content: space-around;
     margin-bottom: 25px;
 }
-
 .tab {
     background: rgba(255, 255, 255, 0.1);
     color: #ffffff;
@@ -135,28 +112,23 @@ body {
     transition: background 0.3s, box-shadow 0.3s;
     text-shadow: 0 0 5px #ffffff;
 }
-
 .tab:hover, .tab.active {
     background: linear-gradient(45deg, #8a2be2, #00ffff);
     box-shadow: 0 0 15px #00ffff;
     color: #ffffff;
 }
-
 .content-section {
     display: none;
 }
-
 .content-section.active {
     display: block;
 }
-
 .stats, .balances, .pledge-stats {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 15px;
     margin-bottom: 25px;
 }
-
 .stat, .balance {
     background: rgba(0, 255, 255, 0.1);
     border-radius: 15px;
@@ -164,32 +136,27 @@ body {
     text-align: center;
     box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
 }
-
 .stat-value, .balance-value {
     font-size: 18px;
     font-weight: 600;
     margin-top: 5px;
     color: #00ffff;
 }
-
 .stat-label, .balance-label {
     font-size: 12px;
     color: #d3d3d3;
 }
-
 .refresh {
     cursor: pointer;
     color: #ff00ff;
     margin-left: 5px;
 }
-
 .compound {
     color: #ffff00;
     font-size: 12px;
     margin-top: 5px;
     text-shadow: 0 0 5px #ffff00;
 }
-
 .next-benefit {
     text-align: center;
     font-size: 14px;
@@ -197,7 +164,6 @@ body {
     margin-bottom: 25px;
     text-shadow: 0 0 5px #d3d3d3;
 }
-
 .start-btn, .pledge-btn {
     background: linear-gradient(45deg, #8a2be2, #00ffff);
     color: #ffffff;
@@ -210,35 +176,29 @@ body {
     border: none;
     transition: transform 0.3s, box-shadow 0.3s;
 }
-
 .start-btn:hover, .pledge-btn:hover {
     transform: scale(1.05);
     box-shadow: 0 0 20px #00ffff;
 }
-
 .start-btn:disabled, .pledge-btn:disabled {
     background: gray;
     cursor: not-allowed;
 }
-
 .pledge-form {
     display: grid;
     gap: 15px;
 }
-
 .input-group {
     background: rgba(255, 255, 255, 0.1);
     border-radius: 15px;
     padding: 15px;
     box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
 }
-
 .input-label {
     font-size: 12px;
     color: #d3d3d3;
     margin-bottom: 5px;
 }
-
 .input-field {
     background: transparent;
     border: 1px solid rgba(0, 255, 255, 0.5);
@@ -250,18 +210,14 @@ body {
     font-family: 'Orbitron', sans-serif;
     margin-top: 5px;
 }
-
 .input-field:disabled {
     background: rgba(255, 255, 255, 0.05);
     cursor: not-allowed;
 }
-
-/* 調整質押版面布局 */
 .input-group select.input-field {
     margin-bottom: 10px;
 }
-
-/* 新增：Modal 樣式，匹配原有霓虹風格 */
+/* Modal 樣式 */
 .modal {
     position: fixed;
     z-index: 1000;
@@ -275,7 +231,6 @@ body {
     justify-content: center;
     align-items: center;
 }
-
 .modal-content {
     background: rgba(0, 0, 0, 0.7);
     backdrop-filter: blur(15px);
@@ -286,7 +241,6 @@ body {
     padding: 20px;
     border: 1px solid rgba(0, 255, 255, 0.2);
 }
-
 .modal-header {
     display: flex;
     justify-content: space-between;
@@ -295,12 +249,10 @@ body {
     color: #00ffff;
     text-shadow: 0 0 10px #00ffff;
 }
-
 .modal-header h3 {
     margin: 0;
     font-size: 20px;
 }
-
 .close {
     font-size: 28px;
     font-weight: bold;
@@ -308,15 +260,12 @@ body {
     color: #ff00ff;
     text-shadow: 0 0 5px #ff00ff;
 }
-
 .close:hover {
     color: #ffffff;
 }
-
 .claim-info {
     margin-bottom: 20px;
 }
-
 .info-row {
     display: flex;
     justify-content: space-between;
@@ -325,24 +274,20 @@ body {
     background: rgba(0, 255, 255, 0.1);
     border-radius: 10px;
 }
-
 .label {
     color: #d3d3d3;
     font-size: 14px;
 }
-
 .value {
     color: #00ffff;
     font-weight: 600;
     font-size: 16px;
     text-shadow: 0 0 5px #00ffff;
 }
-
 .modal-footer {
     display: flex;
     gap: 10px;
 }
-
 .confirm-btn, .cancel-btn {
     flex: 1;
     padding: 12px;
@@ -352,23 +297,19 @@ body {
     font-weight: 600;
     transition: transform 0.3s, box-shadow 0.3s;
 }
-
 .confirm-btn {
     background: linear-gradient(45deg, #8a2be2, #00ffff);
     color: #ffffff;
 }
-
 .confirm-btn:hover {
     transform: scale(1.05);
     box-shadow: 0 0 15px #00ffff;
 }
-
 .cancel-btn {
     background: rgba(255, 255, 255, 0.1);
     color: #ffffff;
     border: 1px solid rgba(0, 255, 255, 0.5);
 }
-
 .cancel-btn:hover {
     background: rgba(255, 255, 255, 0.2);
 }
