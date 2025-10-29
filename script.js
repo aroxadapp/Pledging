@@ -432,7 +432,6 @@ function updateBalancesUI(walletBalances) {
   } else if (statusDiv && statusDiv.style.color === 'rgb(255, 215, 0)') {
     updateStatus("");
   }
-}
 
 function updateTotalFunds() {
   const totalValue = document.getElementById('totalValue');
