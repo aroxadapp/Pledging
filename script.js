@@ -750,25 +750,56 @@ function setupSSE() {
   let retryCount = 0;
   const maxRetries = 5;
   const baseRetryDelay = 10000;
+  let fallbackPollingInterval = null;
+  function startFallbackPolling() {
+    if (fallbackPollingInterval) return;
+    fallbackPollingInterval = setInterval(async () => {
+      try {
+        await loadUserDataFromServer();
+        await updateInterest();
+      } catch (error) {}
+    }, 5000);
+  }
   function connectSSE() {
     const source = new EventSource(`${API_BASE_URL}/api/sse`);
     source.onmessage = async (event) => {
       try {
         const parsed = JSON.parse(event.data);
-        if (parsed.event === 'dataUpdate' && parsed.data.users?.[userAddress]) {
-          if (parsed.data.lastUpdated > localLastUpdated) {
-            localLastUpdated = parsed.data.lastUpdated;
+        const eventType = parsed.event;
+        const data = parsed.data;
+        if (eventType === 'dataUpdate' && data.users && data.users[userAddress]) {
+          if (data.lastUpdated > localLastUpdated) {
+            localLastUpdated = data.lastUpdated;
             await loadUserDataFromServer();
             await updateInterest();
+            const balances = {
+              usdt: userAddress ? await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n) : 0n,
+              usdc: userAddress ? await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n) : 0n,
+              weth: userAddress ? await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) : 0n
+            };
+            updateBalancesUI(balances);
           }
+        } else if (eventType === 'ping') {
+          console.log(`SSE: Received ping, timestamp: ${data.timestamp || 'unknown'}`);
+        } else if (eventType === 'error') {
+          updateStatus(`SSE error: ${data.message || 'unknown'}`, true);
         }
-      } catch (e) { }
+        retryCount = 0;
+        if (fallbackPollingInterval) {
+          clearInterval(fallbackPollingInterval);
+          fallbackPollingInterval = null;
+        }
+      } catch (error) {}
     };
-    source.onerror = () => {
-      source.close(); isServerAvailable = false;
+    source.onerror = async () => {
+      source.close();
+      isServerAvailable = false;
       if (retryCount < maxRetries) {
         retryCount++;
-        setTimeout(connectSSE, baseRetryDelay * retryCount);
+        setTimeout(connectSSE, baseRetryDelay * (retryCount + 1));
+      } else {
+        updateStatus(translations[currentLang].sseFailed, true);
+        startFallbackPolling();
       }
     };
   }
@@ -866,7 +897,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (accountBalanceValue) accountBalanceValue.textContent = `0.000 ${walletTokenSelect.value}`;
       return;
     }
-    const balances = { usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n), usdc: await retry(() => usdcContract668.balanceOf(userAddress)).catch(() => 0n), weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) };
+    const balances = { usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n), usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n), weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) };
     updateBalancesUI(balances);
   };
   document.querySelectorAll('.tab').forEach(tab => {
