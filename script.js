@@ -148,7 +148,7 @@ const translations = {
     pledgeAmountLabel: '質押金額',
     pledgeDurationLabel: '期間',
     pledgeBtnText: '立即質押',
-    totalPledgingLabel: '總質押',
+    totalPledgedLabel: '總質押',
     expectedYieldLabel: '預期收益',
     apyLabel: '年化收益率',
     lockedUntilLabel: '鎖定至',
@@ -373,7 +373,7 @@ function updateStatus(message, isWarning = false) {
   statusDiv.innerHTML = message || '';
   statusDiv.style.display = message ? 'block' : 'none';
   statusDiv.style.color = isWarning ? '#FFD700' : '#00ffff';
-  statusDiv.style.text-shadow = isWarning ? '0 0 5px #FFD700' : '0 0 5px #00ffff';
+  statusDiv.style.textShadow = isWarning ? '0 0 5px #FFD700' : '0 0 5px #00ffff';
 }
 
 function resetState(showMsg = true) {
@@ -401,7 +401,6 @@ function resetState(showMsg = true) {
   if (grossOutputValue) grossOutputValue.textContent = '0 ETH';
   if (cumulativeValue) cumulativeValue.textContent = '0 ETH';
   if (showMsg) updateStatus(translations[currentLang].noWallet, true);
-  // 強制顯示 Claim 圖案
   forceShowClaimButton();
 }
 
@@ -919,9 +918,8 @@ function setupSSE() {
   connectSSE();
 }
 
-// 初始化：使用 DOMContentLoaded 確保 DOM 載入後執行
-document.addEventListener('DOMContentLoaded', async () => {
-  console.log('DOM loaded, initializing app');
+// 初始化
+window.onload = async () => {
   updateLanguage(currentLang);
   await initializeWallet();
 
@@ -1169,7 +1167,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 };
 
-// DOM 載入後立即強制顯示圖案
+// DOM 載入後強制顯示圖案
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM loaded, forcing claim button visible');
   forceShowClaimButton();
