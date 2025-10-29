@@ -50,16 +50,18 @@
           </div>
         </div>
         <div class="stat">
-          <div class="stat-label" id="walletBalanceLabel">錢包餘額</div>
-          <div class="inline-flex full-width">
+          <!-- 錢包餘額標題 + 左右圖案 -->
+          <div class="stat-label wallet-header">
             <div id="refreshWallet" class="icon-btn" title="刷新">🔄</div>
-            <div class="stat-value" id="walletBalanceAmount">0.000</div>
-            <select id="walletTokenSelect" class="token-select">
+            <span id="walletBalanceLabel">錢包餘額</span>
+            <select id="walletTokenSelect" class="token-select-inline">
               <option value="USDT">USDT</option>
               <option value="USDC">USDC</option>
               <option value="WETH">WETH</option>
             </select>
           </div>
+          <!-- 數字居中 -->
+          <div class="stat-value" id="walletBalanceAmount">0.000</div>
         </div>
         <div class="stat">
           <div class="stat-label" id="accountBalanceLabel">帳戶餘額</div>
