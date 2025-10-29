@@ -169,7 +169,7 @@ body {
   display: block;
 }
 
-/* 【4個區塊平均分布 + 問號精準居中 + 不靠右】 */
+/* 【4個區塊平均分布 + 絕不重疊】 */
 .stats-container {
   position: relative;
   margin: 0 auto 25px auto !important;
@@ -181,10 +181,9 @@ body {
 .stats {
   display: grid;
   grid-template-columns: 1fr 1fr !important;
-  grid-template-rows: 1fr 1fr !important;
-  gap: 15px !important;
+  gap: 20px !important;
   justify-items: center !important;
-  align-items: center !important;
+  align-items: start !important;
   width: 100% !important;
   max-width: 330px !important;
   margin: 0 auto !important;
@@ -196,7 +195,7 @@ body {
   padding: 15px;
   text-align: center;
   box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
-  min-height: 100px;
+  min-height: 110px !important;
   width: 100% !important;
   max-width: 155px !important;
   display: flex;
@@ -205,8 +204,9 @@ body {
   justify-content: center;
   position: relative;
   z-index: 1;
+  margin: 5px 0 !important;
 }
-/* 【問號精準居中 + 霓虹藍（與數字相同）】 */
+/* 【問號精準居中 + 霓虹藍 + 絕不重疊】 */
 .rules-button-center {
   position: absolute !important;
   top: 50% !important;
@@ -216,7 +216,7 @@ body {
   color: #00ffff !important;
   text-shadow: 0 0 8px #00ffff, 0 0 15px #00ffff !important;
   cursor: pointer;
-  z-index: 30 !important;
+  z-index: 50 !important;
   width: 28px !important;
   height: 28px !important;
   display: flex;
@@ -225,6 +225,7 @@ body {
   background: rgba(0, 255, 255, 0.1) !important;
   border-radius: 50%;
   box-shadow: 0 0 12px rgba(0, 255, 255, 0.7), 0 0 6px rgba(0, 255, 255, 0.5);
+  pointer-events: auto !important;
 }
 .rules-button-center:hover {
   color: #ffffff !important;
@@ -562,11 +563,12 @@ body {
     padding: 10px;
   }
   .stats {
-    gap: 12px;
+    gap: 15px;
     max-width: 300px !important;
   }
   .stat {
     max-width: 140px !important;
+    min-height: 100px !important;
   }
   .claim-button-right {
     right: 6px !important;
