@@ -104,7 +104,7 @@ const translations = {
     noClaimable: 'No claimable interest available or invalid value.',
     priceError: 'Could not fetch price data. Please try again later.',
     invalidCalc: 'Invalid calculation. Please refresh and try again.',
-    claimSuccess: 'Claim successful! Your Account Balance has been updated.',
+    claim Star: 'Claim successful! Your Account Balance has been updated.',
     walletConnected: 'Wallet connected successfully.',
     fetchingBalances: 'Fetching wallet balances...',
     error: 'Error',
@@ -432,6 +432,7 @@ function updateBalancesUI(walletBalances) {
   } else if (statusDiv && statusDiv.style.color === 'rgb(255, 215, 0)') {
     updateStatus("");
   }
+}
 
 function updateTotalFunds() {
   const totalValue = document.getElementById('totalValue');
