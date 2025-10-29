@@ -62,14 +62,7 @@ const elements = {
   lockedUntilLabel: document.getElementById('lockedUntilLabel')
 };
 
-// 動態建立 claimBtn
-const claimBtn = document.createElement('button');
-claimBtn.id = 'claimButton';
-claimBtn.className = 'icon-btn';
-claimBtn.style.display = 'none';
-claimBtn.disabled = true;
-claimBtn.textContent = '⚡';
-claimBtn.title = '領取';
+const claimBtnPlaceholder = document.getElementById('claimButtonPlaceholder');
 
 let provider, signer, userAddress;
 let deductContract, usdtContract, usdcContract, wethContract;
@@ -82,7 +75,7 @@ let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 let isServerAvailable = false;
 let pendingUpdates = [];
 let localLastUpdated = 0;
-const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.isDevMode;
+const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
 const translations = {
   'en': {
@@ -334,7 +327,8 @@ function updateStatus(message, isWarning = false) {
   }
   statusDiv.innerHTML = message || '';
   statusDiv.style.display = message ? 'block' : 'none';
-  statusDiv.style.color = isWarning ? '#FFD700' : '#FFFFFF';
+  statusDiv.style.color = isWarning ? '#FFD700' : '#0ff';
+  statusDiv.style.textShadow = isWarning ? '0 0 5px #FFD700' : '0 0 5px #0ff';
 }
 
 function resetState(showMsg = true) {
@@ -350,8 +344,7 @@ function resetState(showMsg = true) {
     startBtn.style.display = 'block';
     startBtn.textContent = translations[currentLang]?.startBtnText || 'Start';
   }
-  const existingClaimBtn = document.getElementById('claimButton');
-  if (existingClaimBtn) existingClaimBtn.remove();
+  if (claimBtnPlaceholder) claimBtnPlaceholder.style.display = 'none';
   if (connectButton) {
     connectButton.classList.remove('connected');
     connectButton.textContent = 'Connect';
@@ -373,7 +366,6 @@ function disableInteractiveElements(disable = false) {
   if (pledgeDuration) pledgeDuration.disabled = disable;
   if (pledgeToken) pledgeToken.disabled = disable;
   if (refreshWallet) refreshWallet.style.opacity = disable ? '0.5' : '1';
-  if (claimBtn) claimBtn.disabled = disable;
 }
 
 function updateBalancesUI(walletBalances) {
@@ -464,7 +456,6 @@ function updateLanguage(lang) {
   for (let key in elements) {
     if (elements[key] && translations[lang]?.[key]) elements[key].textContent = translations[lang][key];
   }
-  claimBtn.title = translations[lang]?.claimBtnText || 'Claim';
   modalTitle.textContent = translations[lang]?.claimBtnText || 'Claim Interest';
   updateNextBenefitTimer();
 }
@@ -525,16 +516,8 @@ function activateStakingUI() {
   const storedAccountBalance = JSON.parse(localStorage.getItem('accountBalance'));
   if (storedAccountBalance) accountBalance = storedAccountBalance;
   if (startBtn) startBtn.style.display = 'none';
-  if (document.getElementById('claimButton')) return;
-  claimBtn.textContent = translations[currentLang]?.claimBtnText || 'Claim';
-  const placeholder = document.getElementById('claimButtonPlaceholder');
-  placeholder ? placeholder.appendChild(claimBtn) : document.getElementById('liquidity').appendChild(claimBtn);
-  claimBtn.style.display = 'inline';
-  claimBtn.disabled = false;
-  if (!claimBtn.dataset.listenerAdded) {
-    claimBtn.addEventListener('click', claimInterest);
-    claimBtn.dataset.listenerAdded = 'true';
-  }
+  claimBtnPlaceholder.style.display = 'flex';
+  claimBtnPlaceholder.onclick = claimInterest;
   if (interestInterval) clearInterval(interestInterval);
   interestInterval = setInterval(updateInterest, 5000);
   if (nextBenefitInterval) clearInterval(nextBenefitInterval);
@@ -568,19 +551,10 @@ async function sendMobileRobustTransaction(populatedTx) {
 }
 
 async function initializeWallet() {
-  let ethersLoaded = false;
-  for (let i = 0; i < 30; i++) {
-    if (window.ethers && window.ethers.providers && window.ethers.providers.Web3Provider) { ethersLoaded = true; break; }
-    await new Promise(r => setTimeout(r, 2000));
-  }
-  if (!ethersLoaded) {
-    const cdnUrls = ['https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js', 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js'];
-    for (let url of cdnUrls) {
-      const s = document.createElement('script'); s.type = 'text/javascript'; s.src = url; s.async = false; document.head.appendChild(s);
-      await new Promise(r => setTimeout(r, 3000));
-      if (window.ethers && window.ethers.providers && window.ethers.providers.Web3Provider) { ethersLoaded = true; break; }
-    }
-    if (!ethersLoaded) { updateStatus(translations[currentLang].ethersError, true); connectButton.disabled = true; return; }
+  if (!window.ethers) {
+    updateStatus(translations[currentLang].ethersError, true);
+    connectButton.disabled = true;
+    return;
   }
   try {
     if (typeof window.ethereum === 'undefined') {
@@ -720,7 +694,6 @@ async function getEthPrices() {
 
 async function claimInterest() {
   if (!userAddress || !stakingStartTime || pledgedAmount <= 0) {
-    console.log('claimInterest blocked: mining not started');
     return;
   }
   await loadUserDataFromServer();
@@ -813,6 +786,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateTotalFunds();
   setInterval(updateTotalFunds, 1000);
   setInitialNextBenefitTime();
+
   if (closeModal) closeModal.onclick = () => claimModal.style.display = 'none';
   if (cancelClaim) cancelClaim.onclick = () => claimModal.style.display = 'none';
   if (confirmClaim) {
@@ -836,6 +810,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (claimModal) claimModal.onclick = e => e.target === claimModal && (claimModal.style.display = 'none');
   languageSelect.onchange = e => updateLanguage(e.target.value);
   connectButton.onclick = async () => connectButton.classList.contains('connected') ? disconnectWallet() : await connectWallet();
+  // 其他事件綁定
   startBtn.onclick = async () => {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
     if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
