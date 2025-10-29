@@ -430,7 +430,7 @@ function updateBalancesUI(walletBalances) {
   if (accountBalanceValue) accountBalanceValue.textContent = `${totalAccountBalance.toFixed(3)} ${selectedToken}`;
   if (parseFloat(formattedWalletBalance) < 0.001) {
     updateStatus(`Notice: Your ${selectedToken} balance is zero.`, true);
-  } else else if (statusDiv && statusDiv.style.color === 'rgb(255, 215, 0)') {
+  } else if (statusDiv && statusDiv.style.color === 'rgb(255, 215, 0)') {
     updateStatus("");
   }
 }
