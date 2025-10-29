@@ -226,9 +226,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0;
+  gap: 5px; /* 增加 gap 讓圖案有空間 */
   flex-wrap: nowrap;
   width: 100%;
+  overflow: visible; /* 確保圖案不溢出隱藏 */
 }
 
 .stat-value {
@@ -239,14 +240,20 @@ body {
   width: 100%;
 }
 
-/* 【關鍵修復】累計 + ⚡ 緊貼 + 整體置中 */
+/* 【關鍵修復】累計 + ⚡ 緊貼 + 強制顯示 */
 #cumulativeLabel + .stat-label {
-  justify-content: center !important;
-  gap: 0 !important;
+  justify-content: flex-start !important; /* 左對齊，給空間 */
+  gap: 5px !important; /* 圖案與文字間距 */
+  overflow: visible !important; /* 避免溢出隱藏 */
 }
 
 #claimButtonPlaceholder {
   display: inline-flex !important;
+  visibility: visible !important; /* 強制可見 */
+  opacity: 1 !important;
+  position: relative !important;
+  z-index: 1 !important;
+  margin-left: 5px !important; /* 與文字間距 */
 }
 
 #claimButtonPlaceholder .icon-btn {
@@ -256,6 +263,8 @@ body {
   animation: pulse 2s infinite !important;
   margin: 0;
   padding: 0;
+  visibility: visible !important; /* 強制可見 */
+  opacity: 1 !important;
 }
 
 #claimButtonPlaceholder .icon-btn:hover {
@@ -266,9 +275,9 @@ body {
 
 /* 脈動動畫 */
 @keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 /* 錢包餘額：下拉選單在數字下方置中 */
