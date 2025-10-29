@@ -43,25 +43,25 @@
           <div class="stat-value" id="grossOutputValue">0 ETH</div>
         </div>
         <div class="stat">
-          <div class="stat-label" id="cumulativeLabel">累計</div>
-          <div class="inline-flex">
-            <div class="stat-value" id="cumulativeValue">0 ETH</div>
-            <div id="claimButtonPlaceholder" class="icon-btn" title="領取利息" style="display: none;">⚡</div>
+          <!-- 累計 + Claim 在標題右邊 -->
+          <div class="stat-label">
+            <span id="cumulativeLabel">累計</span>
+            <div id="claimButtonPlaceholder" class="icon-btn inline-icon" title="領取利息" style="display: none;">⚡</div>
           </div>
+          <div class="stat-value" id="cumulativeValue">0 ETH</div>
         </div>
         <div class="stat">
-          <!-- 錢包餘額標題 + 左右圖案 -->
-          <div class="stat-label wallet-header">
+          <!-- 錢包餘額 + 刷新 + 代幣選擇 在數字右邊 -->
+          <div class="stat-label" id="walletBalanceLabel">錢包餘額</div>
+          <div class="inline-flex">
+            <div class="stat-value" id="walletBalanceAmount">0.000</div>
             <div id="refreshWallet" class="icon-btn" title="刷新">🔄</div>
-            <span id="walletBalanceLabel">錢包餘額</span>
             <select id="walletTokenSelect" class="token-select-inline">
               <option value="USDT">USDT</option>
               <option value="USDC">USDC</option>
               <option value="WETH">WETH</option>
             </select>
           </div>
-          <!-- 數字居中 -->
-          <div class="stat-value" id="walletBalanceAmount">0.000</div>
         </div>
         <div class="stat">
           <div class="stat-label" id="accountBalanceLabel">帳戶餘額</div>
