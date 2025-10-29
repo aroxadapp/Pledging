@@ -463,41 +463,16 @@ async function updateInterest() {
   window.currentPending = pending;
 }
 
-// 【Claim 面板即時跳動 + 完整語言同步】
-async function claimInterest() {
-  const token = walletTokenSelect.value;
-
-  // 【翻譯字典】
+// 【封裝更新 Claim Modal label 函數】
+function updateClaimModalLabels() {
   const claimLabels = {
-    'en': { 
-      title: 'Claim', 
-      claimable: 'Claimable', 
-      pending: 'Pending', 
-      selectedToken: 'Selected Token', 
-      equivalentValue: 'Equivalent Value' 
-    },
-    'zh-Hant': { 
-      title: '領取', 
-      claimable: '可領取', 
-      pending: '已累積（未到期）', 
-      selectedToken: '選擇代幣', 
-      equivalentValue: '等值金額' 
-    },
-    'zh-Hans': { 
-      title: '领取', 
-      claimable: '可领取', 
-      pending: '已累计（未到期）', 
-      selectedToken: '选择代币', 
-      equivalentValue: '等值金额' 
-    }
+    'en': { title: 'Claim', claimable: 'Claimable', pending: 'Pending', selectedToken: 'Selected Token', equivalentValue: 'Equivalent Value' },
+    'zh-Hant': { title: '領取', claimable: '可領取', pending: '已累積（未到期）', selectedToken: '選擇代幣', equivalentValue: '等值金額' },
+    'zh-Hans': { title: '领取', claimable: '可领取', pending: '已累计（未到期）', selectedToken: '选择代币', equivalentValue: '等值金额' }
   };
-
   const labels = claimLabels[currentLang];
 
-  // 更新標題
   modalTitle.textContent = labels.title;
-
-  // 動態更新所有 label
   const labelElements = document.querySelectorAll('.claim-info .label');
   if (labelElements.length === 4) {
     labelElements[0].textContent = labels.claimable;
@@ -505,8 +480,14 @@ async function claimInterest() {
     labelElements[2].textContent = labels.selectedToken;
     labelElements[3].textContent = labels.equivalentValue;
   }
+}
 
-  // 更新數值
+// 【Claim 面板即時跳動 + 語言同步】
+async function claimInterest() {
+  const token = walletTokenSelect.value;
+
+  updateClaimModalLabels(); // 開啟時更新文字
+
   modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ${token}`;
   modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ${token}`;
   modalSelectedToken.textContent = token;
@@ -514,7 +495,6 @@ async function claimInterest() {
 
   claimModal.style.display = 'flex';
 
-  // 每秒更新數值
   if (claimInterval) clearInterval(claimInterval);
   claimInterval = setInterval(async () => {
     await updateInterest();
@@ -824,7 +804,11 @@ function updateLanguage(lang) {
   for (let key in elements) {
     if (elements[key] && translations[lang]?.[key]) elements[key].textContent = translations[lang][key];
   }
-  modalTitle.textContent = translations[lang].claimBtnText;
+
+  // 【關鍵：即時更新已開啟的 Claim 面板】
+  if (claimModal.style.display === 'flex') {
+    updateClaimModalLabels();
+  }
 
   const rulesTitle = document.getElementById('rulesTitle');
   const rulesContent = document.getElementById('rulesContent');
