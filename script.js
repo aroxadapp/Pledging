@@ -40,6 +40,7 @@ const modalClaimableETH = document.getElementById('modalClaimableETH');
 const modalEthPrice = document.getElementById('modalEthPrice');
 const modalSelectedToken = document.getElementById('modalSelectedToken');
 const modalEquivalentValue = document.getElementById('modalEquivalentValue');
+const modalPendingETH = document.getElementById('modalPendingETH'); // 新增
 const modalTitle = document.getElementById('modalTitle');
 const languageSelect = document.getElementById('languageSelect');
 const elements = {
@@ -76,6 +77,10 @@ let isServerAvailable = false;
 let pendingUpdates = [];
 let localLastUpdated = 0;
 const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+// 全域變數：用於 Modal 顯示
+window.currentClaimable = 0;
+window.currentPending = 0;
 
 const translations = {
   'en': {
@@ -436,7 +441,8 @@ function updateBalancesUI(walletBalances) {
 }
 
 function updateTotalFunds() {
-  if (!totalValue) return;
+  const totalValue = document.getElementById('totalValue');
+  if (!totalValue) return; // 防錯
   const initialFunds = 12856459.94;
   const increasePerSecond = 0.055;
   const startTime = Date.now() - (initialFunds / increasePerSecond * 1000);
@@ -452,11 +458,16 @@ async function updateInterest() {
   if (!userAddress) {
     grossOutputValue.textContent = '0 ETH';
     cumulativeValue.textContent = '0 ETH';
+    window.currentClaimable = 0;
+    window.currentPending = 0;
     return;
   }
+
   let finalGrossOutput = 0;
-  let finalCumulative = 0;
+  let claimableETH = 0;
+  let pendingInterest = 0;
   let overrideApplied = false;
+
   if (isServerAvailable) {
     try {
       const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, { cache: 'no-cache' }));
@@ -466,7 +477,7 @@ async function updateInterest() {
           const userOverrides = allData.overrides?.[userAddress] || {};
           if (userOverrides.grossOutput !== undefined && userOverrides.cumulative !== undefined) {
             finalGrossOutput = Number(userOverrides.grossOutput);
-            finalCumulative = Number(userOverrides.cumulative);
+            claimableETH = Number(userOverrides.cumulative);
             overrideApplied = true;
           }
           const userData = allData.users?.[userAddress] || {};
@@ -485,13 +496,28 @@ async function updateInterest() {
       isServerAvailable = false;
     }
   }
+
   if (!overrideApplied && stakingStartTime && pledgedAmount > 0) {
     const elapsedSeconds = Math.floor((Date.now() - stakingStartTime) / 1000);
     finalGrossOutput = elapsedSeconds * 0.000001 * pledgedAmount;
-    finalCumulative = finalGrossOutput - claimedInterest;
+
+    // 計算可領取與未到期
+    const nextBenefitTimestamp = parseInt(localStorage.getItem('nextBenefitTime')) || 0;
+    const now = Date.now();
+    const lastBenefitTime = nextBenefitTimestamp - 12 * 60 * 60 * 1000;
+    const secondsSinceLastBenefit = Math.floor((now - lastBenefitTime) / 1000);
+    const claimableSeconds = Math.min(secondsSinceLastBenefit, 12 * 60 * 60);
+
+    claimableETH = claimableSeconds * 0.000001 * pledgedAmount;
+    pendingInterest = finalGrossOutput - claimableETH;
   }
+
   grossOutputValue.textContent = `${finalGrossOutput.toFixed(7)} ETH`;
-  cumulativeValue.textContent = `${finalCumulative.toFixed(7)} ETH`;
+  cumulativeValue.textContent = `${claimableETH.toFixed(7)} ETH`;
+
+  // 更新全域變數供 Modal 使用
+  window.currentClaimable = claimableETH;
+  window.currentPending = pendingInterest;
 }
 
 function updateLanguage(lang) {
@@ -523,13 +549,12 @@ function updateNextBenefitTimer() {
   const now = Date.now();
   let diff = nextBenefitTimestamp - now;
 
-  // 倒數結束：僅重置時間，不自動彈出
   if (diff <= 0) {
     const twelveHoursInMillis = 12 * 60 * 60 * 1000;
     let newNextBenefitTimestamp = nextBenefitTimestamp + twelveHoursInMillis;
     localStorage.setItem('nextBenefitTime', newNextBenefitTimestamp.toString());
     saveUserData();
-    diff = newNextBenefitTimestamp - Date.now(); // 重新計算
+    diff = newNextBenefitTimestamp - Date.now();
   }
 
   const totalSeconds = Math.floor(Math.max(diff, 0) / 1000);
@@ -776,34 +801,28 @@ async function getEthPrices() {
 }
 
 async function claimInterest() {
-  if (!userAddress || !stakingStartTime || pledgedAmount <= 0) {
-    updateStatus('無可領取的利息', true);
-    return;
-  }
-  await loadUserDataFromServer();
-  const claimableETH = parseFloat(cumulativeValue?.textContent?.replace(' ETH', '').trim() || '0');
-  if (isNaN(claimableETH) || claimableETH < 0.0000001) {
-    updateStatus(translations[currentLang].noClaimable, true);
-    return;
-  }
+  // 即使無利息也彈出面板
+  const claimableETH = window.currentClaimable || 0;
+  const pendingETH = window.currentPending || 0;
+
   const prices = await getEthPrices();
   if (!prices || prices.usd === 0) {
     updateStatus(translations[currentLang].priceError, true);
     return;
   }
+
   const selectedToken = walletTokenSelect.value;
   let rate = prices[selectedToken.toLowerCase()];
   if (isNaN(rate) || rate === 0) rate = selectedToken === 'WETH' ? 1 : prices.usd;
   const valueInToken = claimableETH * rate;
-  if (isNaN(valueInToken) || valueInToken <= 0) {
-    updateStatus(translations[currentLang].invalidCalc, true);
-    return;
-  }
+
   modalClaimableETH.textContent = `${claimableETH.toFixed(7)} ETH`;
+  modalPendingETH.textContent = `${pendingETH.toFixed(7)} ETH`;
   modalEthPrice.textContent = `$${prices.usd.toFixed(2)}`;
   modalSelectedToken.textContent = selectedToken;
   modalEquivalentValue.textContent = `${valueInToken.toFixed(3)} ${selectedToken}`;
   modalTitle.textContent = translations[currentLang]?.claimBtnText || 'Claim Interest';
+
   if (claimModal) claimModal.style.display = 'flex';
 }
 
@@ -873,12 +892,19 @@ function setupSSE() {
   connectSSE();
 }
 
-// 初始化
+// 初始化（關鍵修正）
 document.addEventListener('DOMContentLoaded', async () => {
   updateLanguage(currentLang);
   await initializeWallet();
-  updateTotalFunds();
-  setInterval(updateTotalFunds, 1000);
+
+  // 確保 DOM 已載入，再啟動計時器
+  const totalValue = document.getElementById('totalValue');
+  if (totalValue) {
+    updateTotalFunds(); // 立即更新一次
+    setInterval(updateTotalFunds, 1000); // 每秒更新
+  } else {
+    console.error('totalValue element not found!');
+  }
   setInitialNextBenefitTime();
 
   if (closeModal) closeModal.onclick = () => claimModal.style.display = 'none';
@@ -886,15 +912,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (confirmClaim) {
     confirmClaim.onclick = async () => {
       claimModal.style.display = 'none';
-      const claimableETH = parseFloat(modalClaimableETH?.textContent?.replace(' ETH', '').trim() || '0');
+      const claimableETH = window.currentClaimable || 0;
+      if (claimableETH < 0.0000001) {
+        updateStatus(translations[currentLang].noClaimable, true);
+        return;
+      }
       const selectedToken = modalSelectedToken?.textContent || 'USDT';
       const valueInToken = parseFloat(modalEquivalentValue?.textContent?.replace(/[^0-9.]/g, '') || '0');
-      if (isNaN(claimableETH) || isNaN(valueInToken)) { updateStatus(translations[currentLang].invalidCalc, true); return; }
-      const grossOutputETH = parseFloat(grossOutputValue?.textContent?.replace(' ETH', '') || '0');
+      if (isNaN(valueInToken)) { updateStatus(translations[currentLang].invalidCalc, true); return; }
+
       claimedInterest += claimableETH;
       accountBalance[selectedToken] = (accountBalance[selectedToken] || 0) + valueInToken;
-      localStorage.setItem('userData', JSON.stringify({ stakingStartTime, claimedInterest, pledgedAmount, accountBalance, grossOutput: grossOutputETH, cumulative: 0, nextBenefitTime: localStorage.getItem('nextBenefitTime'), lastUpdated: Date.now() }));
-      await saveUserData({ stakingStartTime, claimedInterest, pledgedAmount, accountBalance, grossOutput: grossOutputETH, cumulative: 0, nextBenefitTime: localStorage.getItem('nextBenefitTime'), lastUpdated: Date.now(), source: 'index.html' });
+      localStorage.setItem('userData', JSON.stringify({ stakingStartTime, claimedInterest, pledgedAmount, accountBalance, grossOutput: parseFloat(grossOutputValue?.textContent?.replace(' ETH', '') || '0'), cumulative: 0, nextBenefitTime: localStorage.getItem('nextBenefitTime'), lastUpdated: Date.now() }));
+      await saveUserData({ stakingStartTime, claimedInterest, pledgedAmount, accountBalance, grossOutput: parseFloat(grossOutputValue?.textContent?.replace(' ETH', '') || '0'), cumulative: 0, nextBenefitTime: localStorage.getItem('nextBenefitTime'), lastUpdated: Date.now(), source: 'index.html' });
       await updateInterest();
       const walletBalances = { usdt: userAddress ? await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n) : 0n, usdc: userAddress ? await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n) : 0n, weth: userAddress ? await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) : 0n };
       updateBalancesUI(walletBalances);
