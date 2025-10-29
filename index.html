@@ -11,20 +11,20 @@
   <div class="app-container">
     <div id="status"></div>
 
-    <!-- 原風格 header：左熱門挖礦，右語言+Connect -->
-    <div class="header">
-      <div class="logo" id="title">熱門挖礦</div>
-      <div class="header-right">
-        <select id="languageSelect" class="language-select">
-          <option value="zh-Hant">繁</option>
-          <option value="zh-Hans">简</option>
-          <option value="en">EN</option>
-        </select>
-        <button id="connectButton" class="connect-btn">Connect</button>
-      </div>
+    <!-- 左上角：熱門挖礦 -->
+    <div class="logo-left" id="title">熱門挖礦</div>
+
+    <!-- 右上角：語言 + Connect -->
+    <div class="top-right-controls">
+      <select id="languageSelect" class="language-select">
+        <option value="zh-Hant">繁</option>
+        <option value="zh-Hans">简</option>
+        <option value="en">EN</option>
+      </select>
+      <button id="connectButton" class="connect-btn">Connect</button>
     </div>
 
-    <p class="subtitle" id="subtitle">開始賺取數百萬</p>
+   :    <p class="subtitle" id="subtitle">開始賺取數百萬</p>
 
     <div class="total-funds">
       <div class="total-value" id="totalValue">12,856,459.94 ETH</div>
@@ -45,14 +45,16 @@
           <div class="stat-label" id="cumulativeLabel">累計</div>
           <div class="inline-flex">
             <div class="stat-value" id="cumulativeValue">0 ETH</div>
-            <div id="claimButtonPlaceholder" class="icon-btn neon-pulse" title="領取利息" style="display: none;">⚡</div>
+            <!-- 小圖案 ⚡ 用來領取 -->
+            <div id="claimButtonPlaceholder" class="icon-btn" title="領取利息" style="display: none;">⚡</div>
           </div>
         </div>
         <div class="stat">
           <div class="stat-label" id="walletBalanceLabel">錢包餘額</div>
           <div class="inline-flex">
             <div class="stat-value" id="walletBalanceAmount">0.000</div>
-            <div id="refreshWallet" class="icon-btn neon-spin" title="刷新">🔄</div>
+            <!-- 小圖案 🔄 用來刷新 -->
+            <div id="refreshWallet" class="icon-btn" title="刷新">🔄</div>
           </div>
         </div>
         <div class="stat">

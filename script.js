@@ -62,6 +62,7 @@ const elements = {
   lockedUntilLabel: document.getElementById('lockedUntilLabel')
 };
 
+// 領取按鈕 placeholder
 const claimBtnPlaceholder = document.getElementById('claimButtonPlaceholder');
 
 let provider, signer, userAddress;
@@ -327,8 +328,8 @@ function updateStatus(message, isWarning = false) {
   }
   statusDiv.innerHTML = message || '';
   statusDiv.style.display = message ? 'block' : 'none';
-  statusDiv.style.color = isWarning ? '#FFD700' : '#0ff';
-  statusDiv.style.textShadow = isWarning ? '0 0 5px #FFD700' : '0 0 5px #0ff';
+  statusDiv.style.color = isWarning ? '#FFD700' : '#00ffff';
+  statusDiv.style.textShadow = isWarning ? '0 0 5px #FFD700' : '0 0 5px #00ffff';
 }
 
 function resetState(showMsg = true) {
@@ -810,7 +811,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (claimModal) claimModal.onclick = e => e.target === claimModal && (claimModal.style.display = 'none');
   languageSelect.onchange = e => updateLanguage(e.target.value);
   connectButton.onclick = async () => connectButton.classList.contains('connected') ? disconnectWallet() : await connectWallet();
-  // 其他事件綁定
   startBtn.onclick = async () => {
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
     if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
@@ -880,7 +880,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     tab.onclick = async () => {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-      document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.content-section').forEach(s => s.classList S.remove('active'));
       document.getElementById(tab.dataset.tab).classList.add('active');
       if (tab.dataset.tab === 'liquidity') {
         const acquired = await retryDOMAcquisition();
