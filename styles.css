@@ -37,7 +37,7 @@ body {
     top: 0;
     z-index: 10;
 }
-/* 右上角：語言 + Connect（已移除黑色框框） */
+/* 右上角：語言 + Connect（無黑色框框） */
 .header-right {
   position: fixed;
   top: 15px;
@@ -46,7 +46,6 @@ body {
   align-items: center;
   gap: 12px;
   z-index: 100;
-  /* 移除背景、padding、border、backdrop-filter */
   background: transparent !important;
   padding: 0 !important;
   border: none !important;
@@ -191,10 +190,11 @@ body {
   padding: 15px;
   text-align: center;
   box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
-  min-height: 100px;
+  min-height: 110px !important; /* 增加高度 */
   display: flex;
   flex-direction: column;
   align-items: center;
+  overflow: visible !important; /* 強制允許溢出 */
 }
 /* 【文字置中】標籤與數值 */
 .stat-label {
@@ -238,6 +238,8 @@ body {
   height: 28px !important;
   margin-left: 8px !important;
   flex-shrink: 0 !important;
+  position: relative !important;
+  z-index: 10 !important;
 }
 .claim-btn {
   display: flex !important;
@@ -270,7 +272,7 @@ body {
 }
 /* 錢包餘額：下拉選單在數字下方置中 */
 #walletBalanceLabel + .stat {
-  min-height: 110px;
+  min-height: 120px !important;
 }
 #walletBalanceLabel + .stat .stat-label {
   flex-direction: column;
@@ -545,7 +547,7 @@ body {
     padding: 10px;
   }
   #walletBalanceLabel + .stat {
-    min-height: 120px;
+    min-height: 130px !important;
   }
   #cumulativeLabel .stat-label {
     gap: 8px;
