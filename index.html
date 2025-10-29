@@ -134,6 +134,12 @@
     </div>
   </div>
 
-  <script src="script.js" defer></script>
+  <!-- 動態載入 script.js -->
+  <script>
+    const script = document.createElement('script');
+    script.src = 'script.js';
+    script.type = 'text/javascript';
+    document.head.appendChild(script);
+  </script>
 </body>
 </html>
