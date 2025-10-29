@@ -19,10 +19,10 @@ body {
     border-radius: 20px;
     box-shadow: 0 0 40px rgba(138, 43, 226, 0.5), 0 0 20px rgba(0, 255, 255, 0.3);
     width: 360px;
+    height: 800px; /* 固定高度，防止滾動條 */
     padding: 80px 25px 25px;
     box-sizing: border-box;
-    overflow-y: auto;
-    max-height: 800px;
+    overflow: hidden; /* 防止滾動條 */
     border: 1px solid rgba(0, 255, 255, 0.2);
     position: relative;
     z-index: 1;
@@ -152,14 +152,14 @@ body {
   width: 100%;
 }
 
-/* Claim 圖案在「累計」右邊 */
+/* 累計 + Claim 在標題右邊 */
 #cumulativeLabel + .stat-label .inline-icon {
   margin-left: 5px;
 }
 
-/* 錢包餘額：刷新 + 代幣選擇在數字右邊 */
-#walletBalanceLabel + .inline-flex {
-  justify-content: center;
+/* 錢包餘額：代幣選擇在標題右邊，刷新在數字右邊 */
+#walletBalanceLabel + .stat-label .token-select-inline {
+  margin-left: 5px;
 }
 
 /* 下拉選單霓虹風格 */
@@ -405,8 +405,9 @@ select:focus {
 /* 手機版調整 */
 @media (max-width: 480px) {
   .app-container {
-    padding-top: 90px !important;
     width: 95%;
+    height: 90vh;
+    padding-top: 90px !important;
   }
   .header-right {
     top: 10px;
