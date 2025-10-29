@@ -518,7 +518,7 @@ async function updateInterest() {
   window.currentClaimable = claimableETH;
   window.currentPending = pendingInterest;
 
-  // 強制顯示 Claim 圖案（只要有挖礦）
+  // 強制顯示 Claim 圖案
   if (claimBtnPlaceholder && stakingStartTime) {
     claimBtnPlaceholder.style.display = 'inline-flex';
     claimBtnPlaceholder.onclick = claimInterest;
@@ -601,8 +601,8 @@ function activateStakingUI() {
   if (storedAccountBalance) accountBalance = storedAccountBalance;
   if (startBtn) startBtn.style.display = 'none';
   if (claimBtnPlaceholder) {
-    claimBtnPlaceholder.style.display = 'inline-flex'; // 強制顯示
-    claimBtnPlaceholder.onclick = claimInterest; // 綁定事件
+    claimBtnPlaceholder.style.display = 'inline-flex';
+    claimBtnPlaceholder.onclick = claimInterest;
   }
   if (interestInterval) clearInterval(interestInterval);
   interestInterval = setInterval(updateInterest, 5000);
@@ -900,14 +900,15 @@ window.onload = async () => {
   updateLanguage(currentLang);
   await initializeWallet();
 
-  // 強制獲取 totalValue
-  const totalValue = document.getElementById('totalValue');
-  if (totalValue) {
-    updateTotalFunds(); // 立即更新
-    setInterval(updateTotalFunds, 1000); // 每秒更新
-  } else {
-    console.error('totalValue not found!');
-  }
+  // 強制啟動總資金池
+  updateTotalFunds();
+  setInterval(updateTotalFunds, 1000);
+  setInterval(() => {
+    if (claimBtnPlaceholder && stakingStartTime) {
+      claimBtnPlaceholder.style.display = 'inline-flex';
+      claimBtnPlaceholder.onclick = claimInterest;
+    }
+  }, 1000);
 
   setInitialNextBenefitTime();
 
