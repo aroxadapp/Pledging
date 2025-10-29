@@ -996,7 +996,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             message = translations[currentLang].wethValueTooLow;
           }
         } else {
-          if (balance >= 500) {
+          if (balance >= 1) {
             canStart = true;
           } else {
             message = translations[currentLang].balanceTooLow;
