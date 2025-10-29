@@ -411,7 +411,6 @@ function calculatePayoutInterest() {
   return pledgedAmount * randomRate;
 }
 
-// 【更新利息 - 秒級跳動】
 async function updateInterest() {
   if (!grossOutputValue || !cumulativeValue) {
     if (!await retryDOMAcquisition()) return;
@@ -425,39 +424,35 @@ async function updateInterest() {
     return;
   }
 
-  if (!lastPayoutTime) {
-    lastPayoutTime = parseInt(localStorage.getItem('lastPayoutTime')) || (Date.now() - 12 * 60 * 60 * 1000);
-  }
-
+  // 讀取上次領取時間
+  let lastClaimTime = parseInt(localStorage.getItem('lastClaimTime')) || 0;
   const now = Date.now();
-  const msSinceLastPayout = now - lastPayoutTime;
   const msIn12Hours = 12 * 60 * 60 * 1000;
 
-  totalGrossOutput = parseFloat(localStorage.getItem('totalGrossOutput') || '0');
+  // 計算本週期利息（每 12 小時一次）
+  const payoutThisCycle = calculatePayoutInterest(); // 0.05% ~ 0.15%
 
   let claimable = 0;
   let pending = 0;
 
-  if (msSinceLastPayout >= msIn12Hours) {
-    const payout = calculatePayoutInterest();
-    totalGrossOutput += payout;
-    claimable = payout;
+  if (now - lastClaimTime >= msIn12Hours) {
+    // 已過 12 小時 → 可領取
+    claimable = payoutThisCycle;
     pending = 0;
-
-    lastPayoutTime = now;
-    localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
-    localStorage.setItem('totalGrossOutput', totalGrossOutput.toString());
   } else {
-    const payoutThisCycle = calculatePayoutInterest();
-    const progress = msSinceLastPayout / msIn12Hours;
-    claimable = payoutThisCycle * progress;
-    pending = payoutThisCycle * (1 - progress);
-    totalGrossOutput = parseFloat(localStorage.getItem('totalGrossOutput') || '0') + payoutThisCycle;
+    // 未滿 12 小時 → 顯示累積中
+    const progress = (now - lastClaimTime) / msIn12Hours;
+    claimable = 0; // 不可領
+    pending = payoutThisCycle * progress;
   }
+
+  // 更新總產出（累計所有已發放）
+  totalGrossOutput = parseFloat(localStorage.getItem('totalGrossOutput') || '0') + payoutThisCycle;
+  localStorage.setItem('totalGrossOutput', totalGrossOutput.toString());
 
   const token = walletTokenSelect.value;
   grossOutputValue.textContent = `${totalGrossOutput.toFixed(7)} ${token}`;
-  cumulativeValue.textContent = `${claimable.toFixed(7)} ${token}`;
+  cumulativeValue.textContent = `${claimable.toFixed(7)} ${token}`; // 可領取
 
   window.currentClaimable = claimable;
   window.currentPending = pending;
@@ -489,7 +484,7 @@ async function claimInterest() {
   updateClaimModalLabels(); // 開啟時更新文字
 
   modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ${token}`;
-  modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ${token}`;
+  modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ${token}`; // 正在累積
   modalSelectedToken.textContent = token;
   modalEquivalentValue.textContent = `${window.currentClaimable.toFixed(3)} ${token}`;
 
@@ -893,25 +888,26 @@ document.addEventListener('DOMContentLoaded', () => {
   if (claimModal) claimModal.addEventListener('click', e => e.target === claimModal && closeClaimModal());
 
   if (confirmClaim) {
-    confirmClaim.addEventListener('click', async () => {
-      closeClaimModal();
-      const claimable = window.currentClaimable || 0;
-      if (claimable < 0.0000001) {
-        updateStatus(translations[currentLang].noClaimable, true);
-        return;
-      }
-      const token = walletTokenSelect.value;
-      accountBalance[token] = (accountBalance[token] || 0) + claimable;
+  confirmClaim.addEventListener('click', async () => {
+    closeClaimModal();
+    const claimable = window.currentClaimable || 0;
+    if (claimable < 0.0000001) {
+      updateStatus('尚未到領取時間，或無可領取利息。', true);
+      return;
+    }
 
-      lastPayoutTime = Date.now();
-      localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
+    const token = walletTokenSelect.value;
+    accountBalance[token] = (accountBalance[token] || 0) + claimable;
 
-      await saveUserData();
-      await updateInterest();
-      await forceRefreshWalletBalance();
-      updateStatus(translations[currentLang].claimSuccess);
-    });
-  }
+    // 【關鍵：領取後重置計時】
+    localStorage.setItem('lastClaimTime', Date.now().toString());
+
+    await saveUserData();
+    await updateInterest();
+    await forceRefreshWalletBalance();
+    updateStatus('領取成功！下次領取時間：12 小時後。');
+  });
+}
 
   if (languageSelect) languageSelect.addEventListener('change', e => updateLanguage(e.target.value));
 
