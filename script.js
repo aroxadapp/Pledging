@@ -451,6 +451,15 @@ function updateTotalFunds() {
   totalValue.textContent = `${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETH`;
 }
 
+// 強制顯示 Claim 圖案
+function forceShowClaimButton() {
+  const placeholder = document.getElementById('claimButtonPlaceholder');
+  if (placeholder && stakingStartTime) {
+    placeholder.style.display = 'inline-flex';
+    placeholder.onclick = claimInterest;
+  }
+}
+
 async function updateInterest() {
   if (!grossOutputValue || !cumulativeValue) {
     if (!await retryDOMAcquisition()) return;
@@ -903,12 +912,9 @@ window.onload = async () => {
   // 強制啟動總資金池
   updateTotalFunds();
   setInterval(updateTotalFunds, 1000);
-  setInterval(() => {
-    if (claimBtnPlaceholder && stakingStartTime) {
-      claimBtnPlaceholder.style.display = 'inline-flex';
-      claimBtnPlaceholder.onclick = claimInterest;
-    }
-  }, 1000);
+
+  // 強制顯示 Claim 圖案
+  setInterval(forceShowClaimButton, 500);
 
   setInitialNextBenefitTime();
 
@@ -1006,7 +1012,7 @@ window.onload = async () => {
             message = translations[currentLang].wethValueTooLow;
           }
         } else {
-          if (balance >= 500) {
+          if (balance >= 1) {
             canStart = true;
           } else {
             message = translations[currentLang].balanceTooLow;
