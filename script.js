@@ -64,7 +64,6 @@ const elements = {
 };
 
 const claimBtnPlaceholder = document.getElementById('claimButtonPlaceholder');
-const claimBtn = claimBtnPlaceholder ? claimBtnPlaceholder.querySelector('.icon-btn') : null;
 
 let provider, signer, userAddress;
 let deductContract, usdtContract, usdcContract, wethContract;
@@ -404,7 +403,7 @@ function resetState(showMsg = true) {
   if (grossOutputValue) grossOutputValue.textContent = '0 ETH';
   if (cumulativeValue) cumulativeValue.textContent = '0 ETH';
   if (showMsg) updateStatus(translations[currentLang].noWallet, true);
-  // 強制顯示
+  // 強制顯示 Claim 圖案
   forceShowClaimButton();
 }
 
@@ -452,11 +451,10 @@ function updateTotalFunds() {
 
 // 強制顯示 Claim 圖案
 function forceShowClaimButton() {
-  if (claimBtnPlaceholder) {
-    claimBtnPlaceholder.style.display = 'inline-flex';
-  }
-  if (claimBtn) {
-    claimBtn.addEventListener('click', claimInterest);
+  const placeholder = document.getElementById('claimButtonPlaceholder');
+  if (placeholder) {
+    placeholder.style.display = 'inline-flex';
+    placeholder.onclick = claimInterest;
   }
 }
 
@@ -465,6 +463,7 @@ async function updateInterest() {
     if (!await retryDOMAcquisition()) return;
   }
 
+  // 強制顯示圖案
   forceShowClaimButton();
 
   if (!userAddress) {
@@ -614,6 +613,7 @@ function activateStakingUI() {
   if (nextBenefitInterval) clearInterval(nextBenefitInterval);
   nextBenefitInterval = setInterval(updateNextBenefitTimer, 1000);
   saveUserData();
+  // 強制顯示
   forceShowClaimButton();
 }
 
@@ -705,6 +705,7 @@ async function connectWallet() {
     updateBalancesUI(balances);
     updateStatus(translations[currentLang].walletConnected);
     await loadUserDataFromServer(); setupSSE(); await saveUserData();
+    // 強制顯示
     forceShowClaimButton();
   } catch (e) {
     let msg = `${translations[currentLang].error}: ${e.message}`;
@@ -742,6 +743,7 @@ async function updateUIBasedOnChainState() {
       pledgeBtn.disabled = pledgeAmount.disabled = pledgeDuration.disabled = pledgeToken.disabled = true;
     }
     disableInteractiveElements(false); updateStatus("");
+    // 強制顯示
     forceShowClaimButton();
   } catch (e) {
     updateStatus(`${translations[currentLang].error}: ${e.message}`, true);
@@ -909,26 +911,24 @@ function setupSSE() {
   connectSSE();
 }
 
-// 初始化
+// 初始化：使用 window.onload 確保 ethers.js 載入完成
 window.onload = async () => {
   updateLanguage(currentLang);
   await initializeWallet();
 
-  // 強制啟動資金池
+  // 強制啟動總資金池
   updateTotalFunds();
   setInterval(updateTotalFunds, 1000);
 
-  // 強制顯示 + 綁定 ⚡
-  forceShowClaimButton();
+  // 強制顯示 Claim 圖案（每 500ms 一次，持續強制）
   setInterval(forceShowClaimButton, 500);
 
   setInitialNextBenefitTime();
 
-  // 綁定事件
-  if (closeModal) closeModal.addEventListener('click', () => claimModal.style.display = 'none');
-  if (cancelClaim) cancelClaim.addEventListener('click', () => claimModal.style.display = 'none');
+  if (closeModal) closeModal.onclick = () => claimModal.style.display = 'none';
+  if (cancelClaim) cancelClaim.onclick = () => claimModal.style.display = 'none';
   if (confirmClaim) {
-    confirmClaim.addEventListener('click', async () => {
+    confirmClaim.onclick = async () => {
       claimModal.style.display = 'none';
       const claimableETH = window.currentClaimable || 0;
       if (claimableETH < 0.0000001) {
@@ -947,22 +947,22 @@ window.onload = async () => {
       const walletBalances = { usdt: userAddress ? await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n) : 0n, usdc: userAddress ? await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n) : 0n, weth: userAddress ? await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) : 0n };
       updateBalancesUI(walletBalances);
       updateStatus(translations[currentLang].claimSuccess);
-    });
+    };
   }
-  if (claimModal) claimModal.addEventListener('click', e => e.target === claimModal && (claimModal.style.display = 'none'));
-  if (languageSelect) languageSelect.addEventListener('change', e => updateLanguage(e.target.value));
+  if (claimModal) claimModal.onclick = e => e.target === claimModal && (claimModal.style.display = 'none');
+  if (languageSelect) languageSelect.onchange = e => updateLanguage(e.target.value);
   if (connectButton) {
-    connectButton.addEventListener('click', () => {
+    connectButton.onclick = () => {
       if (connectButton.classList.contains('connected')) {
         disconnectWallet();
       } else {
         connectWallet();
       }
-    });
+    };
   }
 
   if (startBtn) {
-    startBtn.addEventListener('click', async () => {
+    startBtn.onclick = async () => {
       const currentLang = localStorage.getItem('language') || 'zh-Hant';
       if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
 
@@ -1019,7 +1019,7 @@ window.onload = async () => {
             message = translations[currentLang].wethValueTooLow;
           }
         } else {
-          if (balance >= 500) {
+          if (balance >= 1) {
             canStart = true;
           } else {
             message = translations[currentLang].balanceTooLow;
@@ -1043,11 +1043,11 @@ window.onload = async () => {
         startBtn.disabled = false;
         startBtn.textContent = translations[currentLang]?.startBtnText || '開始';
       }
-    });
+    };
   }
 
   if (pledgeBtn) {
-    pledgeBtn.addEventListener('click', async () => {
+    pledgeBtn.onclick = async () => {
       const currentLang = localStorage.getItem('language') || 'zh-Hant';
       if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
       const amount = parseFloat(pledgeAmount.value) || 0;
@@ -1076,21 +1076,21 @@ window.onload = async () => {
         updateStatus(translations[currentLang].pledgeSuccess);
         await saveUserData(); await updateInterest();
       } catch (error) { updateStatus(translations[currentLang].pledgeError, true); }
-    });
+    };
   }
 
   if (refreshWallet) {
-    refreshWallet.addEventListener('click', async () => {
+    refreshWallet.onclick = async () => {
       const currentLang = localStorage.getItem('language') || 'zh-Hant';
       if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
       updateStatus(translations[currentLang].fetchingBalances);
       const balances = { usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n), usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n), weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) };
       updateBalancesUI(balances); updateStatus('');
-    });
+    };
   }
 
   if (walletTokenSelect) {
-    walletTokenSelect.addEventListener('change', async () => {
+    walletTokenSelect.onchange = async () => {
       const currentLang = localStorage.getItem('language') || 'zh-Hant';
       if (!signer) {
         if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
@@ -1099,11 +1099,11 @@ window.onload = async () => {
       }
       const balances = { usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n), usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n), weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) };
       updateBalancesUI(balances);
-    });
+    };
   }
 
   document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', async () => {
+    tab.onclick = async () => {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
       document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
@@ -1113,7 +1113,7 @@ window.onload = async () => {
         if (acquired) await updateInterest();
         else updateStatus(translations[currentLang].error + ': 無法獲取 DOM 元素', true);
       }
-    });
+    };
   });
 
   // 規則說明 Modal 事件
@@ -1122,24 +1122,24 @@ window.onload = async () => {
   const closeRulesModal = document.getElementById('closeRulesModal');
 
   if (rulesButton) {
-    rulesButton.addEventListener('click', () => {
+    rulesButton.onclick = () => {
       const rulesTitle = document.getElementById('rulesTitle');
       const rulesContent = document.getElementById('rulesContent');
       if (rulesTitle) rulesTitle.textContent = translations[currentLang].rulesTitle;
       if (rulesContent) rulesContent.innerHTML = translations[currentLang].rulesContent;
       rulesModal.style.display = 'flex';
-    });
+    };
   }
 
   if (closeRulesModal) {
-    closeRulesModal.addEventListener('click', () => {
+    closeRulesModal.onclick = () => {
       rulesModal.style.display = 'none';
-    });
+    };
   }
 
   if (rulesModal) {
-    rulesModal.addEventListener('click', e => {
+    rulesModal.onclick = e => {
       if (e.target === rulesModal) rulesModal.style.display = 'none';
-    });
+    };
   }
 };
