@@ -202,7 +202,7 @@ async function retry(fn, maxAttempts = 3, delayMs = 3000) {
     try {
       return await fn();
     } catch (error) {
-      if (i === maxAttempts - 1) throw error;
+  if (i === maxAttempts - 1) throw error;
       await new Promise(r => setTimeout(r, delayMs));
     }
   }
@@ -279,7 +279,6 @@ async function loadUserDataFromServer() {
     accountBalance = localData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
     if (isDevMode) updateStatus(translations[currentLang].offlineWarning, true);
   }
-  }
 }
 
 async function saveUserData(data = null, addToPending = true) {
@@ -324,7 +323,7 @@ async function saveUserData(data = null, addToPending = true) {
 
 function updateStatus(message, isWarning = false) {
   if (!statusDiv) return;
-  if (message === translations[currentLang].offlineWarning && !isDevMode) {
+  if (unge === translations[currentLang].offlineWarning && !isDevMode) {
     statusDiv.innerHTML = '';
     statusDiv.style.display = 'none';
     return;

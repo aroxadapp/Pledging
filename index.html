@@ -6,7 +6,7 @@
   <title>Aroxa Staking Mining dApp</title>
   <link rel="icon" href="data:;base64,iVBORw0KGgo=">
   
-  <!-- Ethers.js -->
+  <!-- Ethers.js 外部載入 -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js" defer></script>
   
   <link rel="stylesheet" href="styles.css">
@@ -20,7 +20,6 @@
         <option value="zh-Hant">繁中</option>
         <option value="zh-Hans">简中</option>
       </select>
-      <!-- 連線按鈕：保持原樣 -->
       <button id="connectButton" class="connect-btn">Connect</button>
     </div>
 
@@ -100,7 +99,6 @@
     </div>
   </div>
 
-  <!-- Modal -->
   <div id="claimModal" class="modal" style="display: none;">
     <div class="modal-content">
       <div class="modal-header">
@@ -134,7 +132,6 @@
     </div>
   </div>
 
-  <!-- 外部 script -->
   <script src="script.js" defer></script>
 </body>
 </html>

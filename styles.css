@@ -217,7 +217,6 @@ body {
 .input-group select.input-field {
     margin-bottom: 10px;
 }
-/* Modal 樣式 */
 .modal {
     position: fixed;
     z-index: 1000;
