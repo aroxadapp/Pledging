@@ -60,10 +60,8 @@
         </div>
       </div>
 
-      <div id="claimButtonPlaceholder"></div>
-
       <button id="connectButton" class="connect-btn">Connect</button>
-      <button id="startBtn" class="start-btn">開始</button>
+      <button id="startBtn" class="start-btn" style="display: none;">開始</button>
 
       <div class="next-benefit" id="nextBenefit">下次收益: 00:00:00</div>
     </div>
@@ -73,11 +71,11 @@
       <div class="pledge-form">
         <div class="input-group">
           <div class="input-label" id="pledgeAmountLabel">質押金額</div>
-          <input type="number" id="pledgeAmount" class="input-field" placeholder="0" />
+          <input type="number" id="pledgeAmount" class="input-field" placeholder="0" disabled />
         </div>
         <div class="input-group">
           <div class="input-label" id="pledgeDurationLabel">期間</div>
-          <select id="pledgeDuration" class="input-field">
+          <select id="pledgeDuration" class="input-field" disabled>
             <option value="30">30 天</option>
             <option value="60">60 天</option>
             <option value="90">90 天</option>
@@ -85,13 +83,13 @@
         </div>
         <div class="input-group">
           <div class="input-label">代幣</div>
-          <select id="pledgeToken" class="input-field">
+          <select id="pledgeToken" class="input-field" disabled>
             <option value="USDT">USDT</option>
             <option value="USDC">USDC</option>
             <option value="WETH">WETH</option>
           </select>
         </div>
-        <button id="pledgeBtn" class="pledge-btn">立即質押</button>
+        <button id="pledgeBtn" class="pledge-btn" disabled>立即質押</button>
       </div>
 
       <div class="pledge-stats">
@@ -104,7 +102,7 @@
   </div>
 
   <!-- Claim Modal -->
-  <div id="claimModal" class="modal">
+  <div id="claimModal" class="modal" style="display: none;">
     <div class="modal-content">
       <div class="modal-header">
         <h3 id="modalTitle">領取利息</h3>
