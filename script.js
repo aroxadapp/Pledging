@@ -104,7 +104,7 @@ const translations = {
     noClaimable: 'No claimable interest available or invalid value.',
     priceError: 'Could not fetch price data. Please try again later.',
     invalidCalc: 'Invalid calculation. Please refresh and try again.',
-    claim Star: 'Claim successful! Your Account Balance has been updated.',
+    claimSuccess: 'Claim successful! Your Account Balance has been updated.',
     walletConnected: 'Wallet connected successfully.',
     fetchingBalances: 'Fetching wallet balances...',
     error: 'Error',
