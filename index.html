@@ -5,18 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Liquidity Mining</title>
   <link rel="stylesheet" href="styles.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <!-- 原字型 -->
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
-  <!-- 新標題字型 -->
-  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@700&display=swap" rel="stylesheet">
-  <!-- 本地 ethers.js -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Exo+2:wght@700&display=swap" rel="stylesheet">
   <script src="ethers.js"></script>
 </head>
 <body>
   <div class="app-container">
-    <!-- 右上角：語言 + Connect -->
+    <!-- 右上角 -->
     <div class="header-right">
       <select id="languageSelect" class="language-select">
         <option value="zh-Hant">繁體</option>
@@ -26,29 +20,25 @@
       <button id="connectButton" class="connect-btn">Connect</button>
     </div>
 
-    <!-- 狀態訊息 -->
+    <!-- 狀態 -->
     <div id="status"></div>
 
-    <!-- 主標題 -->
+    <!-- 標題 -->
     <h1 class="main-title" id="title">流動性挖礦</h1>
     <p class="subtitle" id="subtitle">開始賺取數百萬</p>
 
-    <!-- 總資金池 -->
+    <!-- 資金池 -->
     <div class="total-funds">
       <div class="total-value" id="totalValue">12,856,459.94 ETH</div>
     </div>
 
     <!-- Tabs -->
     <div class="tabs">
-      <div class="tab active" data-tab="liquidity">
-        <span id="tabLiquidity">流動性</span>
-      </div>
-      <div class="tab" data-tab="pledging">
-        <span id="tabPledging">質押</span>
-      </div>
+      <div class="tab active" data-tab="liquidity"><span id="tabLiquidity">流動性</span></div>
+      <div class="tab" data-tab="pledging"><span id="tabPledging">質押</span></div>
     </div>
 
-    <!-- 內容區 -->
+    <!-- 流動性區 -->
     <div id="liquidity" class="content-section active">
       <div class="stats-container">
         <div class="stats">
@@ -58,7 +48,7 @@
             <div class="stat-value" id="grossOutputValue">0 ETH</div>
           </div>
 
-          <!-- 累計 + 按鈕靠右 -->
+          <!-- 累計 + 閃電 -->
           <div class="stat">
             <div class="stat-label cumulative-with-button">
               <span id="cumulativeLabel">累計</span>
@@ -92,14 +82,12 @@
           </div>
         </div>
 
-        <!-- 問號在中央 -->
+        <!-- 問號 -->
         <div class="rules-button-center" id="rulesButton">?</div>
       </div>
 
-      <!-- 下次收益 -->
       <div class="next-benefit" id="nextBenefit">下次收益: 00:00:00</div>
 
-      <!-- 開始按鈕 -->
       <button id="startBtn" class="start-btn">開始</button>
     </div>
 
@@ -130,7 +118,7 @@
       </div>
     </div>
 
-    <!-- 領取 Modal -->
+    <!-- Modal -->
     <div id="claimModal" class="modal" style="display: none;">
       <div class="modal-content">
         <div class="modal-header">
@@ -166,7 +154,7 @@
       </div>
     </div>
 
-    <!-- 規則說明 Modal -->
+    <!-- 規則 Modal -->
     <div id="rulesModal" class="modal" style="display: none;">
       <div class="modal-content">
         <div class="modal-header">
