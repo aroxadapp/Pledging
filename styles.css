@@ -424,6 +424,16 @@ select:focus {
   background: rgba(255, 255, 255, 0.2);
 }
 
+/* 規則說明文字不換行 */
+.rules-info p {
+  margin: 8px 0;
+  white-space: normal;
+}
+
+.rules-info .no-wrap {
+  white-space: nowrap;
+}
+
 /* 手機版調整 */
 @media (max-width: 480px) {
   .app-container {
@@ -448,5 +458,12 @@ select:focus {
   }
   .tab-icon {
     font-size: 16px;
+  }
+  .rules-info {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .rules-info p {
+    margin: 6px 0;
   }
 }
