@@ -855,7 +855,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const totalPledgedValue = document.getElementById('totalPledgedValue');
       if (totalPledgedValue) totalPledgedValue.textContent = `${amount.toFixed(2)} ${token}`;
       updateStatus(translations[currentLang].pledgeSuccess);
-      await saveUserData укреп(); await updateInterest();
+      await saveUserData(); await updateInterest();
     } catch (error) { updateStatus(translations[currentLang].pledgeError, true); }
   };
   refreshWallet.onclick = async () => {
