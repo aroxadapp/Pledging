@@ -37,7 +37,7 @@ body {
     top: 0;
     z-index: 10;
 }
-/* 右上角：語言 + Connect */
+/* 右上角：語言 + Connect（已移除黑色框框） */
 .header-right {
   position: fixed;
   top: 15px;
@@ -46,11 +46,11 @@ body {
   align-items: center;
   gap: 12px;
   z-index: 100;
-  background: rgba(0, 0, 0, 0.5);
-  padding: 8px 12px;
-  border-radius: 20px;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 255, 255, 0.3);
+  /* 移除背景、padding、border、backdrop-filter */
+  background: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+  backdrop-filter: none !important;
 }
 /* 【統一風格】所有下拉選單 */
 .language-select,
@@ -108,7 +108,6 @@ body {
   text-align: center;
   color: #00ffff;
   text-shadow: 0 0 15px #00ffff, 0 0 30px #00ffff;
-  margin: 0 0 8px 0;
   margin: 0 0 8px 0;
   z-index: 1;
 }
@@ -220,7 +219,7 @@ body {
   text-align: center !important;
   flex-grow: 1;
 }
-/* 【關鍵修復】累計 + SVG 閃電 */
+/* 【關鍵修復】累計 + SVG 閃電 + 獨立容器 */
 #cumulativeLabel {
   display: flex !important;
   align-items: center !important;
@@ -230,6 +229,15 @@ body {
   white-space: nowrap !important;
   font-size: 12px !important;
   overflow: visible !important;
+}
+.claim-icon-container {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 28px !important;
+  height: 28px !important;
+  margin-left: 8px !important;
+  flex-shrink: 0 !important;
 }
 .claim-btn {
   display: flex !important;
@@ -242,9 +250,6 @@ body {
   background: transparent !important;
   border: none !important;
   cursor: pointer !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  flex-shrink: 0 !important;
 }
 .claim-btn svg {
   width: 18px !important;
@@ -505,7 +510,7 @@ body {
   .header-right {
     top: 10px;
     right: 10px;
-    padding: 6px 10px;
+    padding: 0;
     font-size: 14px;
   }
   .main-title {
