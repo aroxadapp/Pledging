@@ -1,5 +1,4 @@
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
-
 body {
     font-family: 'Orbitron', sans-serif;
     background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
@@ -12,7 +11,6 @@ body {
     color: #ffffff;
     position: relative;
 }
-
 .app-container {
     background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(15px);
@@ -28,7 +26,6 @@ body {
     z-index: 1;
     max-height: 100vh;
 }
-
 #status {
     background: rgba(255, 255, 255, 0.1);
     border-radius: 10px;
@@ -40,7 +37,6 @@ body {
     top: 0;
     z-index: 10;
 }
-
 /* 右上角：語言 + Connect */
 .header-right {
   position: fixed;
@@ -56,7 +52,6 @@ body {
   backdrop-filter: blur(10px);
   border: 1px solid rgba(0, 255, 255, 0.3);
 }
-
 /* 【統一風格】所有下拉選單 */
 .language-select,
 .token-select-inline,
@@ -82,7 +77,6 @@ body {
   text-align: center !important;
   text-align-last: center;
 }
-
 .language-select:hover,
 .token-select-inline:hover,
 #pledgeToken:hover,
@@ -91,7 +85,6 @@ body {
   box-shadow: 0 0 15px rgba(138, 43, 226, 0.6);
   transform: scale(1.02);
 }
-
 .language-select:focus,
 .token-select-inline:focus,
 #pledgeToken:focus,
@@ -100,7 +93,6 @@ body {
   border-color: #00ffff !important;
   box-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
 }
-
 .language-select option,
 .token-select-inline option,
 #pledgeToken option,
@@ -109,7 +101,6 @@ body {
   background: #0f0c29;
   color: #00ffff;
 }
-
 /* 主標題 */
 .main-title {
   font-size: 32px;
@@ -120,7 +111,6 @@ body {
   margin: 0 0 8px 0;
   z-index: 1;
 }
-
 .subtitle {
   font-size: 14px;
   text-align: center;
@@ -128,7 +118,6 @@ body {
   margin: 0 0 25px;
   text-shadow: 0 0 5px #d3d3d3;
 }
-
 .total-funds {
   background: rgba(138, 43, 226, 0.2);
   border-radius: 15px;
@@ -137,7 +126,6 @@ body {
   margin-bottom: 25px;
   box-shadow: 0 0 10px rgba(138, 43, 226, 0.5);
 }
-
 .total-value {
   font-size: 22px;
   font-weight: 700;
@@ -145,13 +133,11 @@ body {
   text-shadow: 0 0 5px #00ffff;
   animation: glow 2s infinite alternate;
 }
-
 /* 資金池數字閃光動畫 */
 @keyframes glow {
   from { text-shadow: 0 0 5px #00ffff; }
   to { text-shadow: 0 0 15px #00ffff, 0 0 25px #00ffff; }
 }
-
 /* tabs + ? 圖案 */
 .tabs {
   display: flex;
@@ -162,7 +148,6 @@ body {
   flex-wrap: wrap;
   gap: 10px;
 }
-
 .tab {
   background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
@@ -173,40 +158,33 @@ body {
   text-shadow: 0 0 5px #ffffff;
   white-space: nowrap;
 }
-
 .tab:hover, .tab.active {
   background: linear-gradient(45deg, #8a2be2, #00ffff);
   box-shadow: 0 0 15px #00ffff;
   color: #ffffff;
 }
-
 .tab-icon {
   font-size: 18px;
   color: #8a2be2;
   cursor: pointer;
   margin-left: 10px;
 }
-
 .tab-icon:hover {
   color: #00ffff;
   transform: scale(1.2);
 }
-
 .content-section {
   display: none;
 }
-
 .content-section.active {
   display: block;
 }
-
 .stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 15px;
   margin-bottom: 25px;
 }
-
 .stat {
   background: rgba(0, 255, 255, 0.1);
   border-radius: 15px;
@@ -219,20 +197,18 @@ body {
   justify-content: center;
   align-items: center;
 }
-
 .stat-label {
   font-size: 12px;
   color: #d3d3d3;
   display: flex;
   align-items: center;
-  justify-content: flex-start; /* 左對齊，避免壓縮 */
-  gap: 8px; /* 增加間距，讓圖標有空間 */
+  justify-content: flex-start;
+  gap: 8px;
   flex-wrap: nowrap;
   width: 100%;
-  overflow: visible; /* 確保圖標不隱藏 */
-  min-height: 20px; /* 確保高度 */
+  overflow: visible;
+  min-height: 20px;
 }
-
 .stat-value {
   font-size: 18px;
   font-weight: 600;
@@ -240,75 +216,64 @@ body {
   color: #00ffff;
   width: 100%;
 }
-
 /* 【關鍵修復】累計 + ⚡ 強制可見 */
-#cumulativeLabel .stat-label {
-  justify-content: flex-start !important; /* 左對齊 */
-  gap: 8px !important; /* 文字與圖標間距 */
-  overflow: visible !important; /* 不隱藏 */
-  min-height: 25px; /* 確保空間 */
+#cumulativeLabel {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-width: 70px !important;
+  white-space: nowrap !important;
+  font-size: 12px !important;
+  justify-content: flex-start !important;
+  overflow: visible !important;
 }
-
-#claimButtonPlaceholder {
-  display: inline-flex !important;
-  visibility: visible !important; /* 強制可見 */
-  opacity: 1 !important; /* 強制不透明 */
-  position: relative !important; /* 避免定位問題 */
-  z-index: 10 !important; /* 置頂 */
-  margin-left: 5px !important; /* 與文字間距 */
-  min-width: 25px; /* 確保寬度 */
-  height: 1em; /* 匹配文字高度 */
-  width: auto !important; /* 自動寬度 */
-}
-
-#claimButtonPlaceholder .icon-btn {
+.claim-btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 22px !important;
+  height: 22px !important;
+  padding: 0 !important;
+  margin: 0 !important;
   font-size: 16px !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  flex-shrink: 0 !important;
   color: #ff00ff !important;
   text-shadow: 0 0 8px #ff00ff !important;
   animation: pulse 2s infinite !important;
-  margin: 0;
-  padding: 0;
-  visibility: visible !important; /* 強制可見 */
-  opacity: 1 !important; /* 強制不透明 */
-  min-height: 1em; /* 確保高度 */
-  line-height: 1; /* 對齊 */
-  width: auto; /* 自動寬度 */
 }
-
-#claimButtonPlaceholder .icon-btn:hover {
+.claim-btn:hover {
   transform: scale(1.3);
   color: #00ffff !important;
   text-shadow: 0 0 15px #00ffff !important;
 }
-
-/* 脈動動畫 - 移除 opacity 變化，避免隱藏 */
 @keyframes pulse {
   0% { transform: scale(1); }
   50% { transform: scale(1.1); }
   100% { transform: scale(1); }
 }
-
 /* 錢包餘額：下拉選單在數字下方置中 */
-#walletBalanceLabel + .stat-label {
+#walletBalanceLabel + .stat .stat-label {
   flex-direction: column;
   gap: 2px;
 }
-
-#walletBalanceLabel + .stat-label .inline-flex {
+#walletBalanceLabel + .stat .stat-label .inline-flex {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
   width: auto;
 }
-
-#walletBalanceLabel + .stat-label .token-select-inline {
+#walletBalanceLabel + .stat .stat-label .token-select-inline {
   margin: 0;
   min-width: 60px;
   font-size: 12px;
   padding: 2px 6px;
 }
-
 /* 其他 inline-flex */
 .inline-flex {
   display: flex;
@@ -317,23 +282,19 @@ body {
   gap: 8px;
   flex-wrap: wrap;
 }
-
 .full-width {
   width: 100%;
   justify-content: space-between;
 }
-
 #cumulativeLabel .stat-label .inline-icon {
   margin-left: 5px;
 }
-
 .token-select-inline {
   min-width: 60px;
   text-align: center;
   font-size: 12px;
   padding: 2px 6px;
 }
-
 /* 按鈕 */
 .connect-btn, .start-btn, .pledge-btn {
   background: linear-gradient(45deg, #8a2be2, #00ffff);
@@ -348,17 +309,14 @@ body {
   transition: transform 0.3s, box-shadow 0.3s;
   margin-top: 10px;
 }
-
 .connect-btn:hover, .start-btn:hover, .pledge-btn:hover {
   transform: scale(1.05);
   box-shadow: 0 0 20px #00ffff;
 }
-
 .start-btn:disabled, .pledge-btn:disabled {
   background: gray;
   cursor: not-allowed;
 }
-
 .icon-btn {
   background: none;
   border: none;
@@ -366,37 +324,31 @@ body {
   font-size: 16px;
   padding: 0;
   color: #ff00ff;
-  visibility: visible !important; /* 所有圖標強制可見 */
+  visibility: visible !important;
   opacity: 1 !important;
 }
-
 .icon-btn:hover {
   transform: scale(1.2);
 }
-
 .inline-icon {
   display: inline-flex;
   align-items: center;
 }
-
 .pledge-form {
   display: grid;
   gap: 15px;
 }
-
 .input-group {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 15px;
   padding: 15px;
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
 }
-
 .input-label {
   font-size: 12px;
   color: #d3d3d3;
   margin-bottom: 5px;
 }
-
 .input-field {
   background: transparent;
   border: 1px solid rgba(0, 255, 255, 0.5);
@@ -408,12 +360,10 @@ body {
   font-family: 'Orbitron', sans-serif;
   margin-top: 5px;
 }
-
 .input-field:disabled {
   background: rgba(255, 255, 255, 0.05);
   cursor: not-allowed;
 }
-
 .next-benefit {
   text-align: center;
   font-size: 14px;
@@ -421,7 +371,6 @@ body {
   margin: 20px 0;
   text-shadow: 0 0 5px #d3d3d3;
 }
-
 /* Modal */
 .modal {
   position: fixed;
@@ -438,7 +387,6 @@ body {
   padding: 20px;
   box-sizing: border-box;
 }
-
 .modal-content {
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(15px);
@@ -451,7 +399,6 @@ body {
   max-height: 90vh;
   overflow-y: auto;
 }
-
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -460,12 +407,10 @@ body {
   color: #00ffff;
   text-shadow: 0 0 10px #00ffff;
 }
-
 .modal-header h3 {
   margin: 0;
   font-size: 20px;
 }
-
 .close {
   font-size: 28px;
   font-weight: bold;
@@ -473,11 +418,9 @@ body {
   color: #ff00ff;
   text-shadow: 0 0 5px #ff00ff;
 }
-
 .close:hover {
   color: #ffffff;
 }
-
 .claim-info, .rules-info {
   margin-bottom: 20px;
   color: #d3d3d3;
@@ -485,7 +428,6 @@ body {
   line-height: 1.6;
   text-align: left;
 }
-
 .info-row, .rules-info p {
   display: flex;
   justify-content: space-between;
@@ -494,22 +436,18 @@ body {
   background: rgba(0, 255, 255, 0.1);
   border-radius: 10px;
 }
-
 .rules-info p {
   margin: 8px 0;
 }
-
 .rules-info strong, .info-row .value {
   color: #00ffff;
   font-weight: 600;
   text-shadow: 0 0 5px #00ffff;
 }
-
 .modal-footer {
   display: flex;
   gap: 10px;
 }
-
 .confirm-btn, .cancel-btn {
   flex: 1;
   padding: 12px;
@@ -519,36 +457,29 @@ body {
   font-weight: 600;
   transition: transform 0.3s, box-shadow 0.3s;
 }
-
 .confirm-btn {
   background: linear-gradient(45deg, #8a2be2, #00ffff);
   color: #ffffff;
 }
-
 .confirm-btn:hover {
   transform: scale(1.05);
   box-shadow: 0 0 15px #00ffff;
 }
-
 .cancel-btn {
   background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
   border: 1px solid rgba(0, 255, 255, 0.5);
 }
-
 .cancel-btn:hover {
   background: rgba(255, 255, 255, 0.2);
 }
-
 .rules-info p {
   margin: 8px 0;
   white-space: normal;
 }
-
 .rules-info .no-wrap {
   white-space: nowrap;
 }
-
 /* 手機版 */
 @media (max-width: 480px) {
   .app-container {
@@ -593,10 +524,10 @@ body {
   .modal {
     padding: 10px;
   }
-  #walletBalanceLabel + .stat-label {
+  #walletBalanceLabel + .stat .stat-label {
     gap: 1px;
   }
   #cumulativeLabel .stat-label {
-    gap: 8px; /* 手機版增加間距 */
+    gap: 8px;
   }
 }

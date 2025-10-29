@@ -5,8 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Liquidity Mining</title>
   <link rel="stylesheet" href="styles.css">
-  <!-- 先載入 ethers.js -->
-  <script src="ethers.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
 </head>
 <body>
   <div class="app-container">
@@ -52,13 +54,11 @@
           <div class="stat-value" id="grossOutputValue">0 ETH</div>
         </div>
 
-        <!-- 累計 + Claim -->
+        <!-- 累計 + Claim（重點！） -->
         <div class="stat">
           <div class="stat-label" id="cumulativeLabel">
             累計
-            <div class="inline-flex" id="claimButtonPlaceholder" style="display: inline-flex; visibility: visible; opacity: 1;">
-              <button class="icon-btn" style="visibility: visible; opacity: 1;">⚡</button>
-            </div>
+            <button id="claimButton" class="icon-btn claim-btn">⚡</button>
           </div>
           <div class="stat-value" id="cumulativeValue">0 ETH</div>
         </div>
@@ -161,14 +161,11 @@
           <h3 id="rulesTitle">挖礦規則</h3>
           <span class="close" id="closeRulesModal">×</span>
         </div>
-        <div class="rules-info" id="rulesContent">
-          <!-- 內容由 JS 注入 -->
-        </div>
+        <div class="rules-info" id="rulesContent"></div>
       </div>
     </div>
   </div>
 
-  <!-- 最後載入 script.js -->
   <script src="script.js"></script>
 </body>
 </html>
