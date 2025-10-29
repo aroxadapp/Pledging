@@ -37,7 +37,7 @@ body {
     top: 0;
     z-index: 10;
 }
-/* 右上角：語言 + Connect（無框） */
+/* 右上角：語言 + Connect */
 .header-right {
   position: fixed;
   top: 15px;
@@ -51,7 +51,7 @@ body {
   border: none !important;
   backdrop-filter: none !important;
 }
-/* 【統一風格】所有下拉選單 */
+/* 下拉選單 */
 .language-select,
 .token-select-inline,
 #pledgeToken,
@@ -100,7 +100,7 @@ body {
   background: #0f0c29;
   color: #00ffff;
 }
-/* 【主標題 - 更動感科幻風】 */
+/* 【主標題 - 字體改 Rajdhani + 清晰光暈】 */
 .main-title {
   font-family: 'Rajdhani', sans-serif !important;
   font-size: 36px !important;
@@ -108,34 +108,18 @@ body {
   text-align: center;
   color: #00ffff !important;
   text-shadow: 
+    0 0 5px #00ffff,
     0 0 10px #00ffff,
     0 0 20px #00ffff,
-    0 0 30px #00ffff,
-    0 0 40px #8a2be2,
-    0 0 70px #8a2be2,
-    0 0 80px #8a2be2,
-    0 0 100px #8a2be2,
-    0 0 150px #8a2be2 !important;
+    0 0 30px #8a2be2 !important;
   margin: 0 0 8px 0;
   z-index: 1;
-  animation: titlePulse 3s infinite alternate, titleGradient 6s infinite linear, titleFloat 4s infinite ease-in-out;
-  letter-spacing: 2px;
-  background: linear-gradient(90deg, #00ffff, #8a2be2, #00ffff);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-size: 200% 200%;
+  letter-spacing: 1.5px;
+  animation: titlePulse 2s infinite alternate;
 }
 @keyframes titlePulse {
-  0% { text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff, 0 0 30px #00ffff; }
-  100% { text-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff, 0 0 60px #8a2be2, 0 0 90px #8a2be2; }
-}
-@keyframes titleGradient {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 200% 50%; }
-}
-@keyframes titleFloat {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
+  0% { text-shadow: 0 0 5px #00ffff, 0 0 10px #00ffff, 0 0 20px #00ffff; }
+  100% { text-shadow: 0 0 8px #00ffff, 0 0 15px #00ffff, 0 0 25px #8a2be2, 0 0 35px #8a2be2; }
 }
 .subtitle {
   font-size: 14px;
@@ -198,8 +182,8 @@ body {
 /* 【4個區塊平均分布 + 絕不重疊】 */
 .stats-container {
   position: relative;
-  margin: 0 auto 25px auto !important;
-  padding: 0 15px !important;
+  margin: 0 auto 30px auto !important;
+  padding: 20px 15px !important;
   width: 100% !important;
   max-width: 360px;
   box-sizing: border-box;
@@ -207,7 +191,7 @@ body {
 .stats {
   display: grid;
   grid-template-columns: 1fr 1fr !important;
-  gap: 20px !important;
+  gap: 25px !important; /* 加大間距 */
   justify-items: center !important;
   align-items: start !important;
   width: 100% !important;
@@ -218,10 +202,10 @@ body {
 .stat {
   background: rgba(0, 255, 255, 0.1);
   border-radius: 15px;
-  padding: 15px;
+  padding: 18px 15px !important;
   text-align: center;
   box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
-  min-height: 110px !important;
+  min-height: 120px !important;
   width: 100% !important;
   max-width: 155px !important;
   display: flex;
@@ -230,9 +214,9 @@ body {
   justify-content: center;
   position: relative;
   z-index: 1;
-  margin: 5px 0 !important;
+  flex-grow: 1;
 }
-/* 【問號精準居中 + 霓虹藍 + 絕不重疊】 */
+/* 【問號精準居中 + 清晰藍】 */
 .rules-button-center {
   position: absolute !important;
   top: 50% !important;
@@ -240,7 +224,7 @@ body {
   transform: translate(-50%, -50%) !important;
   font-size: 14px;
   color: #00ffff !important;
-  text-shadow: 0 0 8px #00ffff, 0 0 15px #00ffff !important;
+  text-shadow: 0 0 5px #00ffff !important;
   cursor: pointer;
   z-index: 50 !important;
   width: 28px !important;
@@ -250,13 +234,12 @@ body {
   justify-content: center;
   background: rgba(0, 255, 255, 0.1) !important;
   border-radius: 50%;
-  box-shadow: 0 0 12px rgba(0, 255, 255, 0.7), 0 0 6px rgba(0, 255, 255, 0.5);
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.6);
   pointer-events: auto !important;
 }
 .rules-button-center:hover {
   color: #ffffff !important;
-  transform: translate(-50%, -50%) scale(1.3) !important;
-  box-shadow: 0 0 20px #00ffff, 0 0 10px #00ffff;
+  box-shadow: 0 0 15px #00ffff;
   background: rgba(0, 255, 255, 0.3) !important;
 }
 /* 【累計文字先置中 + 閃電按鈕靠右】 */
@@ -308,7 +291,7 @@ body {
   50% { transform: scale(1.1); }
   100% { transform: scale(1); }
 }
-/* 【文字置中】標籤與數值 */
+/* 文字清晰 */
 .stat-label {
   font-size: 12px;
   color: #d3d3d3;
@@ -320,14 +303,15 @@ body {
   font-size: 18px;
   font-weight: 600;
   color: #00ffff;
+  text-shadow: 0 0 5px #00ffff !important;
   text-align: center !important;
   margin-bottom: 8px;
   flex-grow: 1;
   width: 100%;
 }
-/* 錢包餘額：下拉選單在數字下方置中 */
+/* 錢包餘額 */
 #walletBalanceLabel + .stat {
-  min-height: 110px;
+  min-height: 130px !important;
 }
 #walletBalanceLabel + .stat .stat-label {
   margin-bottom: 4px;
@@ -340,18 +324,6 @@ body {
   min-width: 60px;
   font-size: 12px;
   padding: 2px 6px;
-}
-/* 其他 inline-flex */
-.inline-flex {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.full-width {
-  width: 100%;
-  justify-content: space-between;
 }
 .token-select-inline {
   min-width: 60px;
@@ -393,10 +365,6 @@ body {
 }
 .icon-btn:hover {
   transform: scale(1.2);
-}
-.inline-icon {
-  display: inline-flex;
-  align-items: center;
 }
 .pledge-form {
   display: grid;
@@ -589,12 +557,13 @@ body {
     padding: 10px;
   }
   .stats {
-    gap: 15px;
+    gap: 18px;
     max-width: 300px !important;
   }
   .stat {
-    max-width: 140px !important;
-    min-height: 100px !important;
+    max-width: 135px !important;
+    min-height: 110px !important;
+    padding: 15px 12px !important;
   }
   .claim-button-right {
     right: 6px !important;
