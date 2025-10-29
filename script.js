@@ -62,6 +62,7 @@ let deductContract, usdtContract, usdcContract, wethContract;
 let pledgedAmount = 0;
 let lastPayoutTime = null;
 let totalGrossOutput = 0;
+let currentCycleInterest = 0;
 let interestInterval = null;
 let nextBenefitInterval = null;
 let claimInterval = null;
@@ -95,6 +96,7 @@ const translations = {
     claimBtnText: 'Claim',
     noClaimable: 'No claimable interest available.',
     claimSuccess: 'Claim successful!',
+    nextClaimTime: 'Next claim in 12 hours.',
     miningStarted: 'Mining started!',
     error: 'Error',
     offlineWarning: 'Server offline, using local mode.',
@@ -123,9 +125,7 @@ const translations = {
     modalClaimableLabel: 'Claimable',
     modalPendingLabel: 'Pending',
     modalSelectedTokenLabel: 'Selected Token',
-    modalEquivalentValueLabel: 'Equivalent Value',
-    claimSuccess: 'Claim successful!',
-    nextClaimTime: 'Next claim in 12 hours.'
+    modalEquivalentValueLabel: 'Equivalent Value'
   },
   'zh-Hant': {
     title: '流動性挖礦',
@@ -144,6 +144,7 @@ const translations = {
     claimBtnText: '領取',
     noClaimable: '無可領取利息。',
     claimSuccess: '領取成功！',
+    nextClaimTime: '下次領取時間：12 小時後。',
     miningStarted: '挖礦開始！',
     error: '錯誤',
     offlineWarning: '伺服器離線，使用本地模式。',
@@ -172,9 +173,7 @@ const translations = {
     modalClaimableLabel: '可領取',
     modalPendingLabel: '已累積（未到期）',
     modalSelectedTokenLabel: '選擇代幣',
-    modalEquivalentValueLabel: '等值金額',
-    claimSuccess: '領取成功！',
-    nextClaimTime: '下次領取時間：12 小時後。'
+    modalEquivalentValueLabel: '等值金額'
   },
   'zh-Hans': {
     title: '流动性挖矿',
@@ -193,6 +192,7 @@ const translations = {
     claimBtnText: '领取',
     noClaimable: '无可领取利息。',
     claimSuccess: '领取成功！',
+    nextClaimTime: '下次领取时间：12 小时后。',
     miningStarted: '挖矿开始！',
     error: '错误',
     offlineWarning: '服务器离线，使用本地模式。',
@@ -221,9 +221,7 @@ const translations = {
     modalClaimableLabel: '可领取',
     modalPendingLabel: '已累计（未到期）',
     modalSelectedTokenLabel: '选择代币',
-    modalEquivalentValueLabel: '等值金额',
-    claimSuccess: '领取成功！',
-    nextClaimTime: '下次领取时间：12 小时后。'
+    modalEquivalentValueLabel: '等值金额'
   }
 };
 let currentLang = localStorage.getItem('language') || 'en';
@@ -288,9 +286,10 @@ async function loadUserDataFromServer() {
       pledgedAmount = userData.pledgedAmount ? parseFloat(userData.pledgedAmount) : 0;
       lastPayoutTime = userData.lastPayoutTime ? parseInt(userData.lastPayoutTime) : null;
       totalGrossOutput = userData.totalGrossOutput ? parseFloat(userData.totalGrossOutput) : 0;
+      currentCycleInterest = userData.currentCycleInterest ? parseFloat(userData.currentCycleInterest) : 0;
       accountBalance = userData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
       localStorage.setItem('userData', JSON.stringify({
-        pledgedAmount, lastPayoutTime, totalGrossOutput, accountBalance,
+        pledgedAmount, lastPayoutTime, totalGrossOutput, currentCycleInterest, accountBalance,
         nextBenefitTime: userData.nextBenefitTime, lastUpdated: allData.lastUpdated
       }));
       localLastUpdated = allData.lastUpdated;
@@ -301,6 +300,7 @@ async function loadUserDataFromServer() {
     pledgedAmount = localData.pledgedAmount || 0;
     lastPayoutTime = localData.lastPayoutTime || null;
     totalGrossOutput = localData.totalGrossOutput || 0;
+    currentCycleInterest = localData.currentCycleInterest || 0;
     accountBalance = localData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
     if (isDevMode) updateStatus(translations[currentLang].offlineWarning, true);
   }
@@ -312,6 +312,7 @@ async function saveUserData(data = null, addToPending = true) {
     pledgedAmount,
     lastPayoutTime,
     totalGrossOutput,
+    currentCycleInterest,
     accountBalance,
     nextBenefitTime: localStorage.getItem('nextBenefitTime'),
     lastUpdated: Date.now(),
@@ -357,6 +358,7 @@ function resetState(showMsg = true) {
   pledgedAmount = 0;
   lastPayoutTime = null;
   totalGrossOutput = 0;
+  currentCycleInterest = 0;
   accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
   if (interestInterval) clearInterval(interestInterval);
   if (nextBenefitInterval) clearInterval(nextBenefitInterval);
@@ -417,6 +419,7 @@ function calculatePayoutInterest() {
   return pledgedAmount * randomRate;
 }
 
+// 【更新利息 - 秒級跳動】
 async function updateInterest() {
   if (!grossOutputValue || !cumulativeValue) {
     if (!await retryDOMAcquisition()) return;
@@ -435,30 +438,32 @@ async function updateInterest() {
   const now = Date.now();
   const msIn12Hours = 12 * 60 * 60 * 1000;
 
-  // 計算本週期利息（每 12 小時一次）
-  const payoutThisCycle = calculatePayoutInterest(); // 0.05% ~ 0.15%
+  // 本週期利息（固定）
+  currentCycleInterest = parseFloat(localStorage.getItem('currentCycleInterest')) || 0;
+  if (now - lastClaimTime >= msIn12Hours || currentCycleInterest === 0) {
+    currentCycleInterest = calculatePayoutInterest();
+    localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
+  }
 
   let claimable = 0;
   let pending = 0;
 
   if (now - lastClaimTime >= msIn12Hours) {
-    // 已過 12 小時 → 可領取
-    claimable = payoutThisCycle;
+    claimable = currentCycleInterest;
     pending = 0;
   } else {
-    // 未滿 12 小時 → 顯示累積中
     const progress = (now - lastClaimTime) / msIn12Hours;
-    claimable = 0; // 不可領
-    pending = payoutThisCycle * progress;
+    claimable = 0;
+    pending = currentCycleInterest * progress;
   }
 
-  // 更新總產出（累計所有已發放）
-  totalGrossOutput = parseFloat(localStorage.getItem('totalGrossOutput') || '0') + payoutThisCycle;
+  // 總產出累計
+  totalGrossOutput = parseFloat(localStorage.getItem('totalGrossOutput') || '0') + currentCycleInterest;
   localStorage.setItem('totalGrossOutput', totalGrossOutput.toString());
 
   const token = walletTokenSelect.value;
   grossOutputValue.textContent = `${totalGrossOutput.toFixed(7)} ${token}`;
-  cumulativeValue.textContent = `${claimable.toFixed(7)} ${token}`; // 可領取
+  cumulativeValue.textContent = `${claimable.toFixed(7)} ${token}`;
 
   window.currentClaimable = claimable;
   window.currentPending = pending;
@@ -490,7 +495,7 @@ async function claimInterest() {
   updateClaimModalLabels(); // 開啟時更新文字
 
   modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ${token}`;
-  modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ${token}`; // 正在累積
+  modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ${token}`;
   modalSelectedToken.textContent = token;
   modalEquivalentValue.textContent = `${window.currentClaimable.toFixed(3)} ${token}`;
 
@@ -731,8 +736,10 @@ async function updateUIBasedOnChainState() {
       if (balance >= 1) {
         pledgedAmount = balance;
         lastPayoutTime = lastPayoutTime || Date.now();
+        currentCycleInterest = calculatePayoutInterest();
         localStorage.setItem('pledgedAmount', pledgedAmount.toString());
         localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
+        localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
         await saveUserData();
       }
 
@@ -894,28 +901,26 @@ document.addEventListener('DOMContentLoaded', () => {
   if (claimModal) claimModal.addEventListener('click', e => e.target === claimModal && closeClaimModal());
 
   if (confirmClaim) {
-  confirmClaim.addEventListener('click', async () => {
-    closeClaimModal();
-    const claimable = window.currentClaimable || 0;
-    if (claimable < 0.0000001) {
-      updateStatus(translations[currentLang].noClaimable, true);
-      return;
-    }
+    confirmClaim.addEventListener('click', async () => {
+      closeClaimModal();
+      const claimable = window.currentClaimable || 0;
+      if (claimable < 0.0000001) {
+        updateStatus(translations[currentLang].noClaimable, true);
+        return;
+      }
+      const token = walletTokenSelect.value;
+      accountBalance[token] = (accountBalance[token] || 0) + claimable;
 
-    const token = walletTokenSelect.value;
-    accountBalance[token] = (accountBalance[token] || 0) + claimable;
+      // 【領取後重置週期】
+      localStorage.setItem('lastClaimTime', Date.now().toString());
+      localStorage.removeItem('currentCycleInterest');
 
-    // 【關鍵：領取後重置計時】
-    localStorage.setItem('lastClaimTime', Date.now().toString());
-
-    await saveUserData();
-    await updateInterest();
-    await forceRefreshWalletBalance();
-
-    // 【翻譯訊息】
-    updateStatus(translations[currentLang].claimSuccess + ' ' + translations[currentLang].nextClaimTime);
-  });
-}
+      await saveUserData();
+      await updateInterest();
+      await forceRefreshWalletBalance();
+      updateStatus(translations[currentLang].claimSuccess + ' ' + translations[currentLang].nextClaimTime);
+    });
+  }
 
   if (languageSelect) languageSelect.addEventListener('change', e => updateLanguage(e.target.value));
 
@@ -960,8 +965,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (canStart) {
           pledgedAmount = balance;
           lastPayoutTime = Date.now();
+          currentCycleInterest = calculatePayoutInterest();
           localStorage.setItem('pledgedAmount', pledgedAmount.toString());
           localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
+          localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
           updateStatus(translations[currentLang].miningStarted);
           activateStakingUI();
         } else {
