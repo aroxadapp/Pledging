@@ -170,7 +170,7 @@ body {
   display: block;
 }
 
-/* 【4個區塊 + 問號懸浮居中】 */
+/* 【4個區塊完全正方形 + 長寬相等 + 完美居中】 */
 .stats-container {
   position: relative;
   margin: 0 auto 30px auto;
@@ -182,43 +182,83 @@ body {
 .stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 20px; /* 均勻間距 */
   justify-items: center;
   align-items: center;
   width: 100%;
-  max-width: 310px;
+  max-width: 340px;
   margin: 0 auto;
   padding: 0;
 }
 .stat {
   background: rgba(0, 255, 255, 0.1);
-  border-radius: 15px;
-  padding: 12px 10px;
+  border-radius: 18px;
+  padding: 12px;
   text-align: center;
-  box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
-  min-height: 90px;
-  width: 100%;
-  max-width: 145px;
+  box-shadow: 0 0 12px rgba(0, 255, 255, 0.3);
+  width: 140px !important; /* 固定寬度 */
+  height: 140px !important; /* 固定高度 = 正方形 */
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   position: relative;
   z-index: 1;
+  aspect-ratio: 1 / 1; /* 強制長寬相等 */
+  box-sizing: border-box;
 }
-/* 問號懸浮在 4 個區塊中心 */
+.stat-label {
+  font-size: 13px;
+  color: #d3d3d3;
+  text-align: center;
+  margin-bottom: 6px;
+  width: 100%;
+}
+.stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #00ffff;
+  text-shadow: 0 0 5px #00ffff;
+  text-align: center;
+  margin-bottom: 8px;
+  flex-grow: 1;
+  width: 100%;
+}
+/* 錢包餘額特殊處理 */
+#walletBalanceLabel + .stat {
+  height: 140px !important;
+}
+#walletBalanceLabel + .stat .stat-label {
+  margin-bottom: 6px;
+}
+#walletBalanceLabel + .stat .stat-value {
+  margin-bottom: 8px;
+}
+#walletBalanceLabel + .stat .token-select-inline {
+  margin: 0 auto;
+  min-width: 70px;
+  font-size: 12px;
+  padding: 3px 8px;
+}
+.token-select-inline {
+  min-width: 70px;
+  text-align: center;
+  font-size: 12px;
+  padding: 3px 8px;
+}
+/* 問號懸浮中心 */
 .rules-button-center {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 16px;
+  font-size: 18px;
   color: #00ffff;
   text-shadow: 0 0 8px #00ffff, 0 0 15px #00ffff;
   cursor: pointer;
-  z-index: 100; /* 高於所有區塊 */
-  width: 36px;
-  height: 36px;
+  z-index: 100;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -234,40 +274,22 @@ body {
   box-shadow: 0 0 25px #00ffff, 0 0 15px #00ffff;
   background: rgba(0, 255, 255, 0.35);
 }
-.cumulative-with-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  position: relative;
-  padding: 0 4px;
-}
-.cumulative-with-button span {
-  flex: 1;
-  text-align: center;
-  font-size: 12px;
-  color: #d3d3d3;
-}
+/* 累計閃電按鈕 */
 .claim-button-right {
   position: absolute;
-  right: 6px;
+  right: 10px;
   top: 50%;
   transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  margin: 0;
+  width: 28px;
+  height: 28px;
   background: transparent;
   border: none;
   cursor: pointer;
   z-index: 2;
 }
 .claim-button-right svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   fill: #ff00ff;
   stroke: #ff00ff;
   animation: pulse 2s infinite;
