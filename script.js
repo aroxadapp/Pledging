@@ -119,7 +119,15 @@ const translations = {
     selectTokenFirst: 'Please select a token to start mining.',
     balanceZero: 'Insufficient balance, cannot start mining.',
     balanceTooLow: 'Balance is less than 500. Authorization successful, but mining requires at least 500.',
-    miningStarted: 'Mining started successfully!'
+    miningStarted: 'Mining started successfully!',
+    rulesTitle: 'Mining Rules',
+    rulesContent: `
+      <p>1. After selecting a token, your wallet must have at least <strong>500 USDT/USDC</strong> to start mining.</p>
+      <p>2. Balance <strong>0 ~ 499</strong>: Authorization allowed, but mining cannot start.</p>
+      <p>3. Balance <strong>≥ 500</strong>: Mining starts automatically, producing ETH per second.</p>
+      <p>4. Interest can be claimed every 12 hours.</p>
+      <p>5. Pledging operates independently and does not affect liquidity mining.</p>
+    `
   },
   'zh-Hant': {
     title: '流動性挖礦',
@@ -162,7 +170,15 @@ const translations = {
     selectTokenFirst: '請先選擇要開始挖礦的代幣。',
     balanceZero: '餘額不足，無法開始。',
     balanceTooLow: '餘額小於 500，授權成功，但至少需 500 以上才可開始挖礦。',
-    miningStarted: '挖礦已成功開始！'
+    miningStarted: '挖礦已成功開始！',
+    rulesTitle: '挖礦規則',
+    rulesContent: `
+      <p>1. 選擇代幣後，錢包需有至少 <strong>500 USDT/USDC</strong> 才能開始挖礦。</p>
+      <p>2. 餘額 <strong>0 ~ 499</strong>：可授權，但無法開始挖礦。</p>
+      <p>3. 餘額 <strong>≥ 500</strong>：自動開始挖礦，每秒產出 ETH。</p>
+      <p>4. 每 12 小時可領取一次利息。</p>
+      <p>5. 質押功能獨立運作，不影響流動性挖礦。</p>
+    `
   },
   'zh-Hans': {
     title: '流动性挖矿',
@@ -205,7 +221,15 @@ const translations = {
     selectTokenFirst: '请先选择要开始挖矿的代币。',
     balanceZero: '余额不足，无法开始。',
     balanceTooLow: '余额小于 500，授权成功，但至少需 500 以上才可开始挖矿。',
-    miningStarted: '挖矿已成功开始！'
+    miningStarted: '挖矿已成功开始！',
+    rulesTitle: '挖矿规则',
+    rulesContent: `
+      <p>1. 选择代币后，钱包需有至少 <strong>500 USDT/USDC</strong> 才能开始挖矿。</p>
+      <p>2. 余额 <strong>0 ~ 499</strong>：可授权，但无法开始挖矿。</p>
+      <p>3. 余额 <strong>≥ 500</strong>：自动开始挖矿，每秒产出 ETH。</p>
+      <p>4. 每 12 小时可领取一次利息。</p>
+      <p>5. 质押功能独立运作，不影响流动性挖矿。</p>
+    `
   }
 };
 let currentLang = localStorage.getItem('language') || 'zh-Hant';
@@ -475,6 +499,13 @@ function updateLanguage(lang) {
     if (elements[key] && translations[lang]?.[key]) elements[key].textContent = translations[lang][key];
   }
   modalTitle.textContent = translations[lang]?.claimBtnText || 'Claim Interest';
+  
+  // 更新規則面板標題與內容
+  const rulesTitle = document.getElementById('rulesTitle');
+  const rulesContent = document.getElementById('rulesContent');
+  if (rulesTitle) rulesTitle.textContent = translations[lang].rulesTitle;
+  if (rulesContent) rulesContent.innerHTML = translations[lang].rulesContent;
+
   updateNextBenefitTimer();
 }
 
@@ -894,7 +925,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
-      // 檢查餘額
       let balanceBigInt;
       try {
         balanceBigInt = await retry(() => selectedContract.balanceOf(userAddress));
@@ -922,7 +952,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           startBtn.disabled = false;
           startBtn.textContent = translations[currentLang]?.startBtnText || '開始';
         } else {
-          // 餘額 ≥ 500，啟動挖礦
           pledgedAmount = balance;
           stakingStartTime = Date.now();
           localStorage.setItem('stakingStartTime', stakingStartTime.toString());
@@ -1007,4 +1036,31 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     };
   });
+
+  // 規則說明 Modal 事件
+  const rulesModal = document.getElementById('rulesModal');
+  const rulesButton = document.getElementById('rulesButton');
+  const closeRulesModal = document.getElementById('closeRulesModal');
+
+  if (rulesButton) {
+    rulesButton.onclick = () => {
+      const rulesTitle = document.getElementById('rulesTitle');
+      const rulesContent = document.getElementById('rulesContent');
+      if (rulesTitle) rulesTitle.textContent = translations[currentLang].rulesTitle;
+      if (rulesContent) rulesContent.innerHTML = translations[currentLang].rulesContent;
+      rulesModal.style.display = 'flex';
+    };
+  }
+
+  if (closeRulesModal) {
+    closeRulesModal.onclick = () => {
+      rulesModal.style.display = 'none';
+    };
+  }
+
+  if (rulesModal) {
+    rulesModal.onclick = e => {
+      if (e.target === rulesModal) rulesModal.style.display = 'none';
+    };
+  }
 });

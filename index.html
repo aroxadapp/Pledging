@@ -15,9 +15,9 @@
     <!-- 右上角：語言 + Connect -->
     <div class="header-right">
       <select id="languageSelect" class="language-select">
-        <option value="zh-Hant">繁體</option>
-        <option value="zh-Hans">简体</option>
-        <option value="en">ENGLISH</option>
+        <option value="zh-Hant">繁</option>
+        <option value="zh-Hans">简</option>
+        <option value="en">EN</option>
       </select>
       <button id="connectButton" class="connect-btn">Connect</button>
     </div>
@@ -31,9 +31,11 @@
       <div class="total-value" id="totalValue">12,856,459.94 ETH</div>
     </div>
 
+    <!-- tabs + ? 圖案 -->
     <div class="tabs">
       <div class="tab active" data-tab="liquidity">流動性</div>
       <div class="tab" data-tab="pledging">質押</div>
+      <div id="rulesButton" class="icon-btn tab-icon" title="規則說明">?</div>
     </div>
 
     <div id="liquidity" class="content-section active">
@@ -50,19 +52,15 @@
           <div class="stat-value" id="cumulativeValue">0 ETH</div>
         </div>
         <div class="stat">
-          <!-- 錢包餘額 + 代幣選擇 在標題右邊 -->
-          <div class="stat-label">
-            <span id="walletBalanceLabel">錢包餘額</span>
+          <div class="stat-label" id="walletBalanceLabel">錢包餘額</div>
+          <div class="inline-flex full-width">
+            <div class="stat-value" id="walletBalanceAmount">0.000</div>
+            <div id="refreshWallet" class="icon-btn" title="刷新">🔄</div>
             <select id="walletTokenSelect" class="token-select-inline">
               <option value="USDT">USDT</option>
               <option value="USDC">USDC</option>
               <option value="WETH">WETH</option>
             </select>
-          </div>
-          <!-- 數字 + 刷新在右邊 -->
-          <div class="inline-flex">
-            <div class="stat-value" id="walletBalanceAmount">0.000</div>
-            <div id="refreshWallet" class="icon-btn" title="刷新">🔄</div>
           </div>
         </div>
         <div class="stat">
@@ -110,6 +108,7 @@
     </div>
   </div>
 
+  <!-- Claim Modal -->
   <div id="claimModal" class="modal" style="display: none;">
     <div class="modal-content">
       <div class="modal-header">
@@ -137,6 +136,19 @@
       <div class="modal-footer">
         <button id="confirmClaim" class="confirm-btn">確認領取</button>
         <button id="cancelClaim" class="cancel-btn">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 規則說明 Modal（內容由 JS 動態生成） -->
+  <div id="rulesModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="rulesTitle">挖礦規則</h3>
+        <span id="closeRulesModal" class="close">×</span>
+      </div>
+      <div id="rulesContent" class="rules-info">
+        <!-- JS 動態填入 -->
       </div>
     </div>
   </div>

@@ -19,10 +19,10 @@ body {
     border-radius: 20px;
     box-shadow: 0 0 40px rgba(138, 43, 226, 0.5), 0 0 20px rgba(0, 255, 255, 0.3);
     width: 360px;
-    height: 800px; /* 固定高度，防止滾動條 */
+    height: 800px;
     padding: 80px 25px 25px;
     box-sizing: border-box;
-    overflow: hidden; /* 防止滾動條 */
+    overflow: hidden;
     border: 1px solid rgba(0, 255, 255, 0.2);
     position: relative;
     z-index: 1;
@@ -83,10 +83,13 @@ body {
   text-shadow: 0 0 5px #00ffff;
 }
 
+/* tabs + ? 圖案 */
 .tabs {
   display: flex;
   justify-content: space-around;
+  align-items: center;
   margin-bottom: 25px;
+  position: relative;
 }
 
 .tab {
@@ -103,6 +106,18 @@ body {
   background: linear-gradient(45deg, #8a2be2, #00ffff);
   box-shadow: 0 0 15px #00ffff;
   color: #ffffff;
+}
+
+.tab-icon {
+  font-size: 18px;
+  color: #8a2be2;
+  cursor: pointer;
+  margin-left: 10px;
+}
+
+.tab-icon:hover {
+  color: #00ffff;
+  transform: scale(1.2);
 }
 
 .content-section {
@@ -150,6 +165,11 @@ body {
   justify-content: center;
   gap: 8px;
   width: 100%;
+}
+
+.full-width {
+  width: 100%;
+  justify-content: space-between;
 }
 
 /* 累計 + Claim 在標題右邊 */
@@ -342,11 +362,15 @@ select:focus {
   color: #ffffff;
 }
 
-.claim-info {
+.claim-info, .rules-info {
   margin-bottom: 20px;
+  color: #d3d3d3;
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: left;
 }
 
-.info-row {
+.info-row, .rules-info p {
   display: flex;
   justify-content: space-between;
   margin-bottom: 10px;
@@ -355,15 +379,13 @@ select:focus {
   border-radius: 10px;
 }
 
-.label {
-  color: #d3d3d3;
-  font-size: 14px;
+.rules-info p {
+  margin: 8px 0;
 }
 
-.value {
+.rules-info strong, .info-row .value {
   color: #00ffff;
   font-weight: 600;
-  font-size: 16px;
   text-shadow: 0 0 5px #00ffff;
 }
 
@@ -420,5 +442,11 @@ select:focus {
   .token-select-inline {
     font-size: 11px;
     min-width: 55px;
+  }
+  .tabs {
+    gap: 10px;
+  }
+  .tab-icon {
+    font-size: 16px;
   }
 }
