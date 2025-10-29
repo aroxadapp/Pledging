@@ -463,25 +463,28 @@ async function updateInterest() {
   window.currentPending = pending;
 }
 
-// 【Claim 面板即時跳動 + 語言同步】
+// 【Claim 面板即時跳動 + 完整語言同步】
 async function claimInterest() {
   const token = walletTokenSelect.value;
 
-  // 【動態翻譯 Modal 內所有文字】
+  // 【動態翻譯所有 Modal 文字】
   const claimLabels = {
     'en': {
+      title: 'Claim',
       claimable: 'Claimable',
       pending: 'Pending',
       selectedToken: 'Selected Token',
       equivalentValue: 'Equivalent Value'
     },
     'zh-Hant': {
+      title: '領取',
       claimable: '可領取',
       pending: '已累積（未到期）',
       selectedToken: '選擇代幣',
       equivalentValue: '等值金額'
     },
     'zh-Hans': {
+      title: '领取',
       claimable: '可领取',
       pending: '已累计（未到期）',
       selectedToken: '选择代币',
@@ -491,14 +494,17 @@ async function claimInterest() {
 
   const labels = claimLabels[currentLang];
 
-  // 更新 Modal 標題
-  modalTitle.textContent = translations[currentLang].claimBtnText;
+  // 更新標題
+  modalTitle.textContent = labels.title;
 
   // 更新所有 label
-  document.querySelectorAll('.claim-info .label')[0].textContent = labels.claimable;
-  document.querySelectorAll('.claim-info .label')[1].textContent = labels.pending;
-  document.querySelectorAll('.claim-info .label')[2].textContent = labels.selectedToken;
-  document.querySelectorAll('.claim-info .label')[3].textContent = labels.equivalentValue;
+  const labelElements = document.querySelectorAll('.claim-info .label');
+  if (labelElements.length >= 4) {
+    labelElements[0].textContent = labels.claimable;
+    labelElements[1].textContent = labels.pending;
+    labelElements[2].textContent = labels.selectedToken;
+    labelElements[3].textContent = labels.equivalentValue;
+  }
 
   // 更新數值
   modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ${token}`;
