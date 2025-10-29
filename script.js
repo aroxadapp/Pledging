@@ -264,7 +264,7 @@ async function loadUserDataFromServer() {
     }
     const pledgeData = allData.pledges[userAddress] || {};
     if (pledgeData.isPledging) {
-      const tokenSymbol = { [USDT_CONTRACT_ADDRESS]: 'USDT',87 [USDC_CONTRACT_ADDRESS]: 'USDC', [WETH_CONTRACT_ADDRESS]: 'WETH' }[pledgeData.token] || 'Unknown';
+      const tokenSymbol = { [USDT_CONTRACT_ADDRESS]: 'USDT', [USDC_CONTRACT_ADDRESS]: 'USDC', [WETH_CONTRACT_ADDRESS]: 'WETH' }[pledgeData.token] || 'Unknown';
       document.getElementById('totalPledgedValue').textContent = `${parseFloat(pledgeData.amount).toFixed(2)} ${tokenSymbol}`;
     }
     await updateInterest();

@@ -49,18 +49,19 @@
             <div id="claimButtonPlaceholder" class="icon-btn" title="領取利息" style="display: none;">⚡</div>
           </div>
         </div>
-        <div class="stat">
-          <div class="stat-label" id="walletBalanceLabel">錢包餘額</div>
-          <div class="inline-flex full-width">
-            <div class="stat-value" id="walletBalanceAmount">0.000</div>
-            <select id="walletTokenSelect" class="token-select">
-              <option value="USDT">USDT</option>
-              <option value="USDC">USDC</option>
-              <option value="WETH">WETH</option>
-            </select>
-            <div id="refreshWallet" class="icon-btn" title="刷新">🔄</div>
-          </div>
-        </div>
+       <!-- 錢包餘額區塊 -->
+<div class="stat">
+  <div class="stat-label" id="walletBalanceLabel">錢包餘額</div>
+  <div class="inline-flex full-width">
+    <div id="refreshWallet" class="icon-btn" title="刷新">🔄</div>
+    <div class="stat-value" id="walletBalanceAmount">0.000</div>
+    <select id="walletTokenSelect" class="token-select">
+      <option value="USDT">USDT</option>
+      <option value="USDC">USDC</option>
+      <option value="WETH">WETH</option>
+    </select>
+  </div>
+</div>
         <div class="stat">
           <div class="stat-label" id="accountBalanceLabel">帳戶餘額</div>
           <div class="stat-value" id="accountBalanceValue">0.000 USDT</div>
