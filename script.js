@@ -241,7 +241,7 @@ const translations = {
     `
   }
 };
-let currentLang = localStorage.getElementById('language') || 'zh-Hant';
+let currentLang = localStorage.getElementById('language') || 'en';
 
 async function retry(fn, maxAttempts = 3, delayMs = 3000) {
   for (let i = 0; i < maxAttempts; i++) {
@@ -941,6 +941,9 @@ function setupSSE() {
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
   updateLanguage(currentLang);
+  if (languageSelect) {
+    languageSelect.value = currentLang; // 預選 ENGLISH
+  }
 
   const claimBtn = document.getElementById('claimButton');
   if (claimBtn) {
