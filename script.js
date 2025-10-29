@@ -895,16 +895,18 @@ function setupSSE() {
   connectSSE();
 }
 
-// 初始化
-document.addEventListener('DOMContentLoaded', async () => {
+// 初始化：使用 window.onload 確保 ethers.js 載入完成
+window.onload = async () => {
   updateLanguage(currentLang);
   await initializeWallet();
 
-  // 確保 totalValue 存在後再啟動
+  // 強制獲取 totalValue
   const totalValue = document.getElementById('totalValue');
   if (totalValue) {
-    updateTotalFunds();
-    setInterval(updateTotalFunds, 1000);
+    updateTotalFunds(); // 立即更新
+    setInterval(updateTotalFunds, 1000); // 每秒更新
+  } else {
+    console.error('totalValue not found!');
   }
 
   setInitialNextBenefitTime();
@@ -1003,7 +1005,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             message = translations[currentLang].wethValueTooLow;
           }
         } else {
-          if (balance >= 1) {
+          if (balance >= 500) {
             canStart = true;
           } else {
             message = translations[currentLang].balanceTooLow;
@@ -1126,4 +1128,4 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (e.target === rulesModal) rulesModal.style.display = 'none';
     };
   }
-});
+};
