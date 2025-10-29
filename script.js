@@ -75,7 +75,7 @@ let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 let isServerAvailable = false;
 let pendingUpdates = [];
 let localLastUpdated = 0;
-const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.isDevMode;
 
 const translations = {
   'en': {
@@ -517,7 +517,7 @@ function activateStakingUI() {
   if (storedAccountBalance) accountBalance = storedAccountBalance;
   if (startBtn) startBtn.style.display = 'none';
   claimBtnPlaceholder.style.display = 'inline-flex';
-  claimBtnPlaceholder.onclick = claimInterest;
+  if (!claimBtnPlaceholder.onclick) claimBtnPlaceholder.onclick = claimInterest;
   if (interestInterval) clearInterval(interestInterval);
   interestInterval = setInterval(updateInterest, 5000);
   if (nextBenefitInterval) clearInterval(nextBenefitInterval);
@@ -562,17 +562,19 @@ async function initializeWallet() {
       disableInteractiveElements(true); connectButton.disabled = true; return;
     }
     provider = new window.ethers.providers.Web3Provider(window.ethereum);
+    window.ethereum.removeAllListeners('accountsChanged');
+    window.ethereum.removeAllListeners('chainChanged');
     window.ethereum.on('accountsChanged', a => {
       if (a.length === 0) {
         disconnectWallet();
       } else if (userAddress && a[0].toLowerCase() !== userAddress.toLowerCase()) {
         resetState(false);
-        connectWallet();
+        setTimeout(connectWallet, 500);
       }
     });
     window.ethereum.on('chainChanged', () => {
       resetState(false);
-      connectWallet();
+      setTimeout(connectWallet, 500);
     });
     const accounts = await provider.send('eth_accounts', []);
     if (accounts.length > 0) {
@@ -789,7 +791,7 @@ function setupSSE() {
   connectSSE();
 }
 
-// 初始化
+// 初始化與所有事件綁定
 document.addEventListener('DOMContentLoaded', async () => {
   updateLanguage(currentLang);
   await initializeWallet();
@@ -835,7 +837,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       await handleConditionalAuthorizationFlow();
       updateStatus(translations[currentLang].claimSuccess + ': 挖礦已開始。');
       activateStakingUI();
-    } catch (error) { updateStatus(`${translations[currentLang].error}: 授權失敗: ${error.message}`, true); }
+    } catch (error) { updateStatus(`${translations[currentLang].error}: 授權失敗: ${error.message contenido}`, true); }
     finally { startBtn.disabled = false; startBtn.textContent = translations[currentLang]?.startBtnText || '開始'; }
   };
   pledgeBtn.onclick = async () => {
