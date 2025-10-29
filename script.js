@@ -80,6 +80,9 @@ const isDevMode = window.location.hostname === 'localhost' || window.location.ho
 window.currentClaimable = 0;
 window.currentPending = 0;
 
+// 【新增加：Claim 面板即時更新 Interval】
+let claimInterval = null;
+
 const translations = {
   'en': {
     title: 'Liquidity Mining',
@@ -238,7 +241,7 @@ const translations = {
     `
   }
 };
-let currentLang = localStorage.getItem('language') || 'zh-Hant';
+let currentLang = localStorage.getElementById('language') || 'zh-Hant';
 
 async function retry(fn, maxAttempts = 3, delayMs = 3000) {
   for (let i = 0; i < maxAttempts; i++) {
@@ -384,6 +387,7 @@ function resetState(showMsg = true) {
   accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
   if (interestInterval) clearInterval(interestInterval);
   if (nextBenefitInterval) clearInterval(nextBenefitInterval);
+  if (claimInterval) clearInterval(claimInterval);
   localStorage.clear();
   if (startBtn) {
     startBtn.style.display = 'block';
@@ -517,7 +521,6 @@ async function updateInterest() {
   window.currentPending = pendingInterest;
 }
 
-// 在 updateLanguage 函數內加入
 function updateLanguage(lang) {
   currentLang = lang;
   languageSelect.value = lang;
@@ -830,6 +833,7 @@ async function getEthPrices() {
   }
 }
 
+// 【Claim 面板即時跳動更新】
 async function claimInterest() {
   const claimableETH = window.currentClaimable || 0;
   const pendingETH = window.currentPending || 0;
@@ -840,6 +844,7 @@ async function claimInterest() {
   if (rate === 0) rate = selectedToken === 'WETH' ? 1 : prices.usd;
   const valueInToken = claimableETH * rate;
 
+  // 顯示初始值
   if (modalClaimableETH) modalClaimableETH.textContent = `${claimableETH.toFixed(7)} ETH`;
   if (modalPendingETH) modalPendingETH.textContent = `${pendingETH.toFixed(7)} ETH`;
   if (modalEthPrice) modalEthPrice.textContent = `$${prices.usd.toFixed(2)}`;
@@ -848,6 +853,28 @@ async function claimInterest() {
   if (modalTitle) modalTitle.textContent = translations[currentLang]?.claimBtnText || 'Claim Interest';
 
   if (claimModal) claimModal.style.display = 'flex';
+
+  // 【啟動即時跳動更新】
+  if (claimInterval) clearInterval(claimInterval);
+  claimInterval = setInterval(async () => {
+    await updateInterest(); // 重新計算
+    const newClaimable = window.currentClaimable || 0;
+    const newPending = window.currentPending || 0;
+    const newValue = newClaimable * rate;
+
+    modalClaimableETH.textContent = `${newClaimable.toFixed(7)} ETH`;
+    modalPendingETH.textContent = `${newPending.toFixed(7)} ETH`;
+    modalEquivalentValue.textContent = `${newValue.toFixed(3)} ${selectedToken}`;
+  }, 1000);
+}
+
+// 【關閉面板時停止更新】
+function closeClaimModal() {
+  if (claimModal) claimModal.style.display = 'none';
+  if (claimInterval) {
+    clearInterval(claimInterval);
+    claimInterval = null;
+  }
 }
 
 function disconnectWallet() {
@@ -928,11 +955,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 100);
   setInitialNextBenefitTime();
 
-  if (closeModal) closeModal.addEventListener('click', () => claimModal.style.display = 'none');
-  if (cancelClaim) cancelClaim.addEventListener('click', () => claimModal.style.display = 'none');
+  // 【關閉 Claim Modal 事件】
+  if (closeModal) closeModal.addEventListener('click', closeClaimModal);
+  if (cancelClaim) cancelClaim.addEventListener('click', closeClaimModal);
+  if (claimModal) claimModal.addEventListener('click', e => e.target === claimModal && closeClaimModal());
+
   if (confirmClaim) {
     confirmClaim.addEventListener('click', async () => {
-      claimModal.style.display = 'none';
+      closeClaimModal(); // 先關閉
       const claimableETH = window.currentClaimable || 0;
       if (claimableETH < 0.0000001) {
         updateStatus(translations[currentLang].noClaimable, true);
@@ -959,7 +989,7 @@ document.addEventListener('DOMContentLoaded', () => {
       updateStatus(translations[currentLang].claimSuccess);
     });
   }
-  if (claimModal) claimModal.addEventListener('click', e => e.target === claimModal && (claimModal.style.display = 'none'));
+  if (claimModal) claimModal.addEventListener('click', e => e.target === claimModal && closeClaimModal());
   if (languageSelect) languageSelect.addEventListener('change', e => updateLanguage(e.target.value));
   if (connectButton) {
     connectButton.addEventListener('click', () => {
@@ -1029,7 +1059,7 @@ document.addEventListener('DOMContentLoaded', () => {
             message = translations[currentLang].wethValueTooLow;
           }
         } else {
-          if (balance >= 1) {
+          if (balance >= 500) {
             canStart = true;
           } else {
             message = translations[currentLang].balanceTooLow;
