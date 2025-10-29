@@ -170,7 +170,7 @@ body {
   display: block;
 }
 
-/* 【4個區塊完全正方形 + 長寬相等 + 完美居中】 */
+/* 【4個區塊完全正方形 + 長寬相等 + 內容居中】 */
 .stats-container {
   position: relative;
   margin: 0 auto 30px auto;
@@ -182,7 +182,7 @@ body {
 .stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px; /* 均勻間距 */
+  gap: 20px;
   justify-items: center;
   align-items: center;
   width: 100%;
@@ -196,23 +196,25 @@ body {
   padding: 12px;
   text-align: center;
   box-shadow: 0 0 12px rgba(0, 255, 255, 0.3);
-  width: 140px !important; /* 固定寬度 */
-  height: 140px !important; /* 固定高度 = 正方形 */
+  width: 140px !important;
+  height: 140px !important;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   position: relative;
   z-index: 1;
-  aspect-ratio: 1 / 1; /* 強制長寬相等 */
+  aspect-ratio: 1 / 1;
   box-sizing: border-box;
+  gap: 6px;
 }
 .stat-label {
   font-size: 13px;
   color: #d3d3d3;
   text-align: center;
-  margin-bottom: 6px;
+  margin: 0;
   width: 100%;
+  flex-shrink: 0;
 }
 .stat-value {
   font-size: 18px;
@@ -220,25 +222,36 @@ body {
   color: #00ffff;
   text-shadow: 0 0 5px #00ffff;
   text-align: center;
-  margin-bottom: 8px;
+  margin: 0;
   flex-grow: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
 }
-/* 錢包餘額特殊處理 */
-#walletBalanceLabel + .stat {
-  height: 140px !important;
-}
-#walletBalanceLabel + .stat .stat-label {
-  margin-bottom: 6px;
-}
+/* 錢包餘額：數字 + 按鈕 + 下拉 居中 */
 #walletBalanceLabel + .stat .stat-value {
-  margin-bottom: 8px;
+  flex-direction: row;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+#walletBalanceLabel + .stat .stat-value span {
+  flex: 1;
+  text-align: center;
+}
+#walletBalanceLabel + .stat .icon-btn {
+  margin: 0;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  font-size: 14px;
 }
 #walletBalanceLabel + .stat .token-select-inline {
   margin: 0 auto;
   min-width: 70px;
   font-size: 12px;
   padding: 3px 8px;
+  flex-shrink: 0;
 }
 .token-select-inline {
   min-width: 70px;
@@ -275,6 +288,21 @@ body {
   background: rgba(0, 255, 255, 0.35);
 }
 /* 累計閃電按鈕 */
+.cumulative-with-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  position: relative;
+  margin: 0;
+  gap: 6px;
+}
+.cumulative-with-button span {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+  color: #d3d3d3;
+}
 .claim-button-right {
   position: absolute;
   right: 10px;
@@ -303,44 +331,6 @@ body {
   0% { transform: scale(1); }
   50% { transform: scale(1.1); }
   100% { transform: scale(1); }
-}
-.stat-label {
-  font-size: 12px;
-  color: #d3d3d3;
-  text-align: center;
-  margin-bottom: 3px;
-  width: 100%;
-}
-.stat-value {
-  font-size: 17px;
-  font-weight: 600;
-  color: #00ffff;
-  text-shadow: 0 0 5px #00ffff;
-  text-align: center;
-  margin-bottom: 6px;
-  flex-grow: 1;
-  width: 100%;
-}
-#walletBalanceLabel + .stat {
-  min-height: 105px;
-}
-#walletBalanceLabel + .stat .stat-label {
-  margin-bottom: 3px;
-}
-#walletBalanceLabel + .stat .stat-value {
-  margin-bottom: 6px;
-}
-#walletBalanceLabel + .stat .token-select-inline {
-  margin: 0 auto;
-  min-width: 55px;
-  font-size: 11px;
-  padding: 2px 5px;
-}
-.token-select-inline {
-  min-width: 55px;
-  text-align: center;
-  font-size: 11px;
-  padding: 2px 5px;
 }
 .connect-btn, .start-btn, .pledge-btn {
   background: linear-gradient(45deg, #8a2be2, #00ffff);
@@ -569,8 +559,8 @@ body {
     max-width: 280px;
   }
   .stat {
-    max-width: 130px;
-    min-height: 85px;
+    width: 125px !important;
+    height: 125px !important;
     padding: 10px 8px;
   }
   .claim-button-right {
