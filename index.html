@@ -1,137 +1,140 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Aroxa Staking Mining dApp</title>
-  <link rel="icon" href="data:;base64,iVBORw0KGgo=">
-  
-  <!-- Ethers.js 外部載入 -->
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js" defer></script>
-  
-  <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>熱門挖礦</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="app-container">
+    <!-- Status -->
+    <div id="status"></div>
+
+    <!-- Header -->
     <div class="header">
-      <div class="logo">⊙ Aroxa</div>
+      <div class="logo" id="title">熱門挖礦</div>
       <select id="languageSelect" class="language-select">
-        <option value="en">English</option>
-        <option value="zh-Hant">繁中</option>
-        <option value="zh-Hans">简中</option>
+        <option value="zh-Hant">繁</option>
+        <option value="zh-Hans">简</option>
+        <option value="en">EN</option>
       </select>
-      <button id="connectButton" class="connect-btn">Connect</button>
+    </div>
+    <p class="subtitle" id="subtitle">開始賺取數百萬</p>
+
+    <!-- Total Funds -->
+    <div class="total-funds">
+      <div class="total-value" id="totalValue">12,856,459.94 ETH</div>
     </div>
 
-    <div id="status"></div>
-    <div class="title" id="title">Popular Mining</div>
-    <div class="subtitle" id="subtitle">Start Earning Millions</div>
-    <div class="total-funds">
-      <div class="total-value" id="totalValue">0 ETH</div>
-    </div>
+    <!-- Tabs -->
     <div class="tabs">
-      <div class="tab active" data-tab="liquidity">Liquidity</div>
-      <div class="tab" data-tab="pledging">Pledging</div>
+      <div class="tab active" data-tab="liquidity">流動性</div>
+      <div class="tab" data-tab="pledging">質押</div>
     </div>
+
+    <!-- Liquidity Tab -->
     <div id="liquidity" class="content-section active">
       <div class="stats">
         <div class="stat">
-          <div class="stat-label" id="grossOutputLabel">Gross Output</div>
+          <div class="stat-label" id="grossOutputLabel">總產出</div>
           <div class="stat-value" id="grossOutputValue">0 ETH</div>
         </div>
         <div class="stat">
-          <div class="stat-label" id="cumulativeLabel">Cumulative</div>
-          <div class="stat-value" id="cumulativeValue">0 ETH</div>
-        </div>
-      </div>
-      <div class="balances">
-        <div class="balance">
-          <div class="balance-label" id="walletBalanceLabel">Wallet Balance</div>
-          <div class="balance-value" id="walletBalanceValue">
-            <select id="walletTokenSelect" class="input-field">
-              <option value="USDT">USDT</option>
-              <option value="USDC">USDC</option>
-              <option value="WETH">WETH</option>
-            </select>
-            <div style="display: flex; justify-content: center; align-items: center;">
-              <span id="walletBalanceAmount">0.000</span>
-              <span class="refresh" id="refreshWallet">Refresh</span>
-            </div>
+          <div class="stat-label" id="cumulativeLabel">累計</div>
+          <div class="inline-flex">
+            <div class="stat-value" id="cumulativeValue">0 ETH</div>
+            <button id="claimButton" class="icon-btn" title="領取">⚡</button>
           </div>
         </div>
-        <div class="balance">
-          <div class="balance-label" id="accountBalanceLabel">Account Balance</div>
-          <div class="balance-value" id="accountBalanceValue">0.000 USDT</div>
-          <div class="compound" id="compoundLabel">Compound</div>
+        <div class="stat">
+          <div class="stat-label" id="walletBalanceLabel">錢包餘額</div>
+          <div class="inline-flex">
+            <div class="stat-value" id="walletBalanceAmount">0.000</div>
+            <div id="refreshWallet" class="icon-btn" title="刷新">🔄</div>
+          </div>
+        </div>
+        <div class="stat">
+          <div class="stat-label" id="accountBalanceLabel">帳戶餘額</div>
+          <div class="stat-value" id="accountBalanceValue">0.000 USDT</div>
         </div>
       </div>
-      <div class="next-benefit" id="nextBenefit">Next Benefit: 00:00:00</div>
-      <button id="startBtn" class="start-btn">Start</button>
+
       <div id="claimButtonPlaceholder"></div>
+
+      <button id="connectButton" class="connect-btn">Connect</button>
+      <button id="startBtn" class="start-btn">開始</button>
+
+      <div class="next-benefit" id="nextBenefit">下次收益: 00:00:00</div>
     </div>
+
+    <!-- Pledging Tab -->
     <div id="pledging" class="content-section">
       <div class="pledge-form">
         <div class="input-group">
-          <div class="input-label" id="pledgeAmountLabel">Pledge Amount</div>
-          <select class="input-field" id="pledgeToken">
+          <div class="input-label" id="pledgeAmountLabel">質押金額</div>
+          <input type="number" id="pledgeAmount" class="input-field" placeholder="0" />
+        </div>
+        <div class="input-group">
+          <div class="input-label" id="pledgeDurationLabel">期間</div>
+          <select id="pledgeDuration" class="input-field">
+            <option value="30">30 天</option>
+            <option value="60">60 天</option>
+            <option value="90">90 天</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <div class="input-label">代幣</div>
+          <select id="pledgeToken" class="input-field">
             <option value="USDT">USDT</option>
             <option value="USDC">USDC</option>
             <option value="WETH">WETH</option>
           </select>
-          <input type="number" class="input-field" placeholder="Enter amount" id="pledgeAmount" step="0.01">
         </div>
-        <div class="input-group">
-          <div class="input-label" id="pledgeDurationLabel">Duration</div>
-          <select class="input-field" id="pledgeDuration">
-            <option value="30">30 Days</option>
-            <option value="60">60 Days</option>
-            <option value="90">90 Days</option>
-          </select>
-        </div>
-        <button id="pledgeBtn" class="pledge-btn">Pledge Now</button>
+        <button id="pledgeBtn" class="pledge-btn">立即質押</button>
       </div>
+
       <div class="pledge-stats">
         <div class="stat">
-          <div class="stat-label" id="totalPledgedLabel">Total Pledged</div>
+          <div class="stat-label" id="totalPledgedLabel">總質押</div>
           <div class="stat-value" id="totalPledgedValue">0.00 USDT</div>
         </div>
       </div>
     </div>
   </div>
 
-  <div id="claimModal" class="modal" style="display: none;">
+  <!-- Claim Modal -->
+  <div id="claimModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="modalTitle">Claim Interest</h3>
-        <span class="close" id="closeModal">×</span>
+        <h3 id="modalTitle">領取利息</h3>
+        <span id="closeModal" class="close">×</span>
       </div>
-      <div class="modal-body">
-        <div class="claim-info">
-          <div class="info-row">
-            <span class="label">Claimable ETH:</span>
-            <span class="value" id="modalClaimableETH">0.0000000 ETH</span>
-          </div>
-          <div class="info-row">
-            <span class="label">ETH Price (USD):</span>
-            <span class="value" id="modalEthPrice">$0.00</span>
-          </div>
-          <div class="info-row">
-            <span class="label">Selected Token:</span>
-            <span class="value" id="modalSelectedToken">USDT</span>
-          </div>
-          <div class="info-row">
-            <span class="label">Equivalent Value:</span>
-            <span class="value" id="modalEquivalentValue">0.000 USDT</span>
-          </div>
+      <div class="claim-info">
+        <div class="info-row">
+          <span class="label">可領取 ETH</span>
+          <span class="value" id="modalClaimableETH">0.0000000 ETH</span>
         </div>
-        <div class="modal-footer">
-          <button id="confirmClaim" class="confirm-btn">Confirm Claim</button>
-          <button id="cancelClaim" class="cancel-btn">Cancel</button>
+        <div class="info-row">
+          <span class="label">ETH 價格</span>
+          <span class="value" id="modalEthPrice">$0.00</span>
         </div>
+        <div class="info-row">
+          <span class="label">選擇代幣</span>
+          <span class="value" id="modalSelectedToken">USDT</span>
+        </div>
+        <div class="info-row">
+          <span class="label">等值金額</span>
+          <span class="value" id="modalEquivalentValue">0.000 USDT</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="confirmClaim" class="confirm-btn">確認領取</button>
+        <button id="cancelClaim" class="cancel-btn">取消</button>
       </div>
     </div>
   </div>
 
-  <script src="script.js" defer></script>
+  <script src="script.js"></script>
 </body>
 </html>

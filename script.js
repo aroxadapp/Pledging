@@ -37,8 +37,7 @@ const totalValue=document.getElementById('totalValue');
 let grossOutputValue=document.getElementById('grossOutputValue');
 let cumulativeValue=document.getElementById('cumulativeValue');
 const nextBenefit=document.getElementById('nextBenefit');
-const claimBtn=document.createElement('button');
-claimBtn.id='claimButton';
+const claimBtn=document.getElementById('claimButton');
 const claimModal=document.getElementById('claimModal');
 const closeModal=document.getElementById('closeModal');
 const confirmClaim=document.getElementById('confirmClaim');
@@ -409,10 +408,8 @@ if(startBtn){
 startBtn.style.display='block';
 startBtn.textContent=translations[currentLang]?.startBtnText||'Start';
 }
-const existingClaimBtn=document.getElementById('claimButton');
-if(existingClaimBtn){
-existingClaimBtn.remove();
-console.log(`resetState: Removed claim button.`);
+if(claimBtn){
+claimBtn.style.display='none';
 }
 if(connectButton){
 connectButton.classList.remove('connected');
@@ -434,10 +431,7 @@ if(pledgeBtn)pledgeBtn.disabled=disable;
 if(pledgeAmount)pledgeAmount.disabled=disable;
 if(pledgeDuration)pledgeDuration.disabled=disable;
 if(pledgeToken)pledgeToken.disabled=disable;
-if(refreshWallet){
-refreshWallet.style.pointerEvents=disable?'none':'auto';
-refreshWallet.style.color=disable?'#999':'#ff00ff';
-}
+if(refreshWallet)refreshWallet.style.opacity=disable?'0.5':'1';
 if(claimBtn)claimBtn.disabled=disable;
 console.log(`disableInteractiveElements: Interactive elements ${disable?'disabled':'enabled'}.`);
 }
@@ -489,6 +483,7 @@ if(!acquired)return;
 if(!userAddress){
 grossOutputValue.textContent='0 ETH';
 cumulativeValue.textContent='0 ETH';
+claimBtn.style.display='none';
 return;
 }
 let finalGrossOutput=0;
@@ -531,6 +526,7 @@ finalCumulative=finalGrossOutput-claimedInterest;
 }
 grossOutputValue.textContent=`${finalGrossOutput.toFixed(7)} ETH`;
 cumulativeValue.textContent=`${finalCumulative.toFixed(7)} ETH`;
+claimBtn.style.display=finalCumulative>0?'inline':'none';
 }
 function updateLanguage(lang){
 currentLang=lang;
@@ -541,7 +537,7 @@ if(elements[key]&&translations[lang]?.[key]){
 elements[key].textContent=translations[lang][key];
 }
 }
-if(claimBtn.parentNode)claimBtn.textContent=translations[lang]?.claimBtnText||'Claim';
+if(claimBtn.parentNode)claimBtn.title=translations[lang]?.claimBtnText||'Claim';
 if(modalTitle)modalTitle.textContent=translations[lang]?.claimBtnText||'Claim Interest';
 updateNextBenefitTimer();
 }
@@ -600,17 +596,7 @@ pledgedAmount=parseFloat(localStorage.getItem('pledgedAmount'))||0;
 const storedAccountBalance=JSON.parse(localStorage.getItem('accountBalance'));
 if(storedAccountBalance)accountBalance=storedAccountBalance;
 if(startBtn)startBtn.style.display='none';
-if(document.getElementById('claimButton'))return;
-claimBtn.textContent=translations[currentLang]?.claimBtnText||'Claim';
-claimBtn.className='start-btn';
-claimBtn.style.marginTop='10px';
-claimBtn.disabled=false;
-const placeholder=document.getElementById('claimButtonPlaceholder');
-placeholder?placeholder.appendChild(claimBtn):document.getElementById('liquidity').appendChild(claimBtn);
-if(!claimBtn.hasEventListener){
-claimBtn.addEventListener('click',claimInterest);
-claimBtn.hasEventListener=true;
-}
+claimBtn.style.display='inline';
 if(interestInterval)clearInterval(interestInterval);
 interestInterval=setInterval(updateInterest,5000);
 if(nextBenefitInterval)clearInterval(nextBenefitInterval);
@@ -954,3 +940,4 @@ else updateStatus(translations[currentLang].error+': 無法獲取 DOM 元素',tr
 }
 };
 });
+claimBtn.onclick=claimInterest;
