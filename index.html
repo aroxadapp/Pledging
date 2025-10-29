@@ -55,14 +55,18 @@
           <div class="stat-value" id="grossOutputValue">0 ETH</div>
         </div>
 
-        <!-- 累計 + Claim -->
+        <!-- 累計 + Claim（使用 SVG 閃電） -->
         <div class="stat">
-  <div class="stat-label" id="cumulativeLabel">
-    累計
-    <button id="claimButton" class="icon-btn claim-btn">⚡</button>
-  </div>
-  <div class="stat-value" id="cumulativeValue">0 ETH</div>
-</div>
+          <div class="stat-label" id="cumulativeLabel">
+            累計
+            <button id="claimButton" class="icon-btn claim-btn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="#ff00ff" stroke="#ff00ff" stroke-width="2">
+                <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+              </svg>
+            </button>
+          </div>
+          <div class="stat-value" id="cumulativeValue">0 ETH</div>
+        </div>
 
         <!-- 錢包餘額 -->
         <div class="stat">
