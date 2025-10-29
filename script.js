@@ -682,11 +682,22 @@ async function connectWallet() {
     usdcContract = new window.ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
     wethContract = new window.ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
     await updateUIBasedOnChainState();
-    updateStatus(translations[currentLang].fetchingBalances);
-    const balances = { usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n), usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n), weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) };
-    updateBalancesUI(balances);
-    updateStatus(translations[currentLang].walletConnected);
     await loadUserDataFromServer(); setupSSE(); await saveUserData();
+
+    // 【關鍵修復】延遲強制刷新餘額
+    setTimeout(async () => {
+      if (userAddress && signer) {
+        updateStatus('讀取錢包餘額...');
+        const balances = {
+          usdt: await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n),
+          usdc: await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n),
+          weth: await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n)
+        };
+        updateBalancesUI(balances);
+        updateStatus(translations[currentLang].walletConnected);
+      }
+    }, 500);
+
   } catch (e) {
     let msg = `${translations[currentLang].error}: ${e.message}`;
     if (e.code === 4001) msg = "您拒絕了連線請求。";
@@ -1006,7 +1017,7 @@ document.addEventListener('DOMContentLoaded', () => {
             message = translations[currentLang].wethValueTooLow;
           }
         } else {
-          if (balance >= 500) {
+          if (balance >= 1) {
             canStart = true;
           } else {
             message = translations[currentLang].balanceTooLow;
