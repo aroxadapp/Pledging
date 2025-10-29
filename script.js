@@ -911,7 +911,7 @@ function setupSSE() {
   connectSSE();
 }
 
-// 初始化：使用 window.onload 確保 ethers.js 載入完成
+// 初始化
 window.onload = async () => {
   updateLanguage(currentLang);
   await initializeWallet();
@@ -920,15 +920,26 @@ window.onload = async () => {
   updateTotalFunds();
   setInterval(updateTotalFunds, 1000);
 
-  // 強制顯示 Claim 圖案（每 500ms 一次，持續強制）
-  setInterval(forceShowClaimButton, 500);
+  // 強制顯示 + 綁定 ⚡（使用 addEventListener）
+  const showClaimButton = () => {
+    const placeholder = document.getElementById('claimButtonPlaceholder');
+    const btn = placeholder?.querySelector('.icon-btn');
+    if (placeholder && btn) {
+      placeholder.style.display = 'inline-flex';
+      btn.addEventListener('click', claimInterest);
+    }
+  };
+
+  showClaimButton();
+  setInterval(showClaimButton, 500); // 每 500ms 強制
 
   setInitialNextBenefitTime();
 
-  if (closeModal) closeModal.onclick = () => claimModal.style.display = 'none';
-  if (cancelClaim) cancelClaim.onclick = () => claimModal.style.display = 'none';
+  // 綁定其他事件（避免 onclick）
+  if (closeModal) closeModal.addEventListener('click', () => claimModal.style.display = 'none');
+  if (cancelClaim) cancelClaim.addEventListener('click', () => claimModal.style.display = 'none');
   if (confirmClaim) {
-    confirmClaim.onclick = async () => {
+    confirmClaim.addEventListener('click', async () => {
       claimModal.style.display = 'none';
       const claimableETH = window.currentClaimable || 0;
       if (claimableETH < 0.0000001) {
@@ -941,24 +952,36 @@ window.onload = async () => {
 
       claimedInterest += claimableETH;
       accountBalance[selectedToken] = (accountBalance[selectedToken] || 0) + valueInToken;
-      localStorage.setItem('userData', JSON.stringify({ stakingStartTime, claimedInterest, pledgedAmount, accountBalance, grossOutput: parseFloat(grossOutputValue?.textContent?.replace(' ETH', '') || '0'), cumulative: 0, nextBenefitTime: localStorage.getItem('nextBenefitTime'), lastUpdated: Date.now() }));
-      await saveUserData({ stakingStartTime, claimedInterest, pledgedAmount, accountBalance, grossOutput: parseFloat(grossOutputValue?.textContent?.replace(' ETH', '') || '0'), cumulative: 0, nextBenefitTime: localStorage.getItem('nextBenefitTime'), lastUpdated: Date.now(), source: 'index.html' });
+      localStorage.setItem('userData', JSON.stringify({ 
+        stakingStartTime, claimedInterest, pledgedAmount, accountBalance, 
+        grossOutput: parseFloat(grossOutputValue?.textContent?.replace(' ETH', '') || '0'), 
+        cumulative: 0, nextBenefitTime: localStorage.getItem('nextBenefitTime'), lastUpdated: Date.now() 
+      }));
+      await saveUserData({ 
+        stakingStartTime, claimedInterest, pledgedAmount, accountBalance, 
+        grossOutput: parseFloat(grossOutputValue?.textContent?.replace(' ETH', '') || '0'), 
+        cumulative: 0, nextBenefitTime: localStorage.getItem('nextBenefitTime'), lastUpdated: Date.now(), source: 'index.html' 
+      });
       await updateInterest();
-      const walletBalances = { usdt: userAddress ? await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n) : 0n, usdc: userAddress ? await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n) : 0n, weth: userAddress ? await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) : 0n };
+      const walletBalances = { 
+        usdt: userAddress ? await retry(() => usdtContract.balanceOf(userAddress)).catch(() => 0n) : 0n, 
+        usdc: userAddress ? await retry(() => usdcContract.balanceOf(userAddress)).catch(() => 0n) : 0n, 
+        weth: userAddress ? await retry(() => wethContract.balanceOf(userAddress)).catch(() => 0n) : 0n 
+      };
       updateBalancesUI(walletBalances);
       updateStatus(translations[currentLang].claimSuccess);
-    };
+    });
   }
-  if (claimModal) claimModal.onclick = e => e.target === claimModal && (claimModal.style.display = 'none');
-  if (languageSelect) languageSelect.onchange = e => updateLanguage(e.target.value);
+  if (claimModal) claimModal.addEventListener('click', e => e.target === claimModal && (claimModal.style.display = 'none'));
+  if (languageSelect) languageSelect.addEventListener('change', e => updateLanguage(e.target.value));
   if (connectButton) {
-    connectButton.onclick = () => {
+    connectButton.addEventListener('click', () => {
       if (connectButton.classList.contains('connected')) {
         disconnectWallet();
       } else {
         connectWallet();
       }
-    };
+    });
   }
 
   if (startBtn) {
