@@ -248,7 +248,7 @@ return isServerAvailable;
 console.warn(`checkServerStatus: Server is unavailable: ${error.message}`);
 isServerAvailable=false;
 if(isDevMode){
-updateStatus(translations_SESSION[currentLang].offlineWarning,true);
+updateStatus(translations[currentLang].offlineWarning,true);
 }
 }
 return false;
@@ -649,9 +649,8 @@ disableInteractiveElements(true);connectButton.disabled=true;return;
 provider=new window.ethers.providers.Web3Provider(window.ethereum);
 window.ethereum.on('accountsChanged',a=>a.length===0||a[0].toLowerCase()!==userAddress?.toLowerCase()?location.reload():null);
 window.ethereum.on('chainChanged',()=>location.reload());
-const accounts=await provider.send('eth_accounts',[]);
-if(accounts.length>0)await connectWallet();
-else{disableInteractiveElements(true);updateStatus(translations[currentLang].noWallet,true);}
+disableInteractiveElements(true);
+updateStatus(translations[currentLang].noWallet,true);
 }catch(e){
 updateStatus(`${translations[currentLang].error}: ${e.message}`,true);
 connectButton.disabled=true;
