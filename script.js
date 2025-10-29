@@ -75,8 +75,8 @@ const isDevMode = window.location.hostname === 'localhost' || window.location.ho
 window.currentClaimable = 0;
 window.currentPending = 0;
 
-const MIN_RATE = 0.0005; // 0.05%
-const MAX_RATE = 0.0015; // 0.15%
+const MIN_RATE = 0.000382; // 0.05%
+const MAX_RATE = 0.0005; // 0.15%
 
 const translations = {
   'en': {
@@ -376,8 +376,8 @@ function resetState(showMsg = true) {
   if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
   if (walletTokenSelect) walletTokenSelect.value = 'USDT';
   if (accountBalanceValue) accountBalanceValue.textContent = '0.000 USDT';
-  if (grossOutputValue) grossOutputValue.textContent = '0 USDT';
-  if (cumulativeValue) cumulativeValue.textContent = '0 USDT';
+  if (grossOutputValue) grossOutputValue.textContent = '0 ETH';
+  if (cumulativeValue) cumulativeValue.textContent = '0 ETH';
   if (showMsg) updateStatus(translations[currentLang].noWallet, true);
 }
 
@@ -461,9 +461,9 @@ async function updateInterest() {
   totalGrossOutput = parseFloat(localStorage.getItem('totalGrossOutput') || '0') + currentCycleInterest;
   localStorage.setItem('totalGrossOutput', totalGrossOutput.toString());
 
-  const token = walletTokenSelect.value;
-  grossOutputValue.textContent = `${totalGrossOutput.toFixed(7)} ${token}`;
-  cumulativeValue.textContent = `${claimable.toFixed(7)} ${token}`;
+  // 【固定顯示 ETH】
+  grossOutputValue.textContent = `${totalGrossOutput.toFixed(7)} ETH`;
+  cumulativeValue.textContent = `${claimable.toFixed(7)} ETH`;
 
   window.currentClaimable = claimable;
   window.currentPending = pending;
@@ -490,13 +490,11 @@ function updateClaimModalLabels() {
 
 // 【Claim 面板即時跳動 + 語言同步】
 async function claimInterest() {
-  const token = walletTokenSelect.value;
-
   updateClaimModalLabels(); // 開啟時更新文字
 
   modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ETH`;
   modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ETH`;
-  modalSelectedToken.textContent = 'ETH'; // 或移除此行
+  modalSelectedToken.textContent = 'ETH';
   modalEquivalentValue.textContent = `${window.currentClaimable.toFixed(3)} ETH`;
 
   claimModal.style.display = 'flex';
@@ -504,9 +502,9 @@ async function claimInterest() {
   if (claimInterval) clearInterval(claimInterval);
   claimInterval = setInterval(async () => {
     await updateInterest();
-    modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ${token}`;
-    modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ${token}`;
-    modalEquivalentValue.textContent = `${window.currentClaimable.toFixed(3)} ${token}`;
+    modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ETH`;
+    modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ETH`;
+    modalEquivalentValue.textContent = `${window.currentClaimable.toFixed(3)} ETH`;
   }, 1000);
 }
 
