@@ -463,41 +463,46 @@ async function updateInterest() {
   const now = Date.now();
   const etOffset = getETOffsetMilliseconds();
   const nowET = new Date(now + etOffset);
-  const currentHour = nowET.getHours();
 
-  // 美西時間 00:00 或 12:00 觸發累積
-  const isPayoutTime = currentHour === 0 || currentHour === 12;
-  const lastPayoutTimestamp = parseInt(localStorage.getItem('lastPayoutTime')) || 0;
-  const lastPayoutET = new Date(lastPayoutTimestamp + etOffset);
-  const lastPayoutHour = lastPayoutET.getHours();
+  // 讀取總產出（永不減少）
+  let totalGrossOutput = parseFloat(localStorage.getItem('totalGrossOutput') || '0');
 
+  // 讀取已領取
+  let claimed = parseFloat(localStorage.getItem('claimed') || '0');
+
+  // 讀取可領取
   let claimable = parseFloat(localStorage.getItem('claimable') || '0');
-  let pending = 0;
 
-  // 計算本週期利息
+  // 本週期利息
   const cycleInterest = pledgedAmount * (MONTHLY_RATE / 60);
 
-  // 如果到達發放時間且未發放
-  if (isPayoutTime && (lastPayoutHour !== 0 && lastPayoutHour !== 12)) {
+  // 判斷是否到發放時間
+  const lastPayoutTime = parseInt(localStorage.getItem('lastPayoutTime')) || 0;
+  const isPayoutTime = nowET.getHours() === 0 || nowET.getHours() === 12;
+  const wasPayoutTime = new Date(lastPayoutTime + etOffset).getHours() === 0 || new Date(lastPayoutTime + etOffset).getHours() === 12;
+
+  // 發放利息（累積到總產出 + 可領取）
+  if (isPayoutTime && !wasPayoutTime) {
+    totalGrossOutput += cycleInterest;
     claimable += cycleInterest;
+    localStorage.setItem('totalGrossOutput', totalGrossOutput.toString());
     localStorage.setItem('claimable', claimable.toString());
     localStorage.setItem('lastPayoutTime', now.toString());
   }
 
-  // Pending：距離下次發放剩餘時間
-  const nextPayoutHour = currentHour < 12 ? 12 : 24;
+  // 計算 Pending
+  const nextHour = nowET.getHours() < 12 ? 12 : 24;
   const nextPayoutET = new Date(nowET);
-  nextPayoutET.setHours(nextPayoutHour, 0, 0, 0);
+  nextPayoutET.setHours(nextHour, 0, 0, 0);
   const msToNext = nextPayoutET.getTime() - etOffset - now;
   const progress = 1 - (msToNext / (12 * 60 * 60 * 1000));
-  pending = cycleInterest * progress;
+  const pending = cycleInterest * progress;
 
-  // 總產出 = 已領取 + 可領取
-  totalGrossOutput = parseFloat(localStorage.getItem('totalGrossOutput') || '0') + claimable;
-  localStorage.setItem('totalGrossOutput', totalGrossOutput.toString());
+  // 累計 = 可領取 + Pending
+  const cumulative = claimable + pending;
 
   grossOutputValue.textContent = `${totalGrossOutput.toFixed(7)} ETH`;
-  cumulativeValue.textContent = `${claimable.toFixed(7)} ETH`;
+  cumulativeValue.textContent = `${cumulative.toFixed(7)} ETH`;
 
   window.currentClaimable = claimable;
   window.currentPending = pending;
@@ -959,13 +964,14 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    accountBalance[authorizedToken] += claimable;
-    totalGrossOutput += claimable;
-    localStorage.setItem('totalGrossOutput', totalGrossOutput.toString());
+    // 已領取 + 這次領取
+    const claimed = parseFloat(localStorage.getItem('claimed') || '0') + claimable;
+    localStorage.setItem('claimed', claimed.toString());
 
-    // 重置可領取
+    // 可領取歸零
     localStorage.setItem('claimable', '0');
-    localStorage.setItem('lastPayoutTime', Date.now().toString());
+
+    accountBalance[authorizedToken] += claimable;
 
     await saveUserData();
     await updateInterest();
