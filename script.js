@@ -465,7 +465,7 @@ async function updateInterest() {
   const nowET = new Date(now + etOffset);
 
   // 【從 localStorage 讀取總產出】
-  let totalGrossOutput = parseFloat(localStorage.getItem('totalGrossOutput') || '0');
+  totalGrossOutput = parseFloat(localStorage.getItem('totalGrossOutput') || '0');
 
   // 讀取可領取
   let claimable = parseFloat(localStorage.getItem('claimable') || '0');
@@ -480,12 +480,12 @@ async function updateInterest() {
 
   // 發放利息
   if (isPayoutTime && !wasPayoutTime) {
-  totalGrossOutput += cycleInterest;
-  claimable += cycleInterest;
-  localStorage.setItem('totalGrossOutput', totalGrossOutput.toString()); // 儲存！
-  localStorage.setItem('claimable', claimable.toString());
-  localStorage.setItem('lastPayoutTime', now.toString());
-}
+    totalGrossOutput += cycleInterest; // 更新全域變數
+    claimable += cycleInterest;
+    localStorage.setItem('totalGrossOutput', totalGrossOutput.toString()); // 儲存
+    localStorage.setItem('claimable', claimable.toString());
+    localStorage.setItem('lastPayoutTime', now.toString());
+  }
 
   // 計算 Pending
   const nextHour = nowET.getHours() < 12 ? 12 : 24;
@@ -961,7 +961,6 @@ if (confirmClaim) {
       return;
     }
 
-    // 【關鍵：總產出不變，只減可領取】
     // 可領取歸零
     localStorage.setItem('claimable', '0');
 
@@ -969,11 +968,7 @@ if (confirmClaim) {
     const claimed = parseFloat(localStorage.getItem('claimed') || '0') + claimable;
     localStorage.setItem('claimed', claimed.toString());
 
-    // 帳戶餘額增加
     accountBalance[authorizedToken] = (accountBalance[authorizedToken] || 0) + claimable;
-
-    // 更新最後領取時間
-    localStorage.setItem('lastPayoutTime', Date.now().toString());
 
     await saveUserData();
     await updateInterest();
