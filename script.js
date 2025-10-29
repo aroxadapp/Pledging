@@ -456,12 +456,18 @@ function forceShowClaimButton() {
     placeholder.style.display = 'inline-flex';
     placeholder.style.visibility = 'visible';
     placeholder.style.opacity = '1';
+    console.log('Placeholder displayed'); // 診斷用，測試後刪除
+  } else {
+    console.log('Placeholder not found - check HTML ID'); // 診斷用
   }
   const btn = document.querySelector('#claimButtonPlaceholder .icon-btn');
   if (btn) {
     btn.style.visibility = 'visible';
     btn.style.opacity = '1';
     btn.addEventListener('click', claimInterest);
+    console.log('Button bound'); // 診斷用
+  } else {
+    console.log('Button not found - check HTML structure'); // 診斷用
   }
 }
 
@@ -548,7 +554,7 @@ function updateLanguage(lang) {
     if (elements[key] && translations[lang]?.[key]) elements[key].textContent = translations[lang][key];
   }
   modalTitle.textContent = translations[lang]?.claimBtnText || 'Claim Interest';
-
+  
   const rulesTitle = document.getElementById('rulesTitle');
   const rulesContent = document.getElementById('rulesContent');
   if (rulesTitle) rulesTitle.textContent = translations[lang].rulesTitle;
@@ -915,7 +921,7 @@ function setupSSE() {
   connectSSE();
 }
 
-// 初始化：使用 window.onload 確保 ethers.js 載入完成
+// 初始化
 window.onload = async () => {
   updateLanguage(currentLang);
   await initializeWallet();
@@ -926,9 +932,9 @@ window.onload = async () => {
     setInterval(updateTotalFunds, 1000);
   }, 100);
 
-  // 強制顯示 Claim 圖案 (每 300ms 一次，強化頻率)
+  // 強制顯示 Claim 圖案
   forceShowClaimButton();
-  setInterval(forceShowClaimButton, 300);
+  setInterval(forceShowClaimButton, 300); // 每 300ms 一次
 
   setInitialNextBenefitTime();
 
@@ -1163,3 +1169,8 @@ window.onload = async () => {
     });
   }
 };
+
+// DOM 載入後強制顯示圖案
+document.addEventListener('DOMContentLoaded', () => {
+  forceShowClaimButton();
+});
