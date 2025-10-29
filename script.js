@@ -323,7 +323,7 @@ async function saveUserData(data = null, addToPending = true) {
 
 function updateStatus(message, isWarning = false) {
   if (!statusDiv) return;
-  if (unge === translations[currentLang].offlineWarning && !isDevMode) {
+  if (message === translations[currentLang].offlineWarning && !isDevMode) {
     statusDiv.innerHTML = '';
     statusDiv.style.display = 'none';
     return;
