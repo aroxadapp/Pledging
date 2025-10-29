@@ -426,8 +426,8 @@ async function updateInterest() {
   }
 
   if (!userAddress || pledgedAmount <= 0) {
-    grossOutputValue.textContent = `0 ${walletTokenSelect.value}`;
-    cumulativeValue.textContent = `0 ${walletTokenSelect.value}`;
+    grossOutputValue.textContent = '0 ETH';
+    cumulativeValue.textContent = '0 ETH';
     window.currentClaimable = 0;
     window.currentPending = 0;
     return;
@@ -494,10 +494,10 @@ async function claimInterest() {
 
   updateClaimModalLabels(); // 開啟時更新文字
 
-  modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ${token}`;
-  modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ${token}`;
-  modalSelectedToken.textContent = token;
-  modalEquivalentValue.textContent = `${window.currentClaimable.toFixed(3)} ${token}`;
+  modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ETH`;
+  modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ETH`;
+  modalSelectedToken.textContent = 'ETH'; // 或移除此行
+  modalEquivalentValue.textContent = `${window.currentClaimable.toFixed(3)} ETH`;
 
   claimModal.style.display = 'flex';
 
