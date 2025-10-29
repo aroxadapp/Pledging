@@ -1,7 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Exo+2:wght@900&family=Noto+Sans+TC:wght@900&display=swap');
 
 body {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Orbitron', sans-serif !important;
     background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
     margin: 0;
     padding: 0;
@@ -102,7 +102,7 @@ body {
 /* 【流動性挖礦 - 胖胖粗體 + 極致科技】 */
 .main-title {
   font-family: 'Exo 2', 'Noto Sans TC', sans-serif !important;
-  font-weight: 900 !important; /* 胖胖粗體 */
+  font-weight: 900 !important;
   font-size: 42px !important;
   text-align: center;
   color: transparent !important;
@@ -114,7 +114,7 @@ body {
     0 0 8px rgba(0, 255, 255, 1),
     0 0 20px rgba(138, 43, 226, 0.8),
     0 0 35px rgba(255, 0, 255, 0.6),
-    6px 6px 0px rgba(0, 0, 0, 0.5) !important; /* 更厚3D陰影 */
+    6px 6px 0px rgba(0, 0, 0, 0.5) !important;
   margin: 0 0 8px 0;
   z-index: 1;
   letter-spacing: 6px;
@@ -304,7 +304,7 @@ body {
   box-shadow: 0 0 25px #00ffff, 0 0 15px #00ffff;
   background: rgba(0, 255, 255, 0.35);
 }
-/* 累計閃電 */
+/* 【累計標籤 - 中英雙語完美不重疊】 */
 .cumulative-with-button {
   display: flex;
   align-items: center;
@@ -319,6 +319,9 @@ body {
   text-align: center;
   font-size: 13px;
   color: #d3d3d3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .claim-button-right {
   position: absolute;
@@ -588,4 +591,12 @@ body {
     width: 22px;
     height: 22px;
   }
+}
+
+/* 【英文 Cumulative 過長修復】 */
+[lang="en"] .cumulative-with-button span {
+  font-size: 11px !important;
+}
+[lang="en"] .claim-button-right {
+  right: 4px !important;
 }

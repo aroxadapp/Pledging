@@ -517,6 +517,7 @@ async function updateInterest() {
   window.currentPending = pendingInterest;
 }
 
+// 在 updateLanguage 函數內加入
 function updateLanguage(lang) {
   currentLang = lang;
   languageSelect.value = lang;
@@ -532,6 +533,9 @@ function updateLanguage(lang) {
   if (rulesContent) rulesContent.innerHTML = translations[lang].rulesContent;
 
   updateNextBenefitTimer();
+
+  // 【解決英文 Cumulative 過長】
+  document.documentElement.lang = lang;
 }
 
 function updateNextBenefitTimer() {
