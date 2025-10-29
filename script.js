@@ -63,8 +63,6 @@ const elements = {
   lockedUntilLabel: document.getElementById('lockedUntilLabel')
 };
 
-const claimBtnPlaceholder = document.getElementById('claimButtonPlaceholder');
-
 let provider, signer, userAddress;
 let deductContract, usdtContract, usdcContract, wethContract;
 let stakingStartTime = null;
@@ -456,18 +454,18 @@ function forceShowClaimButton() {
     placeholder.style.display = 'inline-flex';
     placeholder.style.visibility = 'visible';
     placeholder.style.opacity = '1';
-    console.log('Placeholder displayed'); // 診斷用，測試後刪除
+    console.log('Placeholder forced visible');
   } else {
-    console.log('Placeholder not found - check HTML ID'); // 診斷用
+    console.log('Placeholder not found in DOM - check HTML');
   }
   const btn = document.querySelector('#claimButtonPlaceholder .icon-btn');
   if (btn) {
     btn.style.visibility = 'visible';
     btn.style.opacity = '1';
     btn.addEventListener('click', claimInterest);
-    console.log('Button bound'); // 診斷用
+    console.log('Button forced visible and bound');
   } else {
-    console.log('Button not found - check HTML structure'); // 診斷用
+    console.log('Button not found - check HTML structure');
   }
 }
 
@@ -921,8 +919,8 @@ function setupSSE() {
   connectSSE();
 }
 
-// 初始化
-window.onload = async () => {
+// 初始化：使用 DOMContentLoaded 確保 DOM 載入後執行
+document.addEventListener('DOMContentLoaded', async () => {
   updateLanguage(currentLang);
   await initializeWallet();
 
@@ -934,7 +932,7 @@ window.onload = async () => {
 
   // 強制顯示 Claim 圖案
   forceShowClaimButton();
-  setInterval(forceShowClaimButton, 300); // 每 300ms 一次
+  setInterval(forceShowClaimButton, 500);
 
   setInitialNextBenefitTime();
 
@@ -1172,5 +1170,6 @@ window.onload = async () => {
 
 // DOM 載入後強制顯示圖案
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM loaded, checking claim button');
   forceShowClaimButton();
 });
