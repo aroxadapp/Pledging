@@ -37,7 +37,7 @@ const totalValue=document.getElementById('totalValue');
 let grossOutputValue=document.getElementById('grossOutputValue');
 let cumulativeValue=document.getElementById('cumulativeValue');
 const nextBenefit=document.getElementById('nextBenefit');
-const claimBtn=document.getElementById('claimButton'); // 一開始隱藏
+const claimBtn=document.getElementById('claimButton');
 const claimModal=document.getElementById('claimModal');
 const closeModal=document.getElementById('closeModal');
 const confirmClaim=document.getElementById('confirmClaim');
@@ -409,7 +409,7 @@ startBtn.style.display='block';
 startBtn.textContent=translations[currentLang]?.startBtnText||'Start';
 }
 if(claimBtn){
-claimBtn.style.display='none';  // 重置時隱藏
+claimBtn.style.display='none';
 }
 if(connectButton){
 connectButton.classList.remove('connected');
@@ -525,7 +525,6 @@ finalCumulative=finalGrossOutput-claimedInterest;
 }
 grossOutputValue.textContent=`${finalGrossOutput.toFixed(7)} ETH`;
 cumulativeValue.textContent=`${finalCumulative.toFixed(7)} ETH`;
-// 移除自動顯示 claimBtn
 }
 function updateLanguage(lang){
 currentLang=lang;
@@ -595,7 +594,7 @@ pledgedAmount=parseFloat(localStorage.getItem('pledgedAmount'))||0;
 const storedAccountBalance=JSON.parse(localStorage.getItem('accountBalance'));
 if(storedAccountBalance)accountBalance=storedAccountBalance;
 if(startBtn)startBtn.style.display='none';
-claimBtn.style.display='inline';  // 啟動挖礦後才顯示
+claimBtn.style.display='inline';
 if(interestInterval)clearInterval(interestInterval);
 interestInterval=setInterval(updateInterest,5000);
 if(nextBenefitInterval)clearInterval(nextBenefitInterval);
@@ -862,7 +861,7 @@ languageSelect.onchange=e=>updateLanguage(e.target.value);
 connectButton.onclick=async()=>connectButton.classList.contains('connected')?disconnectWallet():await connectWallet();
 startBtn.onclick=async()=>{
 const currentLang=localStorage.getItem('language')||'zh-Hant';
-if(!signer){updateStatus(translations[currentLang].noWallet,true);return;}
+if(!signer){utbildStatus(translations[currentLang].noWallet,true);return;}
 const selectedToken=walletTokenSelect.value;
 const tokenMap={'USDT':usdtContract,'USDC':usdcContract,'WETH':wethContract};
 const selectedContract=tokenMap[selectedToken];
@@ -938,5 +937,5 @@ else updateStatus(translations[currentLang].error+': 無法獲取 DOM 元素',tr
 }
 };
 });
-claimBtn.onclick = claimInterest;  // 正確綁定，不自動執行
+claimBtn.onclick = claimInterest;
 });
