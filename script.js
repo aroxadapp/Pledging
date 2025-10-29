@@ -62,14 +62,7 @@ const elements = {
   lockedUntilLabel: document.getElementById('lockedUntilLabel')
 };
 
-// 動態建立 claimBtn
-const claimBtn = document.createElement('button');
-claimBtn.id = 'claimButton';
-claimBtn.className = 'icon-btn';
-claimBtn.style.display = 'none';
-claimBtn.disabled = true;
-claimBtn.textContent = '⚡';
-claimBtn.title = '領取';
+const claimBtnPlaceholder = document.getElementById('claimButtonPlaceholder');
 
 let provider, signer, userAddress;
 let deductContract, usdtContract, usdcContract, wethContract;
@@ -82,7 +75,7 @@ let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 let isServerAvailable = false;
 let pendingUpdates = [];
 let localLastUpdated = 0;
-const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.isDevMode;
+const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
 const translations = {
   'en': {
@@ -569,8 +562,20 @@ async function initializeWallet() {
       disableInteractiveElements(true); connectButton.disabled = true; return;
     }
     provider = new window.ethers.providers.Web3Provider(window.ethereum);
-    window.ethereum.on('accountsChanged', a => a.length === 0 || a[0].toLowerCase() !== userAddress?.toLowerCase() ? location.reload() : null);
-    window.ethereum.on('chainChanged', () => location.reload());
+    window.ethereum.removeAllListeners('accountsChanged');
+    window.ethereum.removeAllListeners('chainChanged');
+    window.ethereum.on('accountsChanged', a => {
+      if (a.length === 0) {
+        disconnectWallet();
+      } else if (userAddress && a[0].toLowerCase() !== userAddress.toLowerCase()) {
+        resetState(false);
+        setTimeout(connectWallet, 500);
+      }
+    });
+    window.ethereum.on('chainChanged', () => {
+      resetState(false);
+      setTimeout(connectWallet, 500);
+    });
     const accounts = await provider.send('eth_accounts', []);
     if (accounts.length > 0) {
       await connectWallet();
@@ -816,8 +821,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   if (claimModal) claimModal.onclick = e => e.target === claimModal && (claimModal.style.display = 'none');
   languageSelect.onchange = e => updateLanguage(e.target.value);
-  connectButton.onclick = async () => connectButton.classList.contains('connected') ? disconnectWallet() : await connectWallet();
+  connectButton.onclick = () => {
+    if (connectButton.classList.contains('connected')) {
+      disconnectWallet();
+    } else {
+      connectWallet();
+    }
+  };
   startBtn.onclick = async () => {
+    if (!walletTokenSelect) {
+      updateStatus('請先添加代幣選擇器', true);
+      return;
+    }
     const currentLang = localStorage.getItem('language') || 'zh-Hant';
     if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
     const selectedToken = walletTokenSelect.value;
