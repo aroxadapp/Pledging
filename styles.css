@@ -37,27 +37,21 @@ body {
     display: none;
 }
 
-/* 左上角標題 */
+/* 原始 header：左熱門挖礦 + 語言，Connect 移到右上角 */
+.header {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    margin-bottom: 15px;
+    position: relative;
+}
+
 .logo {
-    position: absolute;
-    top: 20px;
-    left: 25px;
     font-size: 28px;
     font-weight: 700;
     color: #00ffff;
     text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
-    z-index: 2;
-}
-
-/* 右上角控制 */
-.header-right {
-    position: absolute;
-    top: 20px;
-    right: 25px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    z-index: 2;
+    margin-right: 15px;
 }
 
 .language-select {
@@ -70,7 +64,11 @@ body {
     font-size: 14px;
 }
 
-.connect-btn {
+/* Connect 按鈕：右上角固定 */
+.right-top-connect {
+    position: absolute;
+    top: -10px;
+    right: 0;
     background: linear-gradient(45deg, #8a2be2, #00ffff);
     border: none;
     color: #ffffff;
@@ -81,11 +79,12 @@ body {
     transition: transform 0.3s, box-shadow 0.3s;
 }
 
-.connect-btn:hover {
+.right-top-connect:hover {
     transform: scale(1.05);
     box-shadow: 0 0 15px #00ffff;
 }
 
+/* 其他樣式 100% 照你提供的 */
 .title {
     font-size: 24px;
     font-weight: 700;
