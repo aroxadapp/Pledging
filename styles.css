@@ -169,19 +169,38 @@ body {
   display: block;
 }
 
-/* 【4個區塊平均分布 + 問號精準居中】 */
+/* 【4個區塊平均分布 + 問號精準居中 + 無重疊】 */
 .stats-container {
   position: relative;
   margin-bottom: 25px;
+  padding: 0 10px; /* 左右留空，避免區塊貼邊 */
 }
 .stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 15px;
-  justify-items: center;
-  align-items: center;
+  grid-template-rows: 1fr 1fr;
+  gap: 20px; /* 增加間距，避免重疊 */
+  justify-items: stretch;
+  align-items: stretch;
+  width: 100%;
+  max-width: 340px;
+  margin: 0 auto;
 }
-/* 【問號在中央 + 更亮霓虹底色】 */
+.stat {
+  background: rgba(0, 255, 255, 0.1);
+  border-radius: 15px;
+  padding: 15px;
+  text-align: center;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+/* 【問號在中央 + 更亮霓虹底色 + 絕不重疊】 */
 .rules-button-center {
   position: absolute;
   top: 50%;
@@ -190,7 +209,7 @@ body {
   font-size: 14px;
   color: #8a2be2;
   cursor: pointer;
-  z-index: 10;
+  z-index: 20 !important; /* 高於 stat */
   width: 28px;
   height: 28px;
   display: flex;
@@ -206,21 +225,6 @@ body {
   transform: translate(-50%, -50%) scale(1.3);
   box-shadow: 0 0 20px #00ffff, 0 0 10px #8a2be2;
   background: rgba(0, 255, 255, 0.4) !important;
-}
-.stat {
-  background: rgba(0, 255, 255, 0.1);
-  border-radius: 15px;
-  padding: 15px;
-  text-align: center;
-  box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
-  min-height: 100px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  z-index: 1;
 }
 /* 【累計文字先置中 + 閃電按鈕靠右】 */
 .cumulative-with-button {
@@ -551,11 +555,8 @@ body {
   .modal {
     padding: 10px;
   }
-  #walletBalanceLabel + .stat {
-    min-height: 120px;
-  }
-  .cumulative-with-button {
-    gap: 4px;
+  .stats {
+    gap: 15px;
   }
   .claim-button-right {
     right: 6px !important;
