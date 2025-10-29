@@ -119,7 +119,11 @@ const translations = {
       <p>3. APR: 28.3% ~ 31.5%.</p>
       <p>4. Interest every 12 hours (PT 00:00 & 12:00).</p>
       <p>5. Pledging independent.</p>
-    `
+    `,
+    modalClaimableLabel: 'Claimable',
+    modalPendingLabel: 'Pending',
+    modalSelectedTokenLabel: 'Selected Token',
+    modalEquivalentValueLabel: 'Equivalent Value'
   },
   'zh-Hant': {
     title: '流動性挖礦',
@@ -162,7 +166,11 @@ const translations = {
       <p>3. 年化利率：28.3% ~ 31.5%。</p>
       <p>4. 每 12 小時發放一次（美西時間 00:00 與 12:00）。</p>
       <p>5. 質押獨立運作。</p>
-    `
+    `,
+    modalClaimableLabel: '可領取',
+    modalPendingLabel: '已累積（未到期）',
+    modalSelectedTokenLabel: '選擇代幣',
+    modalEquivalentValueLabel: '等值金額'
   },
   'zh-Hans': {
     title: '流动性挖矿',
@@ -205,7 +213,11 @@ const translations = {
       <p>3. 年化利率：28.3% ~ 31.5%。</p>
       <p>4. 每 12 小时发放一次（美西时间 00:00 与 12:00）。</p>
       <p>5. 质押独立运作。</p>
-    `
+    `,
+    modalClaimableLabel: '可领取',
+    modalPendingLabel: '已累计（未到期）',
+    modalSelectedTokenLabel: '选择代币',
+    modalEquivalentValueLabel: '等值金额'
   }
 };
 let currentLang = localStorage.getItem('language') || 'en';
@@ -454,14 +466,49 @@ async function updateInterest() {
 // 【Claim 面板即時跳動 + 語言同步】
 async function claimInterest() {
   const token = walletTokenSelect.value;
+
+  // 【動態翻譯 Modal 內所有文字】
+  const claimLabels = {
+    'en': {
+      claimable: 'Claimable',
+      pending: 'Pending',
+      selectedToken: 'Selected Token',
+      equivalentValue: 'Equivalent Value'
+    },
+    'zh-Hant': {
+      claimable: '可領取',
+      pending: '已累積（未到期）',
+      selectedToken: '選擇代幣',
+      equivalentValue: '等值金額'
+    },
+    'zh-Hans': {
+      claimable: '可领取',
+      pending: '已累计（未到期）',
+      selectedToken: '选择代币',
+      equivalentValue: '等值金额'
+    }
+  };
+
+  const labels = claimLabels[currentLang];
+
+  // 更新 Modal 標題
+  modalTitle.textContent = translations[currentLang].claimBtnText;
+
+  // 更新所有 label
+  document.querySelectorAll('.claim-info .label')[0].textContent = labels.claimable;
+  document.querySelectorAll('.claim-info .label')[1].textContent = labels.pending;
+  document.querySelectorAll('.claim-info .label')[2].textContent = labels.selectedToken;
+  document.querySelectorAll('.claim-info .label')[3].textContent = labels.equivalentValue;
+
+  // 更新數值
   modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ${token}`;
   modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ${token}`;
   modalSelectedToken.textContent = token;
   modalEquivalentValue.textContent = `${window.currentClaimable.toFixed(3)} ${token}`;
-  modalTitle.textContent = translations[currentLang].claimBtnText; // 【語言同步】
 
   claimModal.style.display = 'flex';
 
+  // 每秒更新數值
   if (claimInterval) clearInterval(claimInterval);
   claimInterval = setInterval(async () => {
     await updateInterest();
@@ -771,7 +818,7 @@ function updateLanguage(lang) {
   for (let key in elements) {
     if (elements[key] && translations[lang]?.[key]) elements[key].textContent = translations[lang][key];
   }
-  modalTitle.textContent = translations[lang].claimBtnText; // 【同步更新 Modal 標題】
+  modalTitle.textContent = translations[lang].claimBtnText;
 
   const rulesTitle = document.getElementById('rulesTitle');
   const rulesContent = document.getElementById('rulesContent');
