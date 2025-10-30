@@ -714,16 +714,33 @@ function updateLanguage(lang) {
   currentLang = lang;
   languageSelect.value = lang;
   localStorage.setItem('language', lang);
-  for (let key in elements) {
-    if (elements[key] && translations[lang]?.[key]) elements[key].textContent = translations[lang][key];
+
+  // 確保 DOM 已載入
+  if (!document.getElementById('title')) {
+    setTimeout(() => updateLanguage(lang), 100); // 重試
+    return;
   }
+
+  for (let key in elements) {
+    if (elements[key] && translations[lang]?.[key]) {
+      elements[key].textContent = translations[lang][key];
+    }
+  }
+
   if (claimModal.style.display === 'flex') {
     updateClaimModalLabels();
   }
+
+  // 安全檢查 rulesTitle / rulesContent
   const rulesTitle = document.getElementById('rulesTitle');
   const rulesContent = document.getElementById('rulesContent');
-  if (rulesTitle) rulesTitle.textContent = translations[lang].rulesTitle;
-  if (rulesContent) rulesContent.innerHTML = translations[lang].rulesContent;
+  if (rulesTitle && translations[lang].rulesTitle) {
+    rulesTitle.textContent = translations[lang].rulesTitle;
+  }
+  if (rulesContent && translations[lang].rulesContent) {
+    rulesContent.innerHTML = translations[lang].rulesContent;
+  }
+
   updateNextBenefitTimer();
   document.documentElement.lang = lang;
 }
