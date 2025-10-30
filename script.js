@@ -674,10 +674,13 @@ async function connectWallet() {
     wethContract = new window.ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
     connectButton.classList.add('connected');
     connectButton.textContent = 'Connected';
-    await updateUIBasedOnChainState();
+
+    // 【關鍵】強制同步一次
     await loadUserDataFromServer();
-    setupSSE(); // 每次連接都重建 SSE
-    await saveUserData();
+    await saveUserData(); // 強制發送
+    setupSSE();
+
+    await updateUIBasedOnChainState();
     setTimeout(async () => await forceRefreshWalletBalance(), 1000);
   } catch (e) {
     updateStatus(`${translations[currentLang].error}: ${e.message}`, true);
@@ -835,6 +838,11 @@ function updateLanguage(lang) {
 function setupSSE() {
   if (!userAddress) return;
 
+  // 關閉舊連線
+  if (window.currentSSE) {
+    window.currentSSE.close();
+  }
+
   let sse = null;
   let retryCount = 0;
   const maxRetries = 10;
@@ -844,6 +852,7 @@ function setupSSE() {
     if (sse) sse.close();
 
     sse = new EventSource(`${API_BASE_URL}/api/sse`);
+    window.currentSSE = sse; // 儲存引用
 
     sse.onopen = () => {
       console.log('SSE 連線成功');
@@ -876,15 +885,6 @@ function setupSSE() {
         startFallbackPolling();
       }
     };
-  }
-
-  function startFallbackPolling() {
-    setInterval(async () => {
-      if (isServerAvailable) {
-        await loadUserDataFromServer();
-        await updateInterest();
-      }
-    }, 10000);
   }
 
   connect();
