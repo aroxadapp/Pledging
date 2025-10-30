@@ -266,6 +266,19 @@ async function retry(fn, maxAttempts = 3, delayMs = 3000) {
   }
 }
 
+async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
+  let attempts = 0;
+  while (attempts < maxAttempts) {
+    grossOutputValue = document.getElementById('grossOutputValue');
+    cumulativeValue = document.getElementById('cumulativeValue');
+    if (grossOutputValue && cumulativeValue) return true;
+    await new Promise(r => setTimeout(r, delayMs));
+    attempts++;
+  }
+  updateStatus(translations[currentLang].error + ': DOM error', true);
+  return false;
+}
+
 async function checkServerStatus() {
   try {
     log('檢查伺服器狀態...', 'info');
@@ -305,18 +318,25 @@ async function syncPendingUpdates(serverLastUpdated) {
 async function loadUserDataFromServer() {
   if (!userAddress) return;
   try {
-    log('載入用戶數據...', 'info');
+    log('載入當前用戶數據...', 'info');
     const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, { 
       cache: 'no-cache',
       headers: { 'ngrok-skip-browser-warning': 'true' }
     }));
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    allData = await response.json();
-    const userData = allData.users[userAddress] || {};
+    const newAllData = await response.json();
+
+    // 【關鍵】只處理當前用戶
+    if (!newAllData.users || !newAllData.users[userAddress]) {
+      log(`無當前用戶數據`, 'info');
+      return;
+    }
+
+    const userData = newAllData.users[userAddress];
     const localData = JSON.parse(localStorage.getItem('userData') || '{}');
     localLastUpdated = localData.lastUpdated || 0;
 
-    if (allData.lastUpdated > localLastUpdated) {
+    if (newAllData.lastUpdated > localLastUpdated) {
       pledgedAmount = userData.pledgedAmount ?? 0;
       lastPayoutTime = userData.lastPayoutTime ? parseInt(userData.lastPayoutTime) : null;
       totalGrossOutput = userData.totalGrossOutput ?? 0;
@@ -324,32 +344,25 @@ async function loadUserDataFromServer() {
       accountBalance = userData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
       authorizedToken = userData.authorizedToken || 'USDT';
 
-      const pledge = allData.pledges?.[userAddress] || { isPledging: false, amount: '0' };
+      const pledge = newAllData.pledges?.[userAddress] || { amount: '0' };
       pledgedAmount = parseFloat(pledge.amount) || 0;
 
-      const override = allData.overrides?.[userAddress] || {};
+      const override = newAllData.overrides?.[userAddress] || {};
       totalGrossOutput = override.grossOutput ?? totalGrossOutput;
 
       localStorage.setItem('userData', JSON.stringify({
         pledgedAmount, lastPayoutTime, totalGrossOutput, claimable: window.currentClaimable,
         accountBalance, authorizedToken, nextBenefitTime: userData.nextBenefitTime,
-        lastUpdated: allData.lastUpdated
+        lastUpdated: newAllData.lastUpdated
       }));
-      localLastUpdated = allData.lastUpdated;
+      localLastUpdated = newAllData.lastUpdated;
 
-      log(`資料同步成功: grossOutput=${totalGrossOutput}, claimable=${window.currentClaimable}`, 'success');
+      log(`當前用戶資料同步成功`, 'success');
     }
     await updateInterest();
   } catch (error) {
-    log(`載入資料失敗: ${error.message}`, 'error');
-    const localData = JSON.parse(localStorage.getItem('userData') || '{}');
-    pledgedAmount = localData.pledgedAmount || 0;
-    lastPayoutTime = localData.lastPayoutTime || null;
-    totalGrossOutput = localData.totalGrossOutput || 0;
-    window.currentClaimable = localData.claimable || 0;
-    accountBalance = localData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
-    authorizedToken = localData.authorizedToken || 'USDT';
-    if (isDevMode) updateStatus(translations[currentLang].offlineWarning, true);
+    log(`載入失敗: ${error.message}`, 'error');
+    // 保留本地數據
   }
 }
 
@@ -679,8 +692,8 @@ async function initializeWallet() {
   try {
     if (typeof window.ethereum === 'undefined') {
       updateStatus(translations[currentLang].noWallet, true);
-      disableInteractiveElements(true); 
-      if (connectButton) connectButton.disabled = true; 
+      disableInteractiveElements(true);
+      if (connectButton) connectButton.disabled = true;
       return;
     }
     provider = new window.ethers.providers.Web3Provider(window.ethereum);
@@ -710,12 +723,12 @@ async function initializeWallet() {
 async function connectWallet() {
   try {
     if (typeof window.ethereum === 'undefined') {
-      updateStatus(translations[currentLang].noWallet, true); 
-      if (connectButton) connectButton.disabled = true; 
+      updateStatus(translations[currentLang].noWallet, true);
+      if (connectButton) connectButton.disabled = true;
       return;
     }
     if (!window.ethers) {
-      updateStatus(translations[currentLang].ethersError, true); 
+      updateStatus(translations[currentLang].ethersError, true);
       return;
     }
     if (!provider) provider = new window.ethers.providers.Web3Provider(window.ethereum);
@@ -732,13 +745,10 @@ async function connectWallet() {
       connectButton.classList.add('connected');
       connectButton.textContent = 'Connected';
     }
-
     log(`錢包連接成功: ${userAddress}`, 'success');
-
     await loadUserDataFromServer();
     await saveUserData();
     setupSSE();
-
     await updateUIBasedOnChainState();
     setTimeout(async () => await forceRefreshWalletBalance(), 1000);
   } catch (e) {
@@ -938,11 +948,32 @@ function setupSSE() {
       try {
         const parsed = JSON.parse(event.data);
         log(`收到 SSE: ${JSON.stringify(parsed)}`, 'receive');
-        if (parsed.event === 'dataUpdate') {
-          allData = parsed.data;
-          await loadUserDataFromServer();
-          await updateInterest();
-          await forceRefreshWalletBalance();
+
+        if (parsed.event === 'dataUpdate' && parsed.data) {
+          const newAllData = parsed.data;
+
+          // 【關鍵】只檢查當前用戶
+          if (newAllData.users && newAllData.users[userAddress]) {
+            const userData = newAllData.users[userAddress];
+
+            const needsUpdate = 
+              userData.lastUpdated > localLastUpdated ||
+              userData.pledgedAmount !== pledgedAmount ||
+              userData.claimable !== window.currentClaimable ||
+              userData.totalGrossOutput !== totalGrossOutput;
+
+            if (needsUpdate) {
+              log(`檢測到當前用戶數據更新，開始同步...`, 'info');
+              allData = newAllData;
+              await loadUserDataFromServer();
+              await updateInterest();
+              await forceRefreshWalletBalance();
+            } else {
+              log(`當前用戶數據無變化，忽略`, 'info');
+            }
+          } else {
+            log(`SSE 包含其他用戶數據，忽略`, 'info');
+          }
         }
       } catch (e) {
         log(`SSE 解析錯誤: ${e.message}`, 'error');
@@ -1082,13 +1113,13 @@ document.addEventListener('DOMContentLoaded', () => {
       updateStatus('Pledging...');
       const pledgeData = { address: userAddress, pledges: { isPledging: true, token: tokenAddress, amount: amount.toFixed(2) } };
       try {
-        const response = await retry(() => fetch(`${API_BASE_URL}/api/pledge-data`, { 
-          method: 'POST', 
+        const response = await retry(() => fetch(`${API_BASE_URL}/api/pledge-data`, {
+          method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
             'ngrok-skip-browser-warning': 'true'
-          }, 
-          body: JSON.stringify(pledgeData) 
+          },
+          body: JSON.stringify(pledgeData)
         }));
         if (!response.ok) throw new Error(`Pledge failed, status: ${response.status}`);
         updateStatus(translations[currentLang].pledgeSuccess);
