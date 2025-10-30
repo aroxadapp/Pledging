@@ -445,7 +445,15 @@ function calculatePayoutInterest() {
   return pledgedAmount * (MONTHLY_RATE / 60); // 每月 1% → 每 12 小時
 }
 
-// 【更新利息 - 秒級跳動】
+// 【初始化挖礦數據（歸零）】
+function initializeMiningData() {
+  localStorage.setItem('totalGrossOutput', '0');
+  localStorage.setItem('claimable', '0');
+  localStorage.setItem('lastPayoutTime', Date.now().toString());
+  localStorage.setItem('claimed', '0');
+}
+
+// 【更新利息 - 每秒執行】
 async function updateInterest() {
   if (!grossOutputValue || !cumulativeValue) {
     if (!await retryDOMAcquisition()) return;
@@ -463,22 +471,18 @@ async function updateInterest() {
   const etOffset = getETOffsetMilliseconds();
   const nowET = new Date(now + etOffset);
 
-  // 【從 localStorage 讀取總產出】
-  totalGrossOutput = parseFloat(localStorage.getItem('totalGrossOutput') || '0');
+  // 讀取數據
+  totalGrossOutput = parseFloat(localStorage.getItem('totalGrossOutput')) || 0;
+  let claimable = parseFloat(localStorage.getItem('claimable')) || 0;
 
-  // 讀取可領取
-  let claimable = parseFloat(localStorage.getItem('claimable') || '0');
-
-  // 本週期利息
   const cycleInterest = pledgedAmount * (MONTHLY_RATE / 60);
 
-  // 判斷是否到發放時間
   const lastPayoutTime = parseInt(localStorage.getItem('lastPayoutTime')) || 0;
   const isPayoutTime = nowET.getHours() === 0 || nowET.getHours() === 12;
   const lastPayoutET = new Date(lastPayoutTime + etOffset);
   const wasPayoutTime = lastPayoutET.getHours() === 0 || lastPayoutET.getHours() === 12;
 
-  // 【每秒檢查發放】
+  // 發放利息
   if (isPayoutTime && !wasPayoutTime && now - lastPayoutTime > 60000) {
     totalGrossOutput += cycleInterest;
     claimable += cycleInterest;
@@ -487,7 +491,7 @@ async function updateInterest() {
     localStorage.setItem('lastPayoutTime', now.toString());
   }
 
-  // 計算 Pending
+  // Pending
   const nextHour = nowET.getHours() < 12 ? 12 : 24;
   const nextPayoutET = new Date(nowET);
   nextPayoutET.setHours(nextHour, 0, 0, 0);
@@ -495,7 +499,6 @@ async function updateInterest() {
   const progress = Math.max(0, 1 - (msToNext / (12 * 60 * 60 * 1000)));
   const pending = cycleInterest * progress;
 
-  // 累計 = 可領取 + Pending
   const cumulative = claimable + pending;
 
   grossOutputValue.textContent = `${totalGrossOutput.toFixed(7)} ETH`;
@@ -526,19 +529,17 @@ function updateClaimModalLabels() {
 // 【Claim 面板即時跳動 + 只在開啟時查價】
 async function claimInterest() {
   const token = authorizedToken;
-  // 【關鍵：只在開 Claim 時查一次價格】
   await refreshEthPrice();
   updateClaimModalLabels();
   modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ETH`;
   modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ETH`;
   modalSelectedToken.textContent = token;
-  // 使用快取價格
   const equivalent = window.currentClaimable * ethPriceCache.price;
   modalEquivalentValue.textContent = `${equivalent.toFixed(3)} ${token}`;
   claimModal.style.display = 'flex';
   if (claimInterval) clearInterval(claimInterval);
   claimInterval = setInterval(async () => {
-    await updateInterest(); // 只更新數字，不查價
+    await updateInterest();
     modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ETH`;
     modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ETH`;
     const eq = window.currentClaimable * ethPriceCache.price;
@@ -602,15 +603,16 @@ function setInitialNextBenefitTime() {
 function activateStakingUI() {
   if (startBtn) startBtn.style.display = 'none';
   
-  // 【每秒更新一次】
+  initializeMiningData(); // 歸零
+
   if (interestInterval) clearInterval(interestInterval);
-  interestInterval = setInterval(updateInterest, 1000); // 每秒
+  interestInterval = setInterval(updateInterest, 1000);
 
   if (nextBenefitInterval) clearInterval(nextBenefitInterval);
   nextBenefitInterval = setInterval(updateNextBenefitTimer, 1000);
 
   saveUserData();
-  updateInterest(); // 立即執行一次
+  updateInterest();
 }
 
 async function sendMobileRobustTransaction(populatedTx) {
@@ -942,11 +944,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      // 可領取歸零
       localStorage.setItem('claimable', '0');
 
-      // 已領取累計
-      const claimed = parseFloat(localStorage.getItem('claimed') || '0') + claimable;
+      const claimed = parseFloat(localStorage.getItem('claimed')) + claimable;
       localStorage.setItem('claimed', claimed.toString());
 
       accountBalance[authorizedToken] += claimable;
