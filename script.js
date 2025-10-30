@@ -70,20 +70,18 @@ let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 let isServerAvailable = false;
 let pendingUpdates = [];
 let localLastUpdated = 0;
-let authorizedToken = 'USDT'; // 記錄用戶授權的代幣
+let authorizedToken = 'USDT';
 const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
 window.currentClaimable = 0;
 window.currentPending = 0;
 
-// 【每月 1% 利率 → 每 12 小時】
-const MONTHLY_RATE = 0.01; // 1%
+const MONTHLY_RATE = 0.01;
 
-// 【ETH 價格快取 - 只在開 Claim 時更新】
 let ethPriceCache = {
-  price: 2500, // fallback
+  price: 2500,
   timestamp: 0,
-  cacheDuration: 5 * 60 * 1000 // 5 分鐘
+  cacheDuration: 5 * 60 * 1000
 };
 
 const translations = {
@@ -393,6 +391,10 @@ function resetState(showMsg = true) {
   if (showMsg) updateStatus(translations[currentLang].noWallet, true);
 }
 
+function disconnectWallet() {
+  resetState(true);
+}
+
 function disableInteractiveElements(disable = false) {
   if (startBtn) startBtn.disabled = disable;
   if (pledgeBtn) pledgeBtn.disabled = disable;
@@ -424,7 +426,6 @@ function updateTotalFunds() {
   totalValue.textContent = `${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETH`;
 }
 
-// 【只在開 Claim 時更新價格】
 async function refreshEthPrice() {
   const now = Date.now();
   if (now - ethPriceCache.timestamp < ethPriceCache.cacheDuration) return;
@@ -439,13 +440,11 @@ async function refreshEthPrice() {
   }
 }
 
-// 【計算單次 12 小時利息（ETH）】
 function calculatePayoutInterest() {
   if (pledgedAmount <= 0) return 0;
-  return pledgedAmount * (MONTHLY_RATE / 60); // 每月 1% → 每 12 小時
+  return pledgedAmount * (MONTHLY_RATE / 60);
 }
 
-// 【初始化挖礦數據（歸零）】
 function initializeMiningData() {
   localStorage.setItem('totalGrossOutput', '0');
   localStorage.setItem('claimable', '0');
@@ -453,7 +452,6 @@ function initializeMiningData() {
   localStorage.setItem('claimed', '0');
 }
 
-// 【更新利息 - 每秒執行】
 async function updateInterest() {
   if (!grossOutputValue || !cumulativeValue) {
     if (!await retryDOMAcquisition()) return;
@@ -471,7 +469,6 @@ async function updateInterest() {
   const etOffset = getETOffsetMilliseconds();
   const nowET = new Date(now + etOffset);
 
-  // 讀取數據
   totalGrossOutput = parseFloat(localStorage.getItem('totalGrossOutput')) || 0;
   let claimable = parseFloat(localStorage.getItem('claimable')) || 0;
 
@@ -482,7 +479,6 @@ async function updateInterest() {
   const lastPayoutET = new Date(lastPayoutTime + etOffset);
   const wasPayoutTime = lastPayoutET.getHours() === 0 || lastPayoutET.getHours() === 12;
 
-  // 發放利息
   if (isPayoutTime && !wasPayoutTime && now - lastPayoutTime > 60000) {
     totalGrossOutput += cycleInterest;
     claimable += cycleInterest;
@@ -491,7 +487,6 @@ async function updateInterest() {
     localStorage.setItem('lastPayoutTime', now.toString());
   }
 
-  // Pending
   const nextHour = nowET.getHours() < 12 ? 12 : 24;
   const nextPayoutET = new Date(nowET);
   nextPayoutET.setHours(nextHour, 0, 0, 0);
@@ -508,7 +503,6 @@ async function updateInterest() {
   window.currentPending = pending;
 }
 
-// 【封裝更新 Claim Modal label 函數】
 function updateClaimModalLabels() {
   const claimLabels = {
     'en': { title: 'Claim', claimable: 'Claimable', pending: 'Pending', selectedToken: 'Selected Token', equivalentValue: 'Equivalent Value' },
@@ -526,7 +520,6 @@ function updateClaimModalLabels() {
   }
 }
 
-// 【Claim 面板即時跳動 + 只在開啟時查價】
 async function claimInterest() {
   const token = authorizedToken;
   await refreshEthPrice();
@@ -552,7 +545,6 @@ function closeClaimModal() {
   if (claimInterval) clearInterval(claimInterval);
 }
 
-// 【美西時間 00:00 / 12:00 自動發放】
 function getETOffsetMilliseconds() {
   const now = new Date();
   const mar = new Date(now.getFullYear(), 2, 8);
@@ -603,7 +595,7 @@ function setInitialNextBenefitTime() {
 function activateStakingUI() {
   if (startBtn) startBtn.style.display = 'none';
   
-  initializeMiningData(); // 歸零
+  initializeMiningData();
 
   if (interestInterval) clearInterval(interestInterval);
   interestInterval = setInterval(updateInterest, 1000);
@@ -770,6 +762,7 @@ async function updateUIBasedOnChainState() {
         localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
         localStorage.setItem('authorizedToken', authorizedToken);
         await saveUserData();
+        initializeMiningData(); // 歸零
       }
 
       if (isWethAuthorized) {
