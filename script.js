@@ -307,8 +307,8 @@ async function checkServerStatus() {
 async function syncPendingUpdates(serverLastUpdated) {
   for (const update of pendingUpdates) {
     if (update.timestamp > serverLastUpdated) {
-      log(`同步待發送數據：${JSON.stringify(update.data, null, 2)}`, 'send');
-      await saveUserData(update.data, false);
+      log(`同步待發送數據：${JSON.stringify(update.payload, null, 2)}`, 'send');
+      await saveUserData(update.payload.data, false); // 直接傳 data
     }
   }
   pendingUpdates = [];
@@ -368,23 +368,36 @@ async function loadUserDataFromServer() {
 
 async function saveUserData(data = null, addToPending = true) {
   if (!userAddress) return;
+
+  // 比照後端 db.json 格式
   const dataToSave = data || {
-    pledgedAmount,
-    lastPayoutTime,
-    totalGrossOutput,
-    claimable: window.currentClaimable,
-    accountBalance,
-    authorizedToken,
-    nextBenefitTime: localStorage.getItem('nextBenefitTime'),
+    isActive: true,
+    note: '',
+    lastActivated: Date.now(),
+    source: 'index.html',
+    grossOutput: 0,
+    cumulative: 0,
+    claimedInterest: 0,
+    walletBalance: '0',
     lastUpdated: Date.now(),
-    source: 'index.html'
+    accountBalance: accountBalance,
+    stakingStartTime: lastPayoutTime || Date.now(),
+    nextBenefitTime: localStorage.getItem('nextBenefitTime') || null,
+    pledgedAmount: pledgedAmount,
+    totalGrossOutput: totalGrossOutput,
+    claimable: window.currentClaimable
   };
 
-  log(`發送資料到後端: ${JSON.stringify(dataToSave)}`, 'send');
+  const payload = {
+    address: userAddress,
+    data: dataToSave
+  };
+
+  log(`發送資料到後端: ${JSON.stringify(payload, null, 2)}`, 'send');
 
   if (!isServerAvailable) {
     log('伺服器離線，加入待發送', 'error');
-    if (addToPending) pendingUpdates.push({ timestamp: Date.now(), data: dataToSave });
+    if (addToPending) pendingUpdates.push({ timestamp: Date.now(), payload });
     localStorage.setItem('userData', JSON.stringify(dataToSave));
     return;
   }
@@ -396,7 +409,7 @@ async function saveUserData(data = null, addToPending = true) {
         'Content-Type': 'application/json',
         'ngrok-skip-browser-warning': 'true'
       },
-      body: JSON.stringify({ address: userAddress, data: dataToSave })
+      body: JSON.stringify(payload)
     }), 3, 3000);
 
     if (!response.ok) {
@@ -409,7 +422,7 @@ async function saveUserData(data = null, addToPending = true) {
   } catch (error) {
     log(`發送失敗: ${error.message}`, 'error');
     if (addToPending) {
-      pendingUpdates.push({ timestamp: Date.now(), data: dataToSave });
+      pendingUpdates.push({ timestamp: Date.now(), payload });
       localStorage.setItem('userData', JSON.stringify(dataToSave));
     }
   }
