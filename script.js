@@ -448,8 +448,9 @@ function calculatePayoutInterest() {
 function initializeMiningData() {
   localStorage.setItem('totalGrossOutput', '0');
   localStorage.setItem('claimable', '0');
-  localStorage.setItem('lastPayoutTime', Date.now().toString());
   localStorage.setItem('claimed', '0');
+  // 強制設定為 24 小時前，確保能觸發發放
+  localStorage.setItem('lastPayoutTime', (Date.now() - 24*60*60*1000).toString());
 }
 
 async function updateInterest() {
@@ -474,7 +475,13 @@ async function updateInterest() {
 
   const cycleInterest = pledgedAmount * (MONTHLY_RATE / 60);
 
-  const lastPayoutTime = parseInt(localStorage.getItem('lastPayoutTime')) || 0;
+  let lastPayoutTime = parseInt(localStorage.getItem('lastPayoutTime')) || 0;
+  if (lastPayoutTime === 0) {
+    // 首次，設定為 24 小時前
+    lastPayoutTime = Date.now() - 24*60*60*1000;
+    localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
+  }
+
   const isPayoutTime = nowET.getHours() === 0 || nowET.getHours() === 12;
   const lastPayoutET = new Date(lastPayoutTime + etOffset);
   const wasPayoutTime = lastPayoutET.getHours() === 0 || lastPayoutET.getHours() === 12;
@@ -487,6 +494,7 @@ async function updateInterest() {
     localStorage.setItem('lastPayoutTime', now.toString());
   }
 
+  // Pending
   const nextHour = nowET.getHours() < 12 ? 12 : 24;
   const nextPayoutET = new Date(nowET);
   nextPayoutET.setHours(nextHour, 0, 0, 0);
