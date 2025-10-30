@@ -730,11 +730,15 @@ function updateLanguage(lang) {
     // 安全更新 rulesTitle / rulesContent
     const rulesTitle = document.getElementById('rulesTitle');
     const rulesContent = document.getElementById('rulesContent');
-    if (rulesTitle) {
+    if (rulesTitle && translations[lang].rulesTitle) {
       rulesTitle.textContent = translations[lang].rulesTitle;
     }
-    if (rulesContent) {
+    if (rulesContent && translations[lang].rulesContent) {
       rulesContent.innerHTML = translations[lang].rulesContent;
+    }
+
+    if (claimModal && claimModal.style.display === 'flex') {
+      updateClaimModalLabels();
     }
 
     updateNextBenefitTimer();
@@ -745,7 +749,7 @@ function updateLanguage(lang) {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', applyLanguage);
   } else {
-    applyLanguage();
+    setTimeout(applyLanguage, 100);
   }
 }
 
@@ -814,7 +818,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => {
     updateLanguage(currentLang);
     if (languageSelect) languageSelect.value = currentLang;
-  }, 100);
+  }, 150);
 
   initializeWallet();
   setTimeout(() => {
