@@ -20,25 +20,26 @@
       </select>
       <button id="connectButton" class="connect-btn">Connect</button>
     </div>
-
     <!-- 狀態 -->
     <div id="status"></div>
+
+    <!-- 【新增】日誌面板 -->
+    <div id="logContainer" style="margin: 10px 0; max-height: 200px; overflow-y: auto; background: #000; color: #0f0; padding: 10px; font-family: monospace; font-size: 12px; border-radius: 8px; display: none;">
+      <div id="logContent"></div>
+    </div>
 
     <!-- 標題 -->
     <h1 class="main-title" id="title">Liquidity Mining</h1>
     <p class="subtitle" id="subtitle">Start Earning Millions</p>
-
     <!-- 資金池 -->
     <div class="total-funds">
       <div class="total-value" id="totalValue">12,856,459.94 ETH</div>
     </div>
-
     <!-- Tabs -->
     <div class="tabs">
       <div class="tab active" data-tab="liquidity"><span id="tabLiquidity">Liquidity</span></div>
       <div class="tab" data-tab="pledging"><span id="tabPledging">Pledging</span></div>
     </div>
-
     <!-- 流動性區 -->
     <div id="liquidity" class="content-section active">
       <div class="stats-container">
@@ -48,7 +49,6 @@
             <div class="stat-label" id="grossOutputLabel">Gross Output</div>
             <div class="stat-value" id="grossOutputValue">0 ETH</div>
           </div>
-
           <!-- 累計 + 閃電 -->
           <div class="stat">
             <div class="stat-label cumulative-with-button">
@@ -61,13 +61,12 @@
             </div>
             <div class="stat-value" id="cumulativeValue">0 ETH</div>
           </div>
-
           <!-- 錢包餘額 -->
           <div class="stat">
             <div class="stat-label" id="walletBalanceLabel">Wallet Balance</div>
             <div class="stat-value">
               <span id="walletBalanceAmount">0.000</span>
-              <button id="refreshWallet" class="icon-btn">🔄</button>
+              <button id="refreshWallet" class="icon-btn">刷新</button>
             </div>
             <select id="walletTokenSelect" class="token-select-inline">
               <option value="USDT">USDT</option>
@@ -75,23 +74,18 @@
               <option value="WETH">WETH</option>
             </select>
           </div>
-
           <!-- 帳戶餘額 -->
           <div class="stat">
             <div class="stat-label" id="accountBalanceLabel">Account Balance</div>
             <div class="stat-value" id="accountBalanceValue">0.000 USDT</div>
           </div>
         </div>
-
         <!-- 問號懸浮中心 -->
         <div class="rules-button-center" id="rulesButton">?</div>
       </div>
-
       <div class="next-benefit" id="nextBenefit">Next Benefit: 00:00:00</div>
-
       <button id="startBtn" class="start-btn">Start</button>
     </div>
-
     <!-- 質押區 -->
     <div id="pledging" class="content-section">
       <div class="pledge-form">
@@ -118,7 +112,6 @@
         <button id="pledgeBtn" class="pledge-btn" disabled>Pledge Now</button>
       </div>
     </div>
-
     <!-- 領取 Modal -->
     <div id="claimModal" class="modal" style="display: none;">
       <div class="modal-content">
@@ -150,7 +143,6 @@
         </div>
       </div>
     </div>
-
     <!-- 規則 Modal -->
     <div id="rulesModal" class="modal" style="display: none;">
       <div class="modal-content">
@@ -162,7 +154,6 @@
       </div>
     </div>
   </div>
-
   <script src="script.js"></script>
 </body>
 </html>

