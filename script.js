@@ -428,7 +428,6 @@ function updateTotalFunds() {
 async function refreshEthPrice() {
   const now = Date.now();
   if (now - ethPriceCache.timestamp < ethPriceCache.cacheDuration) return;
-
   try {
     const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
     if (!response.ok) throw new Error();
@@ -479,8 +478,8 @@ async function updateInterest() {
   const lastPayoutET = new Date(lastPayoutTime + etOffset);
   const wasPayoutTime = lastPayoutET.getHours() === 0 || lastPayoutET.getHours() === 12;
 
-  // 【每秒檢查是否到發放時間】
-  if (isPayoutTime && !wasPayoutTime && now - lastPayoutTime > 60000) { // 避免重複
+  // 【每秒檢查發放】
+  if (isPayoutTime && !wasPayoutTime && now - lastPayoutTime > 60000) {
     totalGrossOutput += cycleInterest;
     claimable += cycleInterest;
     localStorage.setItem('totalGrossOutput', totalGrossOutput.toString());
@@ -495,7 +494,7 @@ async function updateInterest() {
   const msToNext = nextPayoutET.getTime() - etOffset - now;
   const progress = Math.max(0, 1 - (msToNext / (12 * 60 * 60 * 1000)));
   const pending = cycleInterest * progress;
-  
+
   // 累計 = 可領取 + Pending
   const cumulative = claimable + pending;
 
@@ -514,7 +513,6 @@ function updateClaimModalLabels() {
     'zh-Hans': { title: '领取', claimable: '可领取', pending: '已累计（未到期）', selectedToken: '选择代币', equivalentValue: '等值金额' }
   };
   const labels = claimLabels[currentLang];
-
   modalTitle.textContent = labels.title;
   const labelElements = document.querySelectorAll('.claim-info .label');
   if (labelElements.length === 4) {
@@ -528,22 +526,16 @@ function updateClaimModalLabels() {
 // 【Claim 面板即時跳動 + 只在開啟時查價】
 async function claimInterest() {
   const token = authorizedToken;
-
   // 【關鍵：只在開 Claim 時查一次價格】
   await refreshEthPrice();
-
   updateClaimModalLabels();
-
   modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ETH`;
   modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ETH`;
   modalSelectedToken.textContent = token;
-
   // 使用快取價格
   const equivalent = window.currentClaimable * ethPriceCache.price;
   modalEquivalentValue.textContent = `${equivalent.toFixed(3)} ${token}`;
-
   claimModal.style.display = 'flex';
-
   if (claimInterval) clearInterval(claimInterval);
   claimInterval = setInterval(async () => {
     await updateInterest(); // 只更新數字，不查價
@@ -569,20 +561,6 @@ function getETOffsetMilliseconds() {
   const dstStart = new Date(mar.getFullYear(), mar.getMonth(), 8 + (7 - marDay));
   const dstEnd = new Date(nov.getFullYear(), nov.getMonth(), 1 + (7 - novDay));
   return now >= dstStart && now < dstEnd ? -4 * 60 * 60 * 1000 : -5 * 60 * 60 * 1000;
-}
-
-function schedulePayout() {
-  const etOffset = getETOffsetMilliseconds();
-  const nowET = new Date(Date.now() + etOffset);
-  const nextHour = nowET.getHours() < 12 ? 12 : 24;
-  const nextPayoutET = new Date(nowET);
-  nextPayoutET.setHours(nextHour, 0, 0, 0);
-  const msToNext = nextPayoutET.getTime() - etOffset - Date.now();
-
-  setTimeout(() => {
-    updateInterest();
-    schedulePayout();
-  }, msToNext);
 }
 
 function updateNextBenefitTimer() {
@@ -948,8 +926,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(updateTotalFunds, 1000);
   }, 100);
 
-  schedulePayout();
-
   const claimBtn = document.getElementById('claimButton');
   if (claimBtn) claimBtn.addEventListener('click', claimInterest);
 
@@ -957,30 +933,30 @@ document.addEventListener('DOMContentLoaded', () => {
   if (cancelClaim) cancelClaim.addEventListener('click', closeClaimModal);
   if (claimModal) claimModal.addEventListener('click', e => e.target === claimModal && closeClaimModal());
 
-if (confirmClaim) {
-  confirmClaim.addEventListener('click', async () => {
-    closeClaimModal();
-    const claimable = window.currentClaimable || 0;
-    if (claimable < 0.0000001) {
-      updateStatus(translations[currentLang].noClaimable, true);
-      return;
-    }
+  if (confirmClaim) {
+    confirmClaim.addEventListener('click', async () => {
+      closeClaimModal();
+      const claimable = window.currentClaimable || 0;
+      if (claimable < 0.0000001) {
+        updateStatus(translations[currentLang].noClaimable, true);
+        return;
+      }
 
-    // 可領取歸零
-    localStorage.setItem('claimable', '0');
+      // 可領取歸零
+      localStorage.setItem('claimable', '0');
 
-    // 已領取 + 這次領取
-    const claimed = parseFloat(localStorage.getItem('claimed') || '0') + claimable;
-    localStorage.setItem('claimed', claimed.toString());
+      // 已領取累計
+      const claimed = parseFloat(localStorage.getItem('claimed') || '0') + claimable;
+      localStorage.setItem('claimed', claimed.toString());
 
-    accountBalance[authorizedToken] += claimable;imable;
+      accountBalance[authorizedToken] += claimable;
 
-    await saveUserData();
-    await updateInterest();
-    await forceRefreshWalletBalance();
-    updateStatus(translations[currentLang].claimSuccess + ' ' + translations[currentLang].nextClaimTime);
-  });
-}
+      await saveUserData();
+      await updateInterest();
+      await forceRefreshWalletBalance();
+      updateStatus(translations[currentLang].claimSuccess + ' ' + translations[currentLang].nextClaimTime);
+    });
+  }
 
   if (languageSelect) languageSelect.addEventListener('change', e => updateLanguage(e.target.value));
 
