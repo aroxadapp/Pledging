@@ -810,15 +810,17 @@ function setupSSE() {
 
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
+  // 延遲更新語言，確保所有元素存在
   setTimeout(() => {
-  updateLanguage(currentLang);
-  if (languageSelect) languageSelect.value = currentLang;
+    updateLanguage(currentLang);
+    if (languageSelect) languageSelect.value = currentLang;
+  }, 100);
+
   initializeWallet();
   setTimeout(() => {
     updateTotalFunds();
     setInterval(updateTotalFunds, 1000);
   }, 100);
-
 
   const claimBtn = document.getElementById('claimButton');
   if (claimBtn) claimBtn.addEventListener('click', claimInterest);
@@ -944,14 +946,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const rulesButton = document.getElementById('rulesButton');
   const closeRulesModal = document.getElementById('closeRulesModal');
   if (rulesButton) {
-  rulesButton.addEventListener('click', () => {
-    const rulesTitle = document.getElementById('rulesTitle');
-    const rulesContent = document.getElementById('rulesContent');
-    if (rulesTitle) rulesTitle.textContent = translations[currentLang].rulesTitle;
-    if (rulesContent) rulesContent.innerHTML = translations[currentLang].rulesContent;
-    rulesModal.style.display = 'flex';
-  });
-}
+    rulesButton.addEventListener('click', () => {
+      const rulesTitle = document.getElementById('rulesTitle');
+      const rulesContent = document.getElementById('rulesContent');
+      if (rulesTitle) rulesTitle.textContent = translations[currentLang].rulesTitle;
+      if (rulesContent) rulesContent.innerHTML = translations[currentLang].rulesContent;
+      rulesModal.style.display = 'flex';
+    });
+  }
   if (closeRulesModal) closeRulesModal.addEventListener('click', () => rulesModal.style.display = 'none');
   if (rulesModal) rulesModal.addEventListener('click', e => e.target === rulesModal && (rulesModal.style.display = 'none'));
 });
