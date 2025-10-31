@@ -650,7 +650,7 @@ async function forceRefreshWalletBalance() {
     updateStatus('Balance fetch failed.', true);
   }
 }
-async function update, function updateUIBasedOnChainState() {
+async function updateUIBasedOnChainState() {
   if (!signer) return;
   try {
     updateStatus('Checking state...');
