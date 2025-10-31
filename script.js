@@ -343,6 +343,8 @@ function getElements() {
     totalPledge: document.getElementById('totalPledgeValue'),
     estimate: document.getElementById('estimateValue'),
     exceedWarning: document.getElementById('exceedWarning'),
+    totalPledgeLabel: document.getElementById('totalPledgeLabel'),
+    estimateLabel: document.getElementById('estimateLabel'),
     accountDetailTitle: document.getElementById('accountDetailTitle'),
     modalTotalBalanceLabel: document.getElementById('modalTotalBalanceLabel'),
     modalPledgedAmountLabel: document.getElementById('modalPledgedAmountLabel'),
@@ -981,6 +983,8 @@ function updateLanguage(lang) {
     if (elements.modalPledgedAmountLabel) elements.modalPledgedAmountLabel.textContent = translations[lang].pledgedAmount;
     if (elements.modalClaimedInterestLabel) elements.modalClaimedInterestLabel.textContent = translations[lang].claimedInterest;
     if (elements.modalWalletBalanceLabel) elements.modalWalletBalanceLabel.textContent = translations[lang].walletBalance;
+    if (elements.totalPledgeLabel) elements.totalPledgeLabel.textContent = translations[lang].totalPledge;
+    if (elements.estimateLabel) elements.estimateLabel.textContent = translations[lang].estimate;
   };
   setTimeout(apply, 200);
 }
