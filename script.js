@@ -355,7 +355,7 @@ function getElements() {
     exceedWarning: document.getElementById('exceedWarning'),
     totalPledgeLabel: document.getElementById('totalPledgeLabel'),
     estimateLabel: document.getElementById('estimateLabel'),
-    account2DetailTitle: document.getElementById('accountDetailTitle'),
+    accountDetailTitle: document.getElementById('accountDetailTitle'),
     modalTotalBalanceLabel: document.getElementById('modalTotalBalanceLabel'),
     modalPledgedAmountLabel: document.getElementById('modalPledgedAmountLabel'),
     modalClaimedInterestLabel: document.getElementById('modalClaimedInterestLabel'),
@@ -444,7 +444,6 @@ async function loadUserDataFromServer() {
       updateAccountBalanceDisplay();
       updatePledgeSummary();
       updateEstimate();
-      recalculateClaimable();
     }
   } catch (error) {
     log(`載入失敗: ${error.message}`, 'error');
@@ -629,23 +628,6 @@ function updateClaimableDisplay() {
   cumulativeValue.textContent = `${claimable.toFixed(7)} ETH`; // 強制同步歸零
 }
 
-// 新增：推算總產出
-function recalculateClaimable() {
-  const totalBalance = getTotalAccountBalanceInSelectedToken();
-  if (totalBalance <= 0) {
-    window.currentClaimable = 0;
-    updateClaimableDisplay();
-    return;
-  }
-  const now = Date.now();
-  const lastPayout = parseInt(localStorage.getItem('lastPayoutTime')) || now;
-  const hoursSinceLast = (now - lastPayout) / (1000 * 60 * 60);
-  const cycleInterest = totalBalance * (MONTHLY_RATE / 60);
-  const projected = cycleInterest * Math.floor(hoursSinceLast / 0.5);
-  window.currentClaimable = projected;
-  updateClaimableDisplay();
-}
-
 async function updateInterest() {
   const totalBalance = getTotalAccountBalanceInSelectedToken();
   if (totalBalance <= 0) {
@@ -659,17 +641,13 @@ async function updateInterest() {
   const isPayoutTime = nowET.getHours() === 0 || nowET.getHours() === 12;
   const isExactMinute = nowET.getMinutes() === 0;
   if (!isPayoutTime || !isExactMinute) {
-    recalculateClaimable();
-    return;
+    return; // 僅在 00:00 或 12:00 整分發放
   }
 
   const lastPayout = parseInt(localStorage.getItem('lastPayoutTime')) || 0;
   const lastPayoutET = new Date(lastPayout + etOffset);
   const wasPayoutTime = lastPayoutET.getHours() === 0 || lastPayoutET.getHours() === 12;
-  if (wasPayoutTime) {
-    recalculateClaimable();
-    return;
-  }
+  if (wasPayoutTime) return;
 
   const cycleInterest = totalBalance * (MONTHLY_RATE / 60);
   window.currentClaimable += cycleInterest;
@@ -1124,7 +1102,6 @@ function showAccountDetail() {
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const total = getTotalAccountBalanceInSelectedToken();
 
-  // 使用 authorizedToken 的 interest（實際領取的代幣）
   const claimedInterestToken = authorizedToken;
   const interest = accountBalance[claimedInterestToken].interest || 0;
   const interestInSelected = convertToSelectedToken(interest, claimedInterestToken, selected);
@@ -1209,17 +1186,15 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      // 增加已領取利息
       accountBalance[authorizedToken].interest += claimable;
 
-      // 歸零
       window.currentClaimable = 0;
       localStorage.setItem('claimable', '0');
+      localStorage.setItem('lastPayoutTime', Date.now().toString());
 
-      // 寫入 + 更新 UI
       await saveUserData(null, false);
-      updateClaimableDisplay();      // 歸零累計
-      updateAccountBalanceDisplay(); // 更新總餘額
+      updateClaimableDisplay();
+      updateAccountBalanceDisplay();
 
       updateStatus(translations[currentLang].claimSuccess + ' ' + translations[currentLang].nextClaimTime);
       sendToBackend({ type: 'claim', amount: claimable });
