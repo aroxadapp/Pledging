@@ -516,19 +516,24 @@ function updateNextBenefitTimer() {
   if (!nextBenefit) return;
   const nextBenefitTimestamp = parseInt(localStorage.getItem('nextBenefitTime')) || 0;
   const label = translations[currentLang].nextBenefit.split(':')[0];
+
   if (!nextBenefitTimestamp) {
     nextBenefit.textContent = `${label}: 00:00:00`;
     return;
   }
+
   const now = Date.now();
   let diff = nextBenefitTimestamp - now;
+
+  // 時間到 → 跳到下一個 12 小時
   if (diff <= 0) {
     const twelveHoursInMillis = 12 * 60 * 60 * 1000;
     const newNextBenefitTimestamp = nextBenefitTimestamp + twelveHoursInMillis;
     localStorage.setItem('nextBenefitTime', newNextBenefitTimestamp.toString());
     saveUserData();
-    diff = newNextBenefitTimestamp - Date.now();
+    diff = newNextBenefitTimestamp - now;
   }
+
   const totalSeconds = Math.floor(Math.max(diff, 0) / 1000);
   const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
   const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
@@ -537,12 +542,17 @@ function updateNextBenefitTimer() {
 }
 
 function setInitialNextBenefitTime() {
-  if (localStorage.getItem('nextBenefitTime')) return;
+  let nextBenefitTime = localStorage.getItem('nextBenefitTime');
+  if (nextBenefitTime) return;
+
   const etOffset = getETOffsetMilliseconds();
   const nowET = new Date(Date.now() + etOffset);
-  const noonET = new Date(nowET); noonET.setHours(12, 0, 0, 0);
-  const midnightET = new Date(nowET); midnightET.setHours(24, 0, 0, 0);
-  const nextBenefitTimeET = nowET < noonET ? noonET : midnightET;
+
+  // 設定下一個整點：00:00 或 12:00
+  const nextHour = nowET.getHours() < 12 ? 12 : 24;
+  const nextBenefitTimeET = new Date(nowET);
+  nextBenefitTimeET.setHours(nextHour, 0, 0, 0);
+
   const finalNextBenefitTimestamp = nextBenefitTimeET.getTime() - etOffset;
   localStorage.setItem('nextBenefitTime', finalNextBenefitTimestamp.toString());
   saveUserData();
@@ -551,10 +561,18 @@ function setInitialNextBenefitTime() {
 function activateStakingUI() {
   if (startBtn) startBtn.style.display = 'none';
   initializeMiningData();
+
+  // 每分鐘檢查利息
   if (interestInterval) clearInterval(interestInterval);
-  interestInterval = setInterval(updateInterest, 1000);
+  interestInterval = setInterval(updateInterest, 60000);
+
+  // 每秒更新倒數
   if (nextBenefitInterval) clearInterval(nextBenefitInterval);
   nextBenefitInterval = setInterval(updateNextBenefitTimer, 1000);
+
+  // 關鍵修正：每次啟動都重新設定倒數時間
+  setInitialNextBenefitTime();
+
   saveUserData();
   updateInterest();
 }
