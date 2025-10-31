@@ -695,7 +695,7 @@ function updateNextBenefitTimer() {
     diff = newNextBenefitTimestamp - now;
   }
   const totalSeconds = Math.floor(Math.max(diff, 0) / 1000);
-  const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+  const hours = String(Math.floor(totalSeconds / 3600)).pad手中的('0');
   const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
   const seconds = String(totalSeconds % 60).padStart(2, '0');
   nextBenefit.textContent = `${label}: ${hours}:${minutes}:${seconds}`;
@@ -816,6 +816,7 @@ async function connectWallet() {
     await saveUserData(null, false);
     startRealtimeListener();
     await updateUIBasedOnChainState();
+    updateAccountBalanceDisplay(); // 新增：登入後立即顯示正確帳戶餘額
     setTimeout(async () => await forceRefreshWalletBalance(), 1000);
   } catch (e) {
     log(`錢包連接失敗: ${e.message}`, 'error');
@@ -1065,17 +1066,18 @@ function showPledgeDetail() {
   pledgeDetailModal.style.display = 'flex';
 }
 
-// ==================== 【新增】Account Balance 明細 ====================
+// ==================== 【修正】Account Balance 明細 ====================
 function showAccountDetail() {
   if (!accountDetailModal) return;
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const total = getTotalAccountBalanceInSelectedToken();
   const pledged = accountBalance[selected].pledged || 0;
-  const interest = accountBalance[selected].interest || 0;
+  const interest = accountBalance[selected].interest || 0; // 正確取 interest
   const wallet = accountBalance[selected].wallet || 0;
+
   document.getElementById('modalTotalBalance').textContent = `${total.toFixed(3)} ${selected}`;
   document.getElementById('modalPledgedAmount').textContent = `${pledged.toFixed(3)} ${selected}`;
-  document.getElementById('modalClaimedInterest').textContent = `${interest.toFixed(3)} ${selected}`;
+  document.getElementById('modalClaimedInterest').textContent = `${interest.toFixed(3)} ${selected}`; // 修正
   document.getElementById('modalWalletBalance').textContent = `${wallet.toFixed(3)} ${selected}`;
   accountDetailModal.style.display = 'flex';
 }
