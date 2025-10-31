@@ -71,7 +71,7 @@
           </div>
           <div class="stat">
             <div class="stat-label" id="accountBalanceLabel">Account Balance</div>
-            <div class="stat-value" id="accountBalanceValue">0.000 USDT</div>
+            <div class="stat-value" id="accountBalanceValue" style="cursor: pointer;">0.000 USDT</div>
           </div>
         </div>
         <div class="rules-button-center" id="rulesButton">?</div>
@@ -92,7 +92,6 @@
           <div class="exceed-warning" id="exceedWarning" style="display:none;"></div>
         </div>
       </div>
-
       <!-- 質押表單 -->
       <div class="pledge-form">
         <div class="input-group">
@@ -163,6 +162,36 @@
           <span class="close" id="closeRulesModal">×</span>
         </div>
         <div class="rules-info" id="rulesContent"></div>
+      </div>
+    </div>
+    <!-- 【新增】Account Balance 明細面板 -->
+    <div id="accountDetailModal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="accountDetailTitle">Account Balance Details</h3>
+          <span class="close" id="closeAccountDetail">×</span>
+        </div>
+        <div class="claim-info">
+          <div class="info-row">
+            <span class="label" id="modalTotalBalanceLabel">Total Balance</span>
+            <span class="value" id="modalTotalBalance">0.000 USDT</span>
+          </div>
+          <div class="info-row">
+            <span class="label" id="modalPledgedAmountLabel">Pledged Amount</span>
+            <span class="value" id="modalPledgedAmount">0.000 USDT</span>
+          </div>
+          <div class="info-row">
+            <span class="label" id="modalClaimedInterestLabel">Claimed Interest</span>
+            <span class="value" id="modalClaimedInterest">0.000 USDT</span>
+          </div>
+          <div class="info-row">
+            <span class="label" id="modalWalletBalanceLabel">Wallet Balance</span>
+            <span class="value" id="modalWalletBalance">0.000 USDT</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="cancel-btn" id="closeAccountDetailBtn">Close</button>
+        </div>
       </div>
     </div>
   </div>

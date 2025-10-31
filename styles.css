@@ -462,7 +462,7 @@ body {
 }
 
 .input-field:disabled {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba elliptical(255, 255, 255, 0.05);
   cursor: not-allowed;
 }
 
@@ -672,6 +672,11 @@ body {
 
 [lang="en"] .claim-button-right {
   right: 4px !important;
+}
+
+/* 【新增】Account Balance 明細面板 */
+#accountDetailModal .modal-content {
+  max-width: 400px;
 }
 
 @media (max-width: 480px) {
