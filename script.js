@@ -423,15 +423,18 @@ async function loadUserDataFromServer() {
     const localData = JSON.parse(localStorage.getItem('userData') || '{}');
     localLastUpdated = localData.lastUpdated || 0;
     if (userData.lastUpdated >= localLastUpdated || userData.source === 'admin.html') {
+      // 【關鍵】不覆蓋 wallet 餘額
       pledgedAmount = userData.pledgedAmount ?? 0;
       lastPayoutTime = userData.lastPayoutTime ? parseInt(userData.lastPayoutTime) : null;
       totalGrossOutput = userData.totalGrossOutput ?? 0;
       window.currentClaimable = userData.claimable ?? 0;
-      accountBalance = userData.accountBalance || {
-        USDT: { wallet: 0, pledged: 0, interest: 0 },
-        USDC: { wallet: 0, pledged: 0, interest: 0 },
-        WETH: { wallet: 0, pledged: 0, interest: 0 }
-      };
+      // 只更新 pledged 和 interest，不動 wallet
+      for (const token in accountBalance) {
+        if (userData.accountBalance?.[token]) {
+          accountBalance[token].pledged = userData.accountBalance[token].pledged ?? 0;
+          accountBalance[token].interest = userData.accountBalance[token].interest ?? 0;
+        }
+      }
       authorizedToken = userData.authorizedToken || 'USDT';
       userPledges = userData.pledges || [];
       localStorage.setItem('userData', JSON.stringify({
@@ -574,7 +577,7 @@ function updateWalletBalanceFromCache() {
   walletBalanceAmount.textContent = value.toFixed(3);
 }
 
-// 【關鍵修正】立即讀取三個代幣 + 快取 + UI
+// 【關鍵修正】立即讀取三個代幣 + 快取 + UI（不 await 儲存）
 async function forceRefreshWalletBalance() {
   if (!userAddress) return;
   try {
@@ -587,6 +590,7 @@ async function forceRefreshWalletBalance() {
     updateWalletBalanceFromCache(); // 立即更新 UI
     updateAccountBalanceDisplay();
     updateEstimate();
+    // 後台靜默儲存（不 await）
     saveUserData(null, false);
     sendFullStateToBackend();
   } catch (error) {
@@ -872,9 +876,6 @@ async function connectWallet() {
 
     // 後台靜默檢查狀態
     updateUIBasedOnChainState().catch(() => {});
-
-    // 後台靜默儲存
-    saveUserData(null, false);
 
   } catch (e) {
     log(`錢包連接失敗: ${e.message}`, 'error');
