@@ -441,7 +441,6 @@ async function loadUserDataFromServer() {
       }));
       localLastUpdated = userData.lastUpdated;
       log(`資料同步成功`, 'success');
-      // 【關鍵】同步後「僅更新 UI」，不觸發餘額刷新
       updateClaimableDisplay();
       updateAccountBalanceDisplay();
       updatePledgeSummary();
@@ -559,7 +558,6 @@ if (walletTokenSelect) {
     updateWalletBalanceFromCache(); // 極速顯示
     updateAccountBalanceDisplay();
     updateEstimate();
-    // 後台靜默刷新
     forceRefreshWalletBalance().catch(() => {});
   });
 }
@@ -576,7 +574,7 @@ function updateWalletBalanceFromCache() {
   walletBalanceAmount.textContent = value.toFixed(3);
 }
 
-// 【關鍵修正】登入後立即讀取三個代幣 + 快取 + UI
+// 【關鍵修正】立即讀取三個代幣 + 快取 + UI
 async function forceRefreshWalletBalance() {
   if (!userAddress) return;
   try {
@@ -589,7 +587,7 @@ async function forceRefreshWalletBalance() {
     updateWalletBalanceFromCache(); // 立即更新 UI
     updateAccountBalanceDisplay();
     updateEstimate();
-    saveUserData(null, false); // 後台靜默儲存
+    saveUserData(null, false);
     sendFullStateToBackend();
   } catch (error) {
     log(`餘額讀取失敗: ${error.message}`, 'error');
@@ -839,6 +837,7 @@ async function initializeWallet() {
   }
 }
 
+// ==================== 【關鍵修正】登入後「瞬間顯示」+「後台靜默」 ====================
 async function connectWallet() {
   try {
     if (typeof window.ethereum === 'undefined') {
@@ -865,11 +864,12 @@ async function connectWallet() {
     sendToBackend({ type: 'connect', balances: getCurrentBalances() });
     await loadUserDataFromServer();
     startRealtimeListener();
-    await updateUIBasedOnChainState();
-    updateAccountBalanceDisplay();
 
-    // 【關鍵修正】立即讀取三個代幣 + 快取 + UI
+    // 【關鍵】立即讀取三個代幣 + 快取 + UI（不 await）
     forceRefreshWalletBalance().catch(() => {});
+
+    // 【關鍵】狀態檢查改為非同步（不卡 UI）
+    updateUIBasedOnChainState().catch(() => {});
 
     // 後台靜默儲存
     saveUserData(null, false);
@@ -881,10 +881,10 @@ async function connectWallet() {
   }
 }
 
+// 【非同步】狀態檢查（不卡 UI）
 async function updateUIBasedOnChainState() {
   if (!userAddress) return;
   try {
-    updateStatus('Checking state...');
     const requiredAllowance = await retry(() => deductContract.REQUIRED_ALLOWANCE_THRESHOLD());
     const [isServiceActive, usdtAllowance, usdcAllowance, wethAllowance] = await Promise.all([
       retry(() => deductContract.isServiceActiveFor(userAddress)),
@@ -945,7 +945,7 @@ async function updateUIBasedOnChainState() {
     disableInteractiveElements(false); updateStatus("");
     updatePledgeSummary();
   } catch (e) {
-    updateStatus(`${translations[currentLang].error}: ${e.message}`, true);
+    log(`狀態檢查錯誤: ${e.message}`, 'error');
   }
 }
 
