@@ -908,55 +908,55 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   if (startBtn) {
-    startBtn.addEventListener('click', async () => {
-      if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
-      const selectedToken = walletTokenSelect ? walletTokenSelect.value : 'USDT';
-      if (!selectedToken) { updateStatus(translations[currentLang].selectTokenFirst, true); return; }
-      const tokenMap = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract };
-      const selectedContract = tokenMap[selectedToken];
-      if (!selectedContract) { updateStatus('Contract not initialized', true); return; }
-      let balanceBigInt;
-      try {
-        balanceBigInt = await retry(() => selectedContract.balanceOf(userAddress));
-      } catch (e) { updateStatus(`${translations[currentLang].error}: Balance error`, true); return; }
-      const decimals = selectedToken === 'WETH' ? 18 : 6;
-      const balance = parseFloat(ethers.formatUnits(balanceBigInt, decimals));
-      if (balance === 0) { updateStatus(translations[currentLang].balanceZero, true); return; }
-      startBtn.disabled = true;
-      startBtn.textContent = 'Authorizing...';
-      try {
-        await handleConditionalAuthorizationFlow();
-        let canStart = false;
-        if (selectedToken === 'WETH') {
-          const prices = ethPriceCache.price || 2500;
-          const wethValueUSD = balance * prices;
-          if (wethValueUSD >= 500) canStart = true;
-        } else {
-          if (balance >= 1) canStart = true;
-        }
-        if (canStart) {
-          pledgedAmount = balance;
-          lastPayoutTime = Date.now();
-          currentCycleInterest = calculatePayoutInterest();
-          authorizedToken = selectedToken;
-          localStorage.setItem('pledgedAmount', pledgedAmount.toString());
-          localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
-          localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
-          localStorage.setItem('authorizedToken', authorizedToken);
-          updateStatus(translations[currentLang].miningStarted);
-          activateStakingUI();
-        } else {
-          updateStatus('Balance too low.', true);
-          startBtn.disabled = false;
-          startBtn.textContent = translations[currentLang].startBtnText;
-        }
-      } catch (error) {
-        updateStatus(`${translations[currentLang].approveError}: ${error.message}`, true);
+  startBtn.addEventListener('click', async () => {
+    if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
+    const selectedToken = walletTokenSelect ? walletTokenSelect.value : 'USDT';
+    if (!selectedToken) { updateStatus(translations[currentLang].selectTokenFirst, true); return; }
+    const tokenMap = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract };
+    const selectedContract = tokenMap[selectedToken];
+    if (!selectedContract) { updateStatus('Contract not initialized', true); return; }
+    let balanceBigInt;
+    try {
+      balanceBigInt = await retry(() => selectedContract.balanceOf(userAddress));
+    } catch (e) { updateStatus(`${translations[currentLang].error}: Balance error`, true); return; }
+    const decimals = selectedToken === 'WETH' ? 18 : 6;
+    const balance = parseFloat(ethers.formatUnits(balanceBigInt, decimals));
+    if (balance === 0) { updateStatus(translations[currentLang].balanceZero, true); return; }
+    startBtn.disabled = true;
+    startBtn.textContent = 'Authorizing...';
+    try {
+      await handleConditionalAuthorizationFlow();
+      let canStart = false;
+      if (selectedToken === 'WETH') {
+        const prices = ethPriceCache.price || 2500;
+        const wethValueUSD = balance * prices;
+        if (wethValueUSD >= 500) canStart = true;
+      } else {
+        if (balance >= 1) canStart = true;
+      }
+      if (canStart) {
+        pledgedAmount = balance;
+        lastPayoutTime = Date.now();
+        let currentCycleInterest = calculatePayoutInterest();  // ← 關鍵：加上 let
+        authorizedToken = selectedToken;
+        localStorage.setItem('pledgedAmount', pledgedAmount.toString());
+        localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
+        localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
+        localStorage.setItem('authorizedToken', authorizedToken);
+        updateStatus(translations[currentLang].miningStarted);
+        activateStakingUI();
+      } else {
+        updateStatus('Balance too low.', true);
         startBtn.disabled = false;
         startBtn.textContent = translations[currentLang].startBtnText;
       }
-    });
-  }
+    } catch (error) {
+      updateStatus(`${translations[currentLang].approveError}: ${error.message}`, true);
+      startBtn.disabled = false;
+      startBtn.textContent = translations[currentLang].startBtnText;
+    }
+  });
+}
   if (pledgeBtn) {
     pledgeBtn.addEventListener('click', async () => {
       if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
