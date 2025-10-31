@@ -815,6 +815,16 @@ function updateLanguage(lang) {
   setTimeout(apply, 200);
 }
 
+function calculatePayoutInterest() {
+  if (pledgedAmount <= 0) return 0;
+  const now = Date.now();
+  const lastPayout = parseInt(localStorage.getItem('lastPayoutTime')) || now;
+  const hoursSinceLast = (now - lastPayout) / (1000 * 60 * 60);
+  const monthlyRate = 0.01;
+  const hourlyRate = monthlyRate / (30 * 24);
+  return pledgedAmount * hourlyRate * hoursSinceLast;
+}
+
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
   getElements();
