@@ -421,7 +421,7 @@ async function loadUserDataFromServer() {
     const userData = snap.data();
     const localData = JSON.parse(localStorage.getItem('userData') || '{}');
     localLastUpdated = localData.lastUpdated || 0;
-    if (userData.lastUpdated >= localLastUpdated || userData.source === 'admin.html') { // 修正：>=
+    if (userData.lastUpdated >= localLastUpdated || userData.source === 'admin.html') {
       pledgedAmount = userData.pledgedAmount ?? 0;
       lastPayoutTime = userData.lastPayoutTime ? parseInt(userData.lastPayoutTime) : null;
       totalGrossOutput = userData.totalGrossOutput ?? 0;
@@ -444,7 +444,7 @@ async function loadUserDataFromServer() {
       updateAccountBalanceDisplay();
       updatePledgeSummary();
       updateEstimate();
-      recalculateClaimable(); // 新增：推算總產出
+      recalculateClaimable();
     }
   } catch (error) {
     log(`載入失敗: ${error.message}`, 'error');
@@ -480,7 +480,6 @@ function resetState(showMsg = true) {
   signer = userAddress = null;
   window.currentClaimable = 0;
 
-  // 只清 wallet，保留 pledged + interest
   for (const token in accountBalance) {
     accountBalance[token].wallet = 0;
   }
@@ -491,7 +490,7 @@ function resetState(showMsg = true) {
   if (interestInterval) clearInterval(interestInterval);
   if (nextBenefitInterval) clearInterval(nextBenefitInterval);
   if (claimInterval) clearInterval(claimInterval);
-  localStorage.removeItem('userData'); // 只清本地快取
+  localStorage.removeItem('userData');
 
   if (startBtn) {
     startBtn.style.display = 'block';
@@ -630,7 +629,7 @@ function updateClaimableDisplay() {
   cumulativeValue.textContent = `${claimable.toFixed(7)} ETH`;
 }
 
-// 新增：推算總產出（不寫入 Firestore）
+// 新增：推算總產出
 function recalculateClaimable() {
   const totalBalance = getTotalAccountBalanceInSelectedToken();
   if (totalBalance <= 0) {
@@ -700,15 +699,28 @@ function updateClaimModalLabels() {
   }
 }
 
+// 【修正】Claim 面板等值金額
 async function claimInterest() {
-  await refreshEthPrice();
+  await refreshEthPrice(); // 每次開啟都更新最新 ETH 價格
+
   updateClaimModalLabels();
-  const claimable = window.currentClaimable || 0;
-  if (modalClaimableETH) modalClaimableETH.textContent = `${claimable.toFixed(7)} ETH`;
+
+  const claimableETH = window.currentClaimable || 0;
+  if (modalClaimableETH) modalClaimableETH.textContent = `${claimableETH.toFixed(7)} ETH`;
   if (modalSelectedToken) modalSelectedToken.textContent = authorizedToken;
-  const tokenPrice = authorizedToken === 'WETH' ? ethPriceCache.price : 1;
-  const equivalent = claimable * tokenPrice;
-  if (modalEquivalentValue) modalEquivalentValue.textContent = `${equivalent.toFixed(3)} ${authorizedToken}`;
+
+  const ethPrice = ethPriceCache.price || 2500;
+  let equivalent = 0;
+  if (authorizedToken === 'WETH') {
+    equivalent = claimableETH; // ETH → WETH = 1:1
+  } else {
+    equivalent = claimableETH * ethPrice; // ETH → USDT/USDC
+  }
+
+  if (modalEquivalentValue) {
+    modalEquivalentValue.textContent = `${equivalent.toFixed(3)} ${authorizedToken}`;
+  }
+
   if (claimModal) claimModal.style.display = 'flex';
 }
 
@@ -1303,7 +1315,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updatePledgeSummary();
         updateAccountBalanceDisplay();
         pledgeAmount.value = '';
-        sendToBackend75({ type: 'pledge', amount, token, duration: durationDays });
+        sendToBackend({ type: 'pledge', amount, token, duration: durationDays });
       } catch (error) {
         updateStatus(`${translations[currentLang].pledgeError}: ${error.message}`, true);
       }
