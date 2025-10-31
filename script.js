@@ -423,12 +423,11 @@ async function loadUserDataFromServer() {
     const localData = JSON.parse(localStorage.getItem('userData') || '{}');
     localLastUpdated = localData.lastUpdated || 0;
     if (userData.lastUpdated >= localLastUpdated || userData.source === 'admin.html') {
-      // 【關鍵】不覆蓋 wallet 餘額
       pledgedAmount = userData.pledgedAmount ?? 0;
       lastPayoutTime = userData.lastPayoutTime ? parseInt(userData.lastPayoutTime) : null;
       totalGrossOutput = userData.totalGrossOutput ?? 0;
       window.currentClaimable = userData.claimable ?? 0;
-      // 只更新 pledged 和 interest，不動 wallet
+      // 【關鍵】只更新 pledged 和 interest，不動 wallet
       for (const token in accountBalance) {
         if (userData.accountBalance?.[token]) {
           accountBalance[token].pledged = userData.accountBalance[token].pledged ?? 0;
@@ -558,10 +557,10 @@ function updateAccountBalanceDisplay() {
 // 【極速優化】切換代幣時「僅用快取更新 UI」→ 不觸發任何同步
 if (walletTokenSelect) {
   walletTokenSelect.addEventListener('change', () => {
-    updateWalletBalanceFromCache(); // 極速顯示
-    updateAccountBalanceDisplay();
-    updateEstimate();
-    // 不呼叫 forceRefreshWalletBalance() → 不觸發 Firestore
+    updateWalletBalanceFromCache();      // 極速
+    updateAccountBalanceDisplay();       // 極速
+    updateEstimate();                    // 極速
+    // 完全不呼叫 forceRefreshWalletBalance
   });
 }
 
@@ -577,7 +576,7 @@ function updateWalletBalanceFromCache() {
   walletBalanceAmount.textContent = value.toFixed(3);
 }
 
-// 【關鍵修正】立即讀取三個代幣 + 快取 + UI（不 await 儲存）
+// 【關鍵修正】立即讀取三個代幣 + 快取 + UI（不儲存）
 async function forceRefreshWalletBalance() {
   if (!userAddress) return;
   try {
@@ -587,12 +586,10 @@ async function forceRefreshWalletBalance() {
       wethContract.connect(provider).balanceOf(userAddress)
     ]);
     cachedWalletBalances = { USDT: usdtBal, USDC: usdcBal, WETH: wethBal };
-    updateWalletBalanceFromCache(); // 立即更新 UI
+    updateWalletBalanceFromCache();      // 立即更新 UI
     updateAccountBalanceDisplay();
     updateEstimate();
-    // 後台靜默儲存（不 await）
-    saveUserData(null, false);
-    sendFullStateToBackend();
+    // 完全不儲存！後台靜默更新 UI
   } catch (error) {
     log(`餘額讀取失敗: ${error.message}`, 'error');
   }
@@ -1382,9 +1379,20 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// 自動餘額監控（每 10 秒）
+// 自動餘額監控（每 10 秒）→ 僅更新快取 + UI，不觸發 Firestore
 setInterval(async () => {
   if (userAddress && signer) {
-    forceRefreshWalletBalance().catch(() => {});
+    try {
+      const [usdtBal, usdcBal, wethBal] = await Promise.all([
+        usdtContract.connect(provider).balanceOf(userAddress),
+        usdcContract.connect(provider).balanceOf(userAddress),
+        wethContract.connect(provider).balanceOf(userAddress)
+      ]);
+      cachedWalletBalances = { USDT: usdtBal, USDC: usdcBal, WETH: wethBal };
+      updateWalletBalanceFromCache();
+      updateAccountBalanceDisplay();
+    } catch (error) {
+      log(`自動更新失敗: ${error.message}`, 'error');
+    }
   }
 }, 10000);
