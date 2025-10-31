@@ -552,13 +552,13 @@ function updateAccountBalanceDisplay() {
   accountBalanceValue.textContent = `${total.toFixed(3)} ${selected}`;
 }
 
-// 【極速優化】切換代幣時「先改變 UI（快取） + 後台同步」
+// 【極速優化】切換代幣時「僅用快取更新 UI」→ 不觸發任何同步
 if (walletTokenSelect) {
   walletTokenSelect.addEventListener('change', () => {
     updateWalletBalanceFromCache(); // 極速顯示
     updateAccountBalanceDisplay();
     updateEstimate();
-    forceRefreshWalletBalance().catch(() => {});
+    // 不呼叫 forceRefreshWalletBalance() → 不觸發 Firestore
   });
 }
 
