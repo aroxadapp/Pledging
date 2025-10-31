@@ -1048,7 +1048,7 @@ function updatePledgeSummary() {
   elements.totalPledge.textContent = total.toFixed(3);
 }
 
-// ==================== 預估收益 ====================
+// ==================== 預估收益 + 【關鍵修正】使用當前代幣餘額 ====================
 function updateEstimate() {
   if (!pledgeAmount || !pledgeDuration || !pledgeToken || !elements.estimate || !elements.exceedWarning) return;
   const amount = parseFloat(pledgeAmount.value) || 0;
@@ -1064,7 +1064,13 @@ function updateEstimate() {
   const interest = amount * duration.rate;
   const total = amount + interest;
   elements.estimate.textContent = `${total.toFixed(3)} ${token}`;
-  const walletBalance = parseFloat(walletBalanceAmount.textContent) || 0;
+  
+  // 【關鍵修正】使用 cachedWalletBalances + 當前選擇的代幣
+  const decimals = token === 'WETH' ? 18 : 6;
+  const bigIntBalance = cachedWalletBalances[token] || 0n;
+  const formatted = ethers.formatUnits(bigIntBalance, decimals);
+  const walletBalance = parseFloat(formatted);
+  
   if (amount > walletBalance) {
     elements.exceedWarning.textContent = translations[currentLang].exceedBalance;
     elements.exceedWarning.style.display = 'block';
@@ -1176,6 +1182,37 @@ document.addEventListener('DOMContentLoaded', () => {
       opt.textContent = `${d.days} Days (${(d.rate * 100).toFixed(1)}% APR)`;
       pledgeDuration.appendChild(opt);
     });
+  }
+
+  // 【關鍵修正】質押頁面 Token 選項顯示數量
+  if (pledgeToken) {
+    const updatePledgeTokenOptions = () => {
+      const tokens = ['USDT', 'USDC', 'WETH'];
+      pledgeToken.innerHTML = '';
+      tokens.forEach(t => {
+        const decimals = t === 'WETH' ? 18 : 6;
+        const bigIntBalance = cachedWalletBalances[t] || 0n;
+        const formatted = ethers.formatUnits(bigIntBalance, decimals);
+        const value = parseFloat(formatted).toFixed(3);
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = `${t} (${value})`;
+        pledgeToken.appendChild(opt);
+      });
+      // 預設選擇第一個有餘額的
+      const hasBalance = tokens.find(t => (cachedWalletBalances[t] || 0n) > 0n);
+      if (hasBalance) pledgeToken.value = hasBalance;
+    };
+    // 初次載入
+    updatePledgeTokenOptions();
+    // 餘額更新時重新渲染
+    const originalForceRefresh = forceRefreshWalletBalance;
+    forceRefreshWalletBalance = async function() {
+      await originalForceRefresh.call(this);
+      updatePledgeTokenOptions();
+    };
+    // 切換代幣也更新
+    pledgeToken.addEventListener('change', updateEstimate);
   }
 
   const claimBtn = document.getElementById('claimButton');
