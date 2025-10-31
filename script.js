@@ -222,65 +222,65 @@ const translations = {
     walletBalance: '錢包餘額'
   },
   'zh-Hans': {
-    title: '流動性挖礦',
-    subtitle: '開始賺取數百萬',
-    tabLiquidity: '流動性',
-    tabPledging: '質押',
-    grossOutputLabel: '可領取產出',
-    cumulativeLabel: '可領取',
-    walletBalanceLabel: '錢包餘額',
-    accountBalanceLabel: '帳戶餘額',
+    title: '流动性挖矿',
+    subtitle: '开始赚取数百万',
+    tabLiquidity: '流动性',
+    tabPledging: '质押',
+    grossOutputLabel: '可领取产出',
+    cumulativeLabel: '可领取',
+    walletBalanceLabel: '钱包余额',
+    accountBalanceLabel: '账户余额',
     nextBenefit: '下次收益: 00:00:00',
-    startBtnText: '開始',
-    pledgeAmountLabel: '質押金額',
-    pledgeDurationLabel: '期間',
-    pledgeBtnText: '立即質押',
-    claimBtnText: '領取',
-    noClaimable: '無可領取利息。',
-    claimSuccess: '領取成功！',
-    nextClaimTime: '下次領取時間：12 小時後。',
-    miningStarted: '挖礦開始！',
-    error: '錯誤',
-    offlineWarning: '伺服器離線，使用本地模式。',
-    noWallet: '請連結您的錢包。',
-    dataSent: '數據已發送。',
-    pledgeSuccess: '質押成功！',
-    pledgeError: '質押失敗。',
-    invalidPledgeAmount: '金額無效。',
-    invalidPledgeToken: '代幣無效。',
-    insufficientBalance: '餘額不足。',
-    ethersError: 'Ethers.js 錯誤。',
-    approveError: '授權失敗。',
-    selectTokenFirst: '請先選擇代幣。',
-    balanceZero: '餘額為零。',
-    balanceTooLow: '餘額過低。',
-    wethValueTooLow: 'WETH 價值過低。',
-    rulesTitle: '挖礦規則',
+    startBtnText: '开始',
+    pledgeAmountLabel: '质押金额',
+    pledgeDurationLabel: '期间',
+    pledgeBtnText: '立即质押',
+    claimBtnText: '领取',
+    noClaimable: '无可领取利息。',
+    claimSuccess: '领取成功！',
+    nextClaimTime: '下次领取时间：12 小时后。',
+    miningStarted: '挖矿开始！',
+    error: '错误',
+    offlineWarning: '服务器离线，使用本地模式。',
+    noWallet: '请连接您的钱包。',
+    dataSent: '数据已发送。',
+    pledgeSuccess: '质押成功！',
+    pledgeError: '质押失败。',
+    invalidPledgeAmount: '金额无效。',
+    invalidPledgeToken: '代币无效。',
+    insufficientBalance: '余额不足。',
+    ethersError: 'Ethers.js 错误。',
+    approveError: '授权失败。',
+    selectTokenFirst: '请先选择代币。',
+    balanceZero: '余额为零。',
+    balanceTooLow: '余额过低。',
+    wethValueTooLow: 'WETH 价值过低。',
+    rulesTitle: '挖矿规则',
     rulesContent: `
-      <p>1. 選擇代幣，需至少 500 USDT/USDC 或 WETH $500 才能開始。</p>
-      <p>2. 不足：可授權但無法開始。</p>
+      <p>1. 选择代币，需至少 500 USDT/USDC 或 WETH $500 才能开始。</p>
+      <p>2. 不足：可授权但无法开始。</p>
       <p>3. 年化利率：28.3% ~ 31.5%。</p>
-      <p>4. 每 12 小時發放一次（美西時間 00:00 與 12:00）。</p>
-      <p>5. 質押也會一併計算流動性挖礦利息。</p>
+      <p>4. 每 12 小时发放一次（美西时间 00:00 与 12:00）。</p>
+      <p>5. 质押也会一并计算流动性挖矿利息。</p>
     `,
-    modalClaimableLabel: '可領取',
-    modalSelectedTokenLabel: '選擇代幣',
-    modalEquivalentValueLabel: '等值金額',
-    totalPledge: '總質押金額',
-    estimate: '預估收益',
-    pledgeDetailTitle: '質押明細',
-    orderCount: '筆數',
-    startTime: '開始時間',
-    remaining: '剩餘時間',
-    cycle: '週期',
+    modalClaimableLabel: '可领取',
+    modalSelectedTokenLabel: '选择代币',
+    modalEquivalentValueLabel: '等值金额',
+    totalPledge: '总质押金额',
+    estimate: '预估收益',
+    pledgeDetailTitle: '质押明细',
+    orderCount: '笔数',
+    startTime: '开始时间',
+    remaining: '剩余时间',
+    cycle: '周期',
     apr: '年化',
-    accrued: '累積利息',
-    exceedBalance: '金額超出錢包餘額！',
-    accountDetailTitle: '帳戶餘額明細',
-    totalBalance: '總餘額',
-    pledgedAmount: '質押金額',
-    claimedInterest: '已領取利息',
-    walletBalance: '錢包餘額'
+    accrued: '累计利息',
+    exceedBalance: '金额超出钱包余额！',
+    accountDetailTitle: '账户余额明细',
+    totalBalance: '总余额',
+    pledgedAmount: '质押金额',
+    claimedInterest: '已领取利息',
+    walletBalance: '钱包余额'
   }
 };
 
@@ -510,7 +510,7 @@ function resetState(showMsg = true) {
   if (cumulativeValue) cumulativeValue.textContent = '0 ETH';
   if (elements.totalPledge) elements.totalPledge.textContent = '0.000';
   if (elements.estimate) elements.estimate.textContent = '0.000';
-  if (elements.exceedWarning failures) elements.exceedWarning.style.display = 'none';
+  if (elements.exceedWarning) elements.exceedWarning.style.display = 'none';
   if (showMsg) updateStatus(translations[currentLang].noWallet, true);
 }
 
@@ -555,8 +555,8 @@ function updateAccountBalanceDisplay() {
 // 【修正】切換代幣時自動更新錢包餘額 + 帳戶餘額
 if (walletTokenSelect) {
   walletTokenSelect.addEventListener('change', () => {
-    forceRefreshWalletBalance(); // 自動更新錢包餘額
-    updateAccountBalanceDisplay(); // 自動更新帳戶餘額
+    forceRefreshWalletBalance();
+    updateAccountBalanceDisplay();
   });
 }
 
@@ -906,7 +906,6 @@ async function updateUIBasedOnChainState() {
         lastPayoutTime = lastPayoutTime || Date.now();
         currentCycleInterest = calculatePayoutInterest();
         authorizedToken = selectedToken;
-        accountBalance[selectedToken].pledged += balance;
         localStorage.setItem('pledgedAmount', pledgedAmount.toString());
         localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
         localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
