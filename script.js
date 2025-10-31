@@ -101,8 +101,6 @@ let userPledges = [];
 
 // 【優化】快取所有代幣餘額
 let cachedWalletBalances = { USDT: 0n, USDC: 0n, WETH: 0n };
-let lastWalletBalanceUpdate = 0; // 【已修改】新增：記錄上次更新時間
-const walletBalanceCacheDuration = 10 * 1000; // 【已修改】新增：設定10秒的快取有效期
 
 const translations = {
   'en': {
@@ -581,13 +579,6 @@ function updateWalletBalanceFromCache() {
 // 【優化】一次性讀取三個代幣餘額（避免卡頓）
 async function forceRefreshWalletBalance() {
   if (!userAddress) return;
-  
-  // 【已修改】檢查快取是否仍然有效，避免過於頻繁的請求
-  const now = Date.now();
-  if (now - lastWalletBalanceUpdate < walletBalanceCacheDuration) {
-    return; // 快取仍然有效，跳過此次網絡請求
-  }
-  
   updateStatus('Fetching balances...');
   try {
     const [usdtBal, usdcBal, wethBal] = await Promise.all([
@@ -596,9 +587,6 @@ async function forceRefreshWalletBalance() {
       wethContract.connect(provider).balanceOf(userAddress)
     ]);
     cachedWalletBalances = { USDT: usdtBal, USDC: usdcBal, WETH: wethBal };
-    
-    lastWalletBalanceUpdate = Date.now(); // 【已修改】成功獲取後，更新時間戳
-
     updateWalletBalanceFromCache(); // 立即更新
     updateAccountBalanceDisplay();
     updateEstimate();
