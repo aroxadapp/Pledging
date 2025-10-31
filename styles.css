@@ -12,6 +12,7 @@ body {
     color: #ffffff;
     position: relative;
 }
+
 .app-container {
     background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(15px);
@@ -27,6 +28,7 @@ body {
     z-index: 1;
     max-height: 100vh;
 }
+
 #status {
     background: rgba(255, 255, 255, 0.1);
     border-radius: 10px;
@@ -38,6 +40,7 @@ body {
     top: 0;
     z-index: 10;
 }
+
 .header-right {
   position: fixed;
   top: 15px;
@@ -51,6 +54,7 @@ body {
   border: none;
   backdrop-filter: none;
 }
+
 .language-select,
 .token-select-inline,
 #pledgeToken,
@@ -75,6 +79,7 @@ body {
   text-align: center;
   text-align-last: center;
 }
+
 .language-select:hover,
 .token-select-inline:hover,
 #pledgeToken:hover,
@@ -83,6 +88,7 @@ body {
   box-shadow: 0 0 15px rgba(138, 43, 226, 0.6);
   transform: scale(1.02);
 }
+
 .language-select:focus,
 .token-select-inline:focus,
 #pledgeToken:focus,
@@ -91,6 +97,7 @@ body {
   border-color: #00ffff;
   box-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
 }
+
 .language-select option,
 .token-select-inline option,
 #pledgeToken option,
@@ -99,6 +106,7 @@ body {
   background: #0f0c29;
   color: #00ffff;
 }
+
 /* 【流動性挖礦 - 胖胖粗體 + 極致科技】 */
 .main-title {
   font-family: 'Exo 2', 'Noto Sans TC', sans-serif !important;
@@ -110,7 +118,7 @@ body {
   -webkit-background-clip: text;
   background-clip: text;
   background-size: 400% 400%;
-  text-shadow: 
+  text-shadow:
     0 0 8px rgba(0, 255, 255, 1),
     0 0 20px rgba(138, 43, 226, 0.8),
     0 0 35px rgba(255, 0, 255, 0.6),
@@ -120,18 +128,22 @@ body {
   letter-spacing: 6px;
   animation: titleFlow 5s infinite linear, titlePulse 1.5s infinite alternate, titleFloat 2s infinite ease-in-out;
 }
+
 @keyframes titleFlow {
   0% { background-position: 0% 50%; }
   100% { background-position: 400% 50%; }
 }
+
 @keyframes titlePulse {
   0% { text-shadow: 0 0 8px rgba(0, 255, 255, 1), 0 0 20px rgba(138, 43, 226, 0.8), 6px 6px 0px rgba(0, 0, 0, 0.5); }
   100% { text-shadow: 0 0 25px rgba(0, 255, 255, 1), 0 0 50px rgba(138, 43, 226, 1), 0 0 80px rgba(255, 0, 255, 0.8), 8px 8px 0px rgba(0, 0, 0, 0.6); }
 }
+
 @keyframes titleFloat {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
 }
+
 .subtitle {
   font-size: 14px;
   text-align: center;
@@ -139,6 +151,7 @@ body {
   margin: 0 0 25px;
   text-shadow: 0 0 5px #d3d3d3;
 }
+
 .total-funds {
   background: rgba(138, 43, 226, 0.2);
   border-radius: 15px;
@@ -147,6 +160,7 @@ body {
   margin-bottom: 25px;
   box-shadow: 0 0 10px rgba(138, 43, 226, 0.5);
 }
+
 .total-value {
   font-size: 22px;
   font-weight: 700;
@@ -154,10 +168,12 @@ body {
   text-shadow: 0 0 5px #00ffff;
   animation: glow 2s infinite alternate;
 }
+
 @keyframes glow {
   from { text-shadow: 0 0 5px #00ffff; }
   to { text-shadow: 0 0 15px #00ffff, 0 0 25px #00ffff; }
 }
+
 .tabs {
   display: flex;
   justify-content: center;
@@ -165,6 +181,7 @@ body {
   margin-bottom: 25px;
   gap: 15px;
 }
+
 .tab {
   background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
@@ -175,14 +192,17 @@ body {
   text-shadow: 0 0 5px #ffffff;
   white-space: nowrap;
 }
+
 .tab:hover, .tab.active {
   background: linear-gradient(45deg, #8a2be2, #00ffff);
   box-shadow: 0 0 15px #00ffff;
   color: #ffffff;
 }
+
 .content-section {
   display: none;
 }
+
 .content-section.active {
   display: block;
 }
@@ -196,6 +216,7 @@ body {
   max-width: 360px;
   box-sizing: border-box;
 }
+
 .stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -207,6 +228,7 @@ body {
   margin: 0 auto;
   padding: 0;
 }
+
 .stat {
   background: rgba(0, 255, 255, 0.1);
   border-radius: 18px;
@@ -225,6 +247,7 @@ body {
   box-sizing: border-box;
   gap: 6px;
 }
+
 .stat-label {
   font-size: 13px;
   color: #d3d3d3;
@@ -233,6 +256,7 @@ body {
   width: 100%;
   flex-shrink: 0;
 }
+
 .stat-value {
   font-size: 18px;
   font-weight: 600;
@@ -246,16 +270,19 @@ body {
   justify-content: center;
   width: 100%;
 }
+
 /* 錢包餘額 */
 #walletBalanceLabel + .stat .stat-value {
   flex-direction: row;
   gap: 6px;
   margin-bottom: 4px;
 }
+
 #walletBalanceLabel + .stat .stat-value span {
   flex: 1;
   text-align: center;
 }
+
 #walletBalanceLabel + .stat .icon-btn {
   margin: 0;
   padding: 0;
@@ -263,6 +290,7 @@ body {
   height: 20px;
   font-size: 14px;
 }
+
 #walletBalanceLabel + .stat .token-select-inline {
   margin: 0 auto;
   min-width: 70px;
@@ -270,12 +298,14 @@ body {
   padding: 3px 8px;
   flex-shrink: 0;
 }
+
 .token-select-inline {
   min-width: 70px;
   text-align: center;
   font-size: 12px;
   padding: 3px 8px;
 }
+
 /* 問號懸浮中心 */
 .rules-button-center {
   position: absolute;
@@ -298,12 +328,14 @@ body {
   pointer-events: auto;
   transition: all 0.3s ease;
 }
+
 .rules-button-center:hover {
   color: #ffffff;
   transform: translate(-50%, -50%) scale(1.3);
   box-shadow: 0 0 25px #00ffff, 0 0 15px #00ffff;
   background: rgba(0, 255, 255, 0.35);
 }
+
 /* 【累計標籤 - 中英雙語完美不重疊】 */
 .cumulative-with-button {
   display: flex;
@@ -314,6 +346,7 @@ body {
   margin: 0;
   gap: 6px;
 }
+
 .cumulative-with-button span {
   flex: 1;
   text-align: center;
@@ -323,6 +356,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .claim-button-right {
   position: absolute;
   right: 10px;
@@ -335,6 +369,7 @@ body {
   cursor: pointer;
   z-index: 2;
 }
+
 .claim-button-right svg {
   width: 18px;
   height: 18px;
@@ -342,16 +377,19 @@ body {
   stroke: #ff00ff;
   animation: pulse 2s infinite;
 }
+
 .claim-button-right:hover svg {
   fill: #00ffff;
   stroke: #00ffff;
   transform: scale(1.3);
 }
+
 @keyframes pulse {
   0% { transform: scale(1); }
   50% { transform: scale(1.1); }
   100% { transform: scale(1); }
 }
+
 .connect-btn, .start-btn, .pledge-btn {
   background: linear-gradient(45deg, #8a2be2, #00ffff);
   color: #ffffff;
@@ -365,14 +403,17 @@ body {
   transition: transform 0.3s, box-shadow 0.3s;
   margin-top: 10px;
 }
+
 .connect-btn:hover, .start-btn:hover, .pledge-btn:hover {
   transform: scale(1.05);
   box-shadow: 0 0 20px #00ffff;
 }
+
 .start-btn:disabled, .pledge-btn:disabled {
   background: gray;
   cursor: not-allowed;
 }
+
 .icon-btn {
   background: none;
   border: none;
@@ -383,25 +424,30 @@ body {
   visibility: visible;
   opacity: 1;
 }
+
 .icon-btn:hover {
   transform: scale(1.2);
 }
+
 .pledge-form {
   display: grid;
   gap: 15px;
 }
+
 .input-group {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 15px;
   padding: 15px;
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
 }
+
 .input-label {
   font-size: 12px;
   color: #d3d3d3;
   margin-bottom: 5px;
   text-align: center;
 }
+
 .input-field {
   background: transparent;
   border: 1px solid rgba(0, 255, 255, 0.5);
@@ -414,10 +460,12 @@ body {
   margin-top: 5px;
   text-align: center;
 }
+
 .input-field:disabled {
   background: rgba(255, 255, 255, 0.05);
   cursor: not-allowed;
 }
+
 .next-benefit {
   text-align: center;
   font-size: 14px;
@@ -425,6 +473,7 @@ body {
   margin: 20px 0;
   text-shadow: 0 0 5px #d3d3d3;
 }
+
 .modal {
   position: fixed;
   z-index: 1000;
@@ -440,6 +489,7 @@ body {
   padding: 20px;
   box-sizing: border-box;
 }
+
 .modal-content {
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(15px);
@@ -452,6 +502,7 @@ body {
   max-height: 90vh;
   overflow-y: auto;
 }
+
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -460,10 +511,12 @@ body {
   color: #00ffff;
   text-shadow: 0 0 10px #00ffff;
 }
+
 .modal-header h3 {
   margin: 0;
   font-size: 20px;
 }
+
 .close {
   font-size: 28px;
   font-weight: bold;
@@ -471,9 +524,11 @@ body {
   color: #ff00ff;
   text-shadow: 0 0 5px #ff00ff;
 }
+
 .close:hover {
   color: #ffffff;
 }
+
 .claim-info, .rules-info {
   margin-bottom: 20px;
   color: #d3d3d3;
@@ -481,6 +536,7 @@ body {
   line-height: 1.6;
   text-align: center;
 }
+
 .info-row, .rules-info p {
   display: flex;
   justify-content: space-between;
@@ -489,19 +545,23 @@ body {
   background: rgba(0, 255, 255, 0.1);
   border-radius: 10px;
 }
+
 .rules-info p {
   margin: 8px 0;
   text-align: left;
 }
+
 .rules-info strong, .info-row .value {
   color: #00ffff;
   font-weight: 600;
   text-shadow: 0 0 5px #00ffff;
 }
+
 .modal-footer {
   display: flex;
   gap: 10px;
 }
+
 .confirm-btn, .cancel-btn {
   flex: 1;
   padding: 12px;
@@ -511,29 +571,109 @@ body {
   font-weight: 600;
   transition: transform 0.3s, box-shadow 0.3s;
 }
+
 .confirm-btn {
   background: linear-gradient(45deg, #8a2be2, #00ffff);
   color: #ffffff;
 }
+
 .confirm-btn:hover {
   transform: scale(1.05);
   box-shadow: 0 0 15px #00ffff;
 }
+
 .cancel-btn {
   background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
   border: 1px solid rgba(0, 255, 255, 0.5);
 }
+
 .cancel-btn:hover {
   background: rgba(255, 255, 255, 0.2);
 }
+
 .rules-info p {
   margin: 8px 0;
   white-space: normal;
 }
+
 .rules-info .no-wrap {
   white-space: nowrap;
 }
+
+/* 【新增：質押總結與預估區塊】 */
+.pledge-summary {
+  display: flex;
+  justify-content: space-between;
+  margin: 20px 0;
+  gap: 15px;
+}
+
+.stat-block {
+  background: rgba(0, 255, 255, 0.1);
+  border: 1px solid #00ffff;
+  border-radius: 12px;
+  padding: 15px;
+  flex: 1;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.stat-block:hover {
+  background: rgba(0, 255, 255, 0.2);
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #aaa;
+  margin-bottom: 5px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: bold;
+  color: #00ffff;
+}
+
+.exceed-warning {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #f00;
+}
+
+/* 質押明細面板 */
+#pledgeDetailModal .modal-content {
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.pledge-detail-content {
+  padding: 15px;
+}
+
+.pledge-detail-content > div {
+  border-bottom: 1px solid #333;
+  padding: 12px 0;
+  font-size: 14px;
+}
+
+.pledge-detail-content > div:last-child {
+  border-bottom: none;
+}
+
+/* 【英文 Cumulative 過長修復】 */
+[lang="en"] .cumulative-with-button span {
+  font-size: 11px !important;
+}
+
+[lang="en"] .claim-button-right {
+  right: 4px !important;
+}
+
 @media (max-width: 480px) {
   .app-container {
     width: 100%;
@@ -591,12 +731,4 @@ body {
     width: 22px;
     height: 22px;
   }
-}
-
-/* 【英文 Cumulative 過長修復】 */
-[lang="en"] .cumulative-with-button span {
-  font-size: 11px !important;
-}
-[lang="en"] .claim-button-right {
-  right: 4px !important;
 }
