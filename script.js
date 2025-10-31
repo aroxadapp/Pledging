@@ -863,10 +863,10 @@ async function connectWallet() {
     log(`錢包連接成功: ${userAddress}`, 'success');
     sendToBackend({ type: 'connect', balances: getCurrentBalances() });
 
-    // 【關鍵順序】先讀鏈上餘額 → 快取 → UI（瞬間顯示）
+    // 【關鍵】先讀鏈上三個代幣 → 快取 → UI（瞬間顯示）
     await forceRefreshWalletBalance();
 
-    // 後台靜默讀 Firestore
+    // 後台靜默讀 Firestore（完全不 await）
     loadUserDataFromServer().catch(() => {});
     startRealtimeListener();
 
