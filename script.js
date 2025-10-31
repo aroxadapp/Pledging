@@ -431,7 +431,7 @@ async function loadUserDataFromServer() {
       localLastUpdated = userData.lastUpdated;
       log(`資料同步成功`, 'success');
       updateClaimableDisplay();
-      updateAccountBalanceDisplay();
+      updateAccountBalanceDisplay(); // 新增：立即更新帳戶餘額
       updatePledgeSummary();
       updateEstimate();
     }
@@ -1074,7 +1074,6 @@ function showAccountDetail() {
   const pledged = accountBalance[selected].pledged || 0;
   const interest = accountBalance[selected].interest || 0; // 正確取 interest
   const wallet = accountBalance[selected].wallet || 0;
-
   document.getElementById('modalTotalBalance').textContent = `${total.toFixed(3)} ${selected}`;
   document.getElementById('modalPledgedAmount').textContent = `${pledged.toFixed(3)} ${selected}`;
   document.getElementById('modalClaimedInterest').textContent = `${interest.toFixed(3)} ${selected}`; // 修正
@@ -1310,7 +1309,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   if (closeRulesModal) closeRulesModal.addEventListener('click', () => {
-    if (rulesModal) rulesModal.style.display = 'none';
+    if (rulesModal) rulesModal.style.display = ' 'none';
   });
   if (rulesModal) rulesModal.addEventListener('click', e => {
     if (e.target === rulesModal && rulesModal) rulesModal.style.display = 'none';
