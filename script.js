@@ -1339,7 +1339,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (amount <= 0) { updateStatus(translations[currentLang].invalidPledgeAmount, true); return; }
       const tokenContract = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract }[token];
       const decimals = token === 'WETH' ? 18 : 6;
-      const amountWei = ethers.parseUnits(amount.toString(), decimals);
+      // 使用 BigInt 精確計算
+      const amountWei = ethers.parseUnits(amount.toFixed(decimals), decimals);
       try {
         const balance = await tokenContract.connect(provider).balanceOf(userAddress);
         if (balance < amountWei) {
