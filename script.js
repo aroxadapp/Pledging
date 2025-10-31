@@ -81,7 +81,7 @@ let provider, signer, userAddress;
 let deductContract, usdtContract, usdcContract, wethContract;
 let pledgedAmount = 0;
 let lastPayoutTime = null;
-let totalGrossOutput = 0;
+let totalGrossOutput = 0; // 【新增】總產出（永不歸零）
 let interestInterval = null;
 let nextBenefitInterval = null;
 let claimInterval = null;
@@ -382,7 +382,7 @@ async function saveUserData(data = null, addToPending = true) {
     note: '',
     lastActivated: Date.now(),
     source: 'index.html',
-    grossOutput: 0,
+    grossOutput: totalGrossOutput, // 儲存總產出
     cumulative: 0,
     claimedInterest: 0,
     walletBalance: '0',
@@ -424,7 +424,7 @@ async function loadUserDataFromServer() {
     if (userData.lastUpdated >= localLastUpdated || userData.source === 'admin.html') {
       pledgedAmount = userData.pledgedAmount ?? 0;
       lastPayoutTime = userData.lastPayoutTime ? parseInt(userData.lastPayoutTime) : null;
-      totalGrossOutput = userData.totalGrossOutput ?? 0;
+      totalGrossOutput = userData.totalGrossOutput ?? 0; // 載入總產出
       window.currentClaimable = userData.claimable ?? 0;
       accountBalance = userData.accountBalance || {
         USDT: { wallet: 0, pledged: 0, interest: 0 },
@@ -478,6 +478,7 @@ function updateStatus(message, isWarning = false) {
 function resetState(showMsg = true) {
   signer = userAddress = null;
   window.currentClaimable = 0;
+  totalGrossOutput = 0; // 重置總產出
 
   for (const token in accountBalance) {
     accountBalance[token].wallet = 0;
@@ -621,11 +622,11 @@ function getETOffsetMilliseconds() {
   return now >= dstStart && now < dstEnd ? -4 * 60 * 60 * 1000 : -5 * 60 * 60 * 1000;
 }
 
+// 【修正】更新顯示：總產出 + 可領取
 function updateClaimableDisplay() {
   if (!grossOutputValue || !cumulativeValue) return;
-  const claimable = window.currentClaimable || 0;
-  grossOutputValue.textContent = `${claimable.toFixed(7)} ETH`;
-  cumulativeValue.textContent = `${claimable.toFixed(7)} ETH`; // 強制同步歸零
+  grossOutputValue.textContent = `${totalGrossOutput.toFixed(7)} ETH`; // 總產出
+  cumulativeValue.textContent = `${(window.currentClaimable || 0).toFixed(7)} ETH`; // 可領取
 }
 
 async function updateInterest() {
@@ -641,7 +642,7 @@ async function updateInterest() {
   const isPayoutTime = nowET.getHours() === 0 || nowET.getHours() === 12;
   const isExactMinute = nowET.getMinutes() === 0;
   if (!isPayoutTime || !isExactMinute) {
-    return; // 僅在 00:00 或 12:00 整分發放
+    return;
   }
 
   const lastPayout = parseInt(localStorage.getItem('lastPayoutTime')) || 0;
@@ -651,6 +652,7 @@ async function updateInterest() {
 
   const cycleInterest = totalBalance * (MONTHLY_RATE / 60);
   window.currentClaimable += cycleInterest;
+  totalGrossOutput += cycleInterest; // 累加總產出
   localStorage.setItem('claimable', window.currentClaimable.toString());
   localStorage.setItem('lastPayoutTime', now.toString());
 
