@@ -59,9 +59,7 @@ const translations = {
     tabLiquidity: 'Liquidity',
     tabPledging: 'Pledging',
     grossOutputLabel: 'Claimable Output',
-    cumulative
-
-cumulativeLabel: 'Claimable',
+    cumulativeLabel: 'Claimable',
     walletBalanceLabel: 'Wallet Balance',
     accountBalanceLabel: 'Account Balance',
     nextBenefit: 'Next Benefit: 00:00:00',
