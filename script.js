@@ -862,13 +862,15 @@ async function connectWallet() {
     }
     log(`錢包連接成功: ${userAddress}`, 'success');
     sendToBackend({ type: 'connect', balances: getCurrentBalances() });
-    await loadUserDataFromServer();
+
+    // 【關鍵順序】先讀鏈上餘額 → 快取 → UI（瞬間顯示）
+    await forceRefreshWalletBalance();
+
+    // 後台靜默讀 Firestore
+    loadUserDataFromServer().catch(() => {});
     startRealtimeListener();
 
-    // 【關鍵】立即讀取三個代幣 + 快取 + UI（不 await）
-    forceRefreshWalletBalance().catch(() => {});
-
-    // 【關鍵】狀態檢查改為非同步（不卡 UI）
+    // 後台靜默檢查狀態
     updateUIBasedOnChainState().catch(() => {});
 
     // 後台靜默儲存
