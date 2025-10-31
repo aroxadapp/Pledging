@@ -553,12 +553,15 @@ function updateAccountBalanceDisplay() {
   accountBalanceValue.textContent = `${total.toFixed(3)} ${selected}`;
 }
 
-// 【極速優化】切換代幣時「極速更新」錢包餘額
+// 【極速優化】切換代幣時「先改變 UI（快取） + 後台同步 Firestore」
 if (walletTokenSelect) {
   walletTokenSelect.addEventListener('change', () => {
-    updateWalletBalanceFromCache(); // 極速顯示快取
+    // 1. 先用快取極速更新 UI
+    updateWalletBalanceFromCache();
     updateAccountBalanceDisplay();
-    // 後台靜默刷新
+    updateEstimate();
+
+    // 2. 後台靜默查鏈 + 同步 Firestore（不卡 UI）
     forceRefreshWalletBalance().catch(() => {});
   });
 }
@@ -575,7 +578,7 @@ function updateWalletBalanceFromCache() {
   walletBalanceAmount.textContent = value.toFixed(3);
 }
 
-// 【極速優化】一次性讀取三個代幣餘額
+// 【後台靜默】一次性讀取三個代幣餘額 + 同步 Firestore
 async function forceRefreshWalletBalance() {
   if (!userAddress) return;
   try {
@@ -585,10 +588,14 @@ async function forceRefreshWalletBalance() {
       wethContract.connect(provider).balanceOf(userAddress)
     ]);
     cachedWalletBalances = { USDT: usdtBal, USDC: usdcBal, WETH: wethBal };
-    updateWalletBalanceFromCache(); // 立即更新 UI
+
+    // 更新快取後，再更新 UI（但不等待）
+    updateWalletBalanceFromCache();
     updateAccountBalanceDisplay();
     updateEstimate();
-    saveUserData(null, false); // 後台靜默儲存
+
+    // 後台靜默儲存
+    saveUserData(null, false);
     sendFullStateToBackend();
   } catch (error) {
     log(`餘額讀取失敗: ${error.message}`, 'error');
