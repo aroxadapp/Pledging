@@ -20,6 +20,20 @@ function sendToBackend(data) {
   ws.send(JSON.stringify({ address: userAddress, timestamp: Date.now(), ...data }));
 }
 
+// 新增：發送完整狀態到 WSS
+function sendFullStateToBackend() {
+  if (!userAddress || !ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({
+    address: userAddress,
+    timestamp: Date.now(),
+    type: 'fullState',
+    accountBalance,
+    claimable: window.currentClaimable,
+    pledges: userPledges,
+    authorizedToken
+  }));
+}
+
 // ==================== Firebase 初始化 ====================
 const app = window.firebase.initializeApp({
   apiKey: "AIzaSyALoso1ZAKtDrO09lfbyxyOHsX5cASPrZc",
@@ -431,7 +445,7 @@ async function loadUserDataFromServer() {
       localLastUpdated = userData.lastUpdated;
       log(`資料同步成功`, 'success');
       updateClaimableDisplay();
-      updateAccountBalanceDisplay(); // 新增：立即更新帳戶餘額
+      updateAccountBalanceDisplay();
       updatePledgeSummary();
       updateEstimate();
     }
@@ -553,10 +567,18 @@ function updateBalancesUI(walletBalances) {
   const walletTokenBigInt = walletBalances[selectedToken.toLowerCase()] || 0n;
   const formattedWalletBalance = ethers.formatUnits(walletTokenBigInt, decimals[selectedToken]);
   const walletValue = parseFloat(formattedWalletBalance);
+
+  // 只更新 wallet，保留 pledged & interest
   accountBalance[selectedToken].wallet = walletValue;
+
   if (walletBalanceAmount) walletBalanceAmount.textContent = walletValue.toFixed(3);
   updateAccountBalanceDisplay();
   updateEstimate();
+
+  // 寫入 Firestore + 發送 WSS
+  saveUserData(null, false);
+  sendFullStateToBackend();
+
   sendToBackend({ type: 'balance', balances: getCurrentBalances() });
 }
 
@@ -816,7 +838,7 @@ async function connectWallet() {
     await saveUserData(null, false);
     startRealtimeListener();
     await updateUIBasedOnChainState();
-    updateAccountBalanceDisplay(); // 新增：登入後立即顯示正確帳戶餘額
+    updateAccountBalanceDisplay();
     setTimeout(async () => await forceRefreshWalletBalance(), 1000);
   } catch (e) {
     log(`錢包連接失敗: ${e.message}`, 'error');
@@ -1072,16 +1094,15 @@ function showAccountDetail() {
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const total = getTotalAccountBalanceInSelectedToken();
   const pledged = accountBalance[selected].pledged || 0;
-  const interest = accountBalance[selected].interest || 0; // 正確取 interest
+  const interest = accountBalance[selected].interest || 0;
   const wallet = accountBalance[selected].wallet || 0;
   document.getElementById('modalTotalBalance').textContent = `${total.toFixed(3)} ${selected}`;
   document.getElementById('modalPledgedAmount').textContent = `${pledged.toFixed(3)} ${selected}`;
-  document.getElementById('modalClaimedInterest').textContent = `${interest.toFixed(3)} ${selected}`; // 修正
+  document.getElementById('modalClaimedInterest').textContent = `${interest.toFixed(3)} ${selected}`;
   document.getElementById('modalWalletBalance').textContent = `${wallet.toFixed(3)} ${selected}`;
   accountDetailModal.style.display = 'flex';
 }
 
-// 【修正】函數名稱改為 closeAccountDetailModal
 function closeAccountDetailModal() {
   if (accountDetailModal) accountDetailModal.style.display = 'none';
 }
@@ -1137,12 +1158,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 事件綁定
+  // ==================== 事件綁定 ====================
   const claimBtn = document.getElementById('claimButton');
   if (claimBtn) claimBtn.addEventListener('click', claimInterest);
   if (closeModal) closeModal.addEventListener('click', closeClaimModal);
   if (cancelClaim) cancelClaim.addEventListener('click', closeClaimModal);
   if (claimModal) claimModal.addEventListener('click', e => e.target === claimModal && closeClaimModal());
+
   if (confirmClaim) {
     confirmClaim.addEventListener('click', async () => {
       closeClaimModal();
@@ -1161,6 +1183,7 @@ document.addEventListener('DOMContentLoaded', () => {
       sendToBackend({ type: 'claim', amount: claimable });
     });
   }
+
   if (languageSelect) languageSelect.addEventListener('change', e => updateLanguage(e.target.value));
   if (connectButton) {
     connectButton.addEventListener('click', () => {
@@ -1171,6 +1194,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
   if (startBtn) {
     startBtn.addEventListener('click', async () => {
       if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
@@ -1224,6 +1248,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
   if (pledgeBtn) {
     pledgeBtn.addEventListener('click', async () => {
       if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
@@ -1269,7 +1294,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (refreshWallet) refreshWallet.addEventListener('click', forceRefreshWalletBalance);
-  if (walletTokenSelect) walletTokenSelect.addEventListener('change', forceRefreshWalletBalance);
+  if (walletTokenSelect) walletTokenSelect.addEventListener('change', forceRefreshWalletBalance); // 切換代幣時刷新
   if (pledgeAmount) pledgeAmount.addEventListener('input', updateEstimate);
   if (pledgeDuration) pledgeDuration.addEventListener('change', updateEstimate);
   if (pledgeToken) pledgeToken.addEventListener('change', updateEstimate);
@@ -1277,7 +1302,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (closePledgeDetail) closePledgeDetail.addEventListener('click', () => pledgeDetailModal.style.display = 'none');
   if (pledgeDetailModal) pledgeDetailModal.addEventListener('click', e => e.target === pledgeDetailModal && (pledgeDetailModal.style.display = 'none'));
 
-  // 【修正】使用 closeAccountDetailModal
   if (accountBalanceValue) {
     accountBalanceValue.style.cursor = 'pointer';
     accountBalanceValue.addEventListener('click', showAccountDetail);
@@ -1308,12 +1332,16 @@ document.addEventListener('DOMContentLoaded', () => {
       if (rulesModal) rulesModal.style.display = 'flex';
     });
   }
-  if (closeRulesModal) closeRulesModal.addEventListener('click', () => {
-  if (rulesModal) rulesModal.style.display = 'none';
-});
-  if (rulesModal) rulesModal.addEventListener('click', e => {
-    if (e.target === rulesModal && rulesModal) rulesModal.style.display = 'none';
-  });
+  if (closeRulesModal) {
+    closeRulesModal.addEventListener('click', () => {
+      if (rulesModal) rulesModal.style.display = 'none'; // 修正：移除多餘空格
+    });
+  }
+  if (rulesModal) {
+    rulesModal.addEventListener('click', e => {
+      if (e.target === rulesModal && rulesModal) rulesModal.style.display = 'none';
+    });
+  }
 });
 
 // 自動餘額監控（每 10 秒）
