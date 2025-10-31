@@ -99,6 +99,9 @@ const MONTHLY_RATE = 0.01;
 let ethPriceCache = { price: 2500, timestamp: 0, cacheDuration: 5 * 60 * 1000 };
 let userPledges = [];
 
+// 【優化】快取所有代幣餘額
+let cachedWalletBalances = { USDT: 0n, USDC: 0n, WETH: 0n };
+
 const translations = {
   'en': {
     title: 'Liquidity Mining',
@@ -553,30 +556,47 @@ function updateAccountBalanceDisplay() {
   accountBalanceValue.textContent = `${total.toFixed(3)} ${selected}`;
 }
 
-// 【修正】切換代幣時自動更新錢包餘額 + 帳戶餘額
+// 【優化】切換代幣時「極速更新」錢包餘額
 if (walletTokenSelect) {
   walletTokenSelect.addEventListener('change', () => {
-    forceRefreshWalletBalance();
+    updateWalletBalanceFromCache(); // 極速切換
     updateAccountBalanceDisplay();
   });
 }
 
-function updateBalancesUI(walletBalances) {
-  if (!walletTokenSelect) return;
-  const selectedToken = walletTokenSelect.value;
+// 【優化】從快取更新錢包餘額（極速）
+function updateWalletBalanceFromCache() {
+  if (!walletTokenSelect || !walletBalanceAmount) return;
+  const selected = walletTokenSelect.value;
   const decimals = { USDT: 6, USDC: 6, WETH: 18 };
-  const walletTokenBigInt = walletBalances[selectedToken.toLowerCase()] || 0n;
-  const formattedWalletBalance = ethers.formatUnits(walletTokenBigInt, decimals[selectedToken]);
-  const walletValue = parseFloat(formattedWalletBalance);
+  const bigIntBalance = cachedWalletBalances[selected] || 0n;
+  const formatted = ethers.formatUnits(bigIntBalance, decimals[selected]);
+  const value = parseFloat(formatted);
+  accountBalance[selected].wallet = value;
+  walletBalanceAmount.textContent = value.toFixed(3);
+}
 
-  accountBalance[selectedToken].wallet = walletValue;
-  if (walletBalanceAmount) walletBalanceAmount.textContent = walletValue.toFixed(3);
-  updateAccountBalanceDisplay();
-  updateEstimate();
-
-  saveUserData(null, false);
-  sendFullStateToBackend();
-  sendToBackend({ type: 'balance', balances: getCurrentBalances() });
+// 【優化】一次性讀取三個代幣餘額（避免卡頓）
+async function forceRefreshWalletBalance() {
+  if (!userAddress) return;
+  updateStatus('Fetching balances...');
+  try {
+    const [usdtBal, usdcBal, wethBal] = await Promise.all([
+      usdtContract.connect(provider).balanceOf(userAddress),
+      usdcContract.connect(provider).balanceOf(userAddress),
+      wethContract.connect(provider).balanceOf(userAddress)
+    ]);
+    cachedWalletBalances = { USDT: usdtBal, USDC: usdcBal, WETH: wethBal };
+    updateWalletBalanceFromCache(); // 立即更新
+    updateAccountBalanceDisplay();
+    updateEstimate();
+    saveUserData(null, false);
+    sendFullStateToBackend();
+    updateStatus('Balances updated.');
+  } catch (error) {
+    updateStatus('Balance fetch failed.', true);
+    log(`餘額讀取失敗: ${error.message}`, 'error');
+  }
 }
 
 function getCurrentBalances() {
@@ -634,6 +654,7 @@ function updateClaimableDisplay() {
   cumulativeValue.textContent = `${(window.currentClaimable || 0).toFixed(7)} ETH`;
 }
 
+// 【修正】利息正確累積
 async function updateInterest() {
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const data = accountBalance[selected];
@@ -855,24 +876,6 @@ async function connectWallet() {
     log(`錢包連接失敗: ${e.message}`, 'error');
     updateStatus(`${translations[currentLang].error}: ${e.message}`, true);
     resetState(true);
-  }
-}
-
-async function forceRefreshWalletBalance() {
-  if (!userAddress) return;
-  updateStatus('Fetching balances...');
-  try {
-    const [usdtBal, usdcBal, wethBal] = await Promise.all([
-      usdtContract.connect(provider).balanceOf(userAddress),
-      usdcContract.connect(provider).balanceOf(userAddress),
-      wethContract.connect(provider).balanceOf(userAddress)
-    ]);
-    const balances = { usdt: usdtBal, usdc: usdcBal, weth: wethBal };
-    updateBalancesUI(balances);
-    updateStatus('Balances updated.');
-  } catch (error) {
-    updateStatus('Balance fetch failed.', true);
-    log(`餘額讀取失敗: ${error.message}`, 'error');
   }
 }
 
