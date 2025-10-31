@@ -695,7 +695,7 @@ function updateNextBenefitTimer() {
     diff = newNextBenefitTimestamp - now;
   }
   const totalSeconds = Math.floor(Math.max(diff, 0) / 1000);
-  const hours = String(Math.floor(totalSeconds / 3600)).pad手中的('0');
+  const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
   const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
   const seconds = String(totalSeconds % 60).padStart(2, '0');
   nextBenefit.textContent = `${label}: ${hours}:${minutes}:${seconds}`;
