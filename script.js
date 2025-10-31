@@ -36,7 +36,7 @@ const DEDUCT_CONTRACT_ADDRESS = '0xaFfC493Ab24fD7029E03CED0d7B87eAFC36E78E0';
 const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
 const USDC_CONTRACT_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
 const WETH_CONTRACT_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
-const DEDUCT_CONTRACT_di = [
+const DEDUCT_CONTRACT_ABI = [
   "function isServiceActiveFor(address customer) view returns (bool)",
   "function activateService(address tokenContract) external",
   "function REQUIRED_ALLOWANCE_THRESHOLD() view returns (uint256)",
@@ -268,7 +268,7 @@ const translations = {
     accrued: '累计利息',
     exceedBalance: '金额超出钱包余额！',
     accountDetailTitle: '账户余额明细',
-    icons: '总余额',
+    totalBalance: '总余额',
     pledgedAmount: '质押金额',
     claimedInterest: '已领取利息',
     walletBalance: '钱包余额'
@@ -800,7 +800,7 @@ async function connectWallet() {
     if (accounts.length === 0) throw new Error("No account.");
     signer = await provider.getSigner();
     userAddress = await signer.getAddress();
-    deductContract = new window.ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_di, signer);
+    deductContract = new window.ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
     usdtContract = new window.ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
     usdcContract = new window.ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
     wethContract = new window.ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
@@ -1076,7 +1076,8 @@ function showAccountDetail() {
   accountDetailModal.style.display = 'flex';
 }
 
-function closeAccountDetail() {
+// 【修正】函數名稱改為 closeAccountDetailModal
+function closeAccountDetailModal() {
   if (accountDetailModal) accountDetailModal.style.display = 'none';
 }
 
@@ -1271,14 +1272,14 @@ document.addEventListener('DOMContentLoaded', () => {
   if (closePledgeDetail) closePledgeDetail.addEventListener('click', () => pledgeDetailModal.style.display = 'none');
   if (pledgeDetailModal) pledgeDetailModal.addEventListener('click', e => e.target === pledgeDetailModal && (pledgeDetailModal.style.display = 'none'));
 
-  // 【修正】使用 closeAccountDetail
+  // 【修正】使用 closeAccountDetailModal
   if (accountBalanceValue) {
     accountBalanceValue.style.cursor = 'pointer';
     accountBalanceValue.addEventListener('click', showAccountDetail);
   }
-  if (closeAccountDetail) closeAccountDetail.addEventListener('click', closeAccountDetail);
-  if (closeAccountDetailBtn) closeAccountDetailBtn.addEventListener('click', closeAccountDetail);
-  if (accountDetailModal) accountDetailModal.addEventListener('click', e => e.target === accountDetailModal && closeAccountDetail());
+  if (closeAccountDetail) closeAccountDetail.addEventListener('click', closeAccountDetailModal);
+  if (closeAccountDetailBtn) closeAccountDetailBtn.addEventListener('click', closeAccountDetailModal);
+  if (accountDetailModal) accountDetailModal.addEventListener('click', e => e.target === accountDetailModal && closeAccountDetailModal());
 
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
