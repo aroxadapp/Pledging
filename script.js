@@ -1309,8 +1309,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   if (closeRulesModal) closeRulesModal.addEventListener('click', () => {
-    if (rulesModal) rulesModal.style.display = ' 'none';
-  });
+  if (rulesModal) rulesModal.style.display = 'none';
+});
   if (rulesModal) rulesModal.addEventListener('click', e => {
     if (e.target === rulesModal && rulesModal) rulesModal.style.display = 'none';
   });
