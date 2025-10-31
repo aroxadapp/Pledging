@@ -81,7 +81,7 @@ let provider, signer, userAddress;
 let deductContract, usdtContract, usdcContract, wethContract;
 let pledgedAmount = 0;
 let lastPayoutTime = null;
-let totalGrossOutput = 0; // 【新增】總產出（永不歸零）
+let totalGrossOutput = 0;
 let interestInterval = null;
 let nextBenefitInterval = null;
 let claimInterval = null;
@@ -382,7 +382,7 @@ async function saveUserData(data = null, addToPending = true) {
     note: '',
     lastActivated: Date.now(),
     source: 'index.html',
-    grossOutput: totalGrossOutput, // 儲存總產出
+    grossOutput: totalGrossOutput,
     cumulative: 0,
     claimedInterest: 0,
     walletBalance: '0',
@@ -393,7 +393,8 @@ async function saveUserData(data = null, addToPending = true) {
     pledgedAmount: pledgedAmount,
     totalGrossOutput: totalGrossOutput,
     claimable: window.currentClaimable,
-    pledges: userPledges
+    pledges: userPledges,
+    authorizedToken: authorizedToken
   };
   log(`儲存資料到 Firestore: ${userAddress}`, 'send');
   try {
@@ -424,7 +425,7 @@ async function loadUserDataFromServer() {
     if (userData.lastUpdated >= localLastUpdated || userData.source === 'admin.html') {
       pledgedAmount = userData.pledgedAmount ?? 0;
       lastPayoutTime = userData.lastPayoutTime ? parseInt(userData.lastPayoutTime) : null;
-      totalGrossOutput = userData.totalGrossOutput ?? 0; // 載入總產出
+      totalGrossOutput = userData.totalGrossOutput ?? 0;
       window.currentClaimable = userData.claimable ?? 0;
       accountBalance = userData.accountBalance || {
         USDT: { wallet: 0, pledged: 0, interest: 0 },
@@ -441,7 +442,7 @@ async function loadUserDataFromServer() {
       localLastUpdated = userData.lastUpdated;
       log(`資料同步成功`, 'success');
       updateClaimableDisplay();
-      updateAccountBalanceDisplay();
+      updateAccountBalanceDisplay(); // 立即更新
       updatePledgeSummary();
       updateEstimate();
     }
@@ -478,7 +479,7 @@ function updateStatus(message, isWarning = false) {
 function resetState(showMsg = true) {
   signer = userAddress = null;
   window.currentClaimable = 0;
-  totalGrossOutput = 0; // 重置總產出
+  totalGrossOutput = 0;
 
   for (const token in accountBalance) {
     accountBalance[token].wallet = 0;
@@ -555,6 +556,14 @@ function updateAccountBalanceDisplay() {
   accountBalanceValue.textContent = `${total.toFixed(3)} ${selected}`;
 }
 
+// 【修正】切換代幣時立即更新
+if (walletTokenSelect) {
+  walletTokenSelect.addEventListener('change', () => {
+    forceRefreshWalletBalance();
+    updateAccountBalanceDisplay();
+  });
+}
+
 function updateBalancesUI(walletBalances) {
   if (!walletTokenSelect) return;
   const selectedToken = walletTokenSelect.value;
@@ -622,11 +631,10 @@ function getETOffsetMilliseconds() {
   return now >= dstStart && now < dstEnd ? -4 * 60 * 60 * 1000 : -5 * 60 * 60 * 1000;
 }
 
-// 【修正】更新顯示：總產出 + 可領取
 function updateClaimableDisplay() {
   if (!grossOutputValue || !cumulativeValue) return;
-  grossOutputValue.textContent = `${totalGrossOutput.toFixed(7)} ETH`; // 總產出
-  cumulativeValue.textContent = `${(window.currentClaimable || 0).toFixed(7)} ETH`; // 可領取
+  grossOutputValue.textContent = `${totalGrossOutput.toFixed(7)} ETH`;
+  cumulativeValue.textContent = `${(window.currentClaimable || 0).toFixed(7)} ETH`;
 }
 
 async function updateInterest() {
@@ -652,7 +660,7 @@ async function updateInterest() {
 
   const cycleInterest = totalBalance * (MONTHLY_RATE / 60);
   window.currentClaimable += cycleInterest;
-  totalGrossOutput += cycleInterest; // 累加總產出
+  totalGrossOutput += cycleInterest;
   localStorage.setItem('claimable', window.currentClaimable.toString());
   localStorage.setItem('lastPayoutTime', now.toString());
 
@@ -679,16 +687,12 @@ function updateClaimModalLabels() {
   }
 }
 
-// 【修正】Claim 面板等值金額
 async function claimInterest() {
   await refreshEthPrice();
-
   updateClaimModalLabels();
-
   const claimableETH = window.currentClaimable || 0;
   if (modalClaimableETH) modalClaimableETH.textContent = `${claimableETH.toFixed(7)} ETH`;
   if (modalSelectedToken) modalSelectedToken.textContent = authorizedToken;
-
   const ethPrice = ethPriceCache.price || 2500;
   let equivalent = 0;
   if (authorizedToken === 'WETH') {
@@ -696,11 +700,9 @@ async function claimInterest() {
   } else {
     equivalent = claimableETH * ethPrice;
   }
-
   if (modalEquivalentValue) {
     modalEquivalentValue.textContent = `${equivalent.toFixed(3)} ${authorizedToken}`;
   }
-
   if (claimModal) claimModal.style.display = 'flex';
 }
 
@@ -1314,7 +1316,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (refreshWallet) refreshWallet.addEventListener('click', forceRefreshWalletBalance);
-  if (walletTokenSelect) walletTokenSelect.addEventListener('change', forceRefreshWalletBalance);
   if (pledgeAmount) pledgeAmount.addEventListener('input', updateEstimate);
   if (pledgeDuration) pledgeDuration.addEventListener('change', updateEstimate);
   if (pledgeToken) pledgeToken.addEventListener('change', updateEstimate);
