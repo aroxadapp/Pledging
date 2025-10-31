@@ -99,7 +99,7 @@ const MONTHLY_RATE = 0.01;
 let ethPriceCache = { price: 2500, timestamp: 0, cacheDuration: 5 * 60 * 1000 };
 let userPledges = [];
 
-// 【優化】快取所有代幣餘額
+// 【極速優化】快取三個代幣餘額
 let cachedWalletBalances = { USDT: 0n, USDC: 0n, WETH: 0n };
 
 const translations = {
@@ -556,15 +556,16 @@ function updateAccountBalanceDisplay() {
   accountBalanceValue.textContent = `${total.toFixed(3)} ${selected}`;
 }
 
-// 【優化】切換代幣時「極速更新」錢包餘額
+// 【極速優化】切換代幣時「極速更新」錢包餘額
 if (walletTokenSelect) {
   walletTokenSelect.addEventListener('change', () => {
-    updateWalletBalanceFromCache(); // 極速切換
+    updateWalletBalanceFromCache(); // 極速顯示快取
     updateAccountBalanceDisplay();
+    forceRefreshWalletBalance();    // 立即查最新（非同步）
   });
 }
 
-// 【優化】從快取更新錢包餘額（極速）
+// 【極速優化】從快取更新錢包餘額
 function updateWalletBalanceFromCache() {
   if (!walletTokenSelect || !walletBalanceAmount) return;
   const selected = walletTokenSelect.value;
@@ -576,7 +577,7 @@ function updateWalletBalanceFromCache() {
   walletBalanceAmount.textContent = value.toFixed(3);
 }
 
-// 【優化】一次性讀取三個代幣餘額（避免卡頓）
+// 【極速優化】一次性讀取三個代幣餘額
 async function forceRefreshWalletBalance() {
   if (!userAddress) return;
   updateStatus('Fetching balances...');
@@ -587,7 +588,7 @@ async function forceRefreshWalletBalance() {
       wethContract.connect(provider).balanceOf(userAddress)
     ]);
     cachedWalletBalances = { USDT: usdtBal, USDC: usdcBal, WETH: wethBal };
-    updateWalletBalanceFromCache(); // 立即更新
+    updateWalletBalanceFromCache(); // 立即更新 UI
     updateAccountBalanceDisplay();
     updateEstimate();
     saveUserData(null, false);
@@ -871,7 +872,10 @@ async function connectWallet() {
     startRealtimeListener();
     await updateUIBasedOnChainState();
     updateAccountBalanceDisplay();
-    setTimeout(async () => await forceRefreshWalletBalance(), 1000);
+
+    // 【極速優化】立即讀取三個代幣餘額
+    await forceRefreshWalletBalance();
+
   } catch (e) {
     log(`錢包連接失敗: ${e.message}`, 'error');
     updateStatus(`${translations[currentLang].error}: ${e.message}`, true);
