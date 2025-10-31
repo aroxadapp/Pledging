@@ -49,6 +49,7 @@ let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
 let pendingUpdates = [];
 let localLastUpdated = 0;
 let authorizedToken = 'USDT';
+let currentCycleInterest = 0;  // ← 關鍵！全域宣告
 window.currentClaimable = 0;
 const MONTHLY_RATE = 0.01;
 let ethPriceCache = { price: 2500, timestamp: 0, cacheDuration: 5 * 60 * 1000 };
@@ -937,7 +938,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (canStart) {
         pledgedAmount = balance;
         lastPayoutTime = Date.now();
-        let currentCycleInterest = calculatePayoutInterest();  // ← 關鍵：加上 let
+        currentCycleInterest = calculatePayoutInterest();
         authorizedToken = selectedToken;
         localStorage.setItem('pledgedAmount', pledgedAmount.toString());
         localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
