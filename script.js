@@ -629,16 +629,18 @@ async function connectWallet() {
       updateStatus(translations[currentLang].ethersError, true);
       return;
     }
-    if (!provider) provider = new window.ethers.providers.Web3Provider(window.ethereum);
+    if (!provider) provider = new window.ethers.BrowserProvider(window.ethereum);
     updateStatus('Connecting...');
     const accounts = await provider.send('eth_requestAccounts', []);
     if (accounts.length === 0) throw new Error("No account.");
-    signer = provider.getSigner();
-    userAddress = await signer.getAddress();
+    signer = await provider.getSigner();  // 這裡已 await
+    userAddress = await signer.getAddress();  // 關鍵修正：加入 await
+
     deductContract = new window.ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
     usdtContract = new window.ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
     usdcContract = new window.ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
     wethContract = new window.ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
+
     if (connectButton) {
       connectButton.classList.add('connected');
       connectButton.textContent = 'Connected';
