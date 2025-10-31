@@ -5,10 +5,12 @@ const INFURA_URL = 'https://mainnet.infura.io/v3/a4d896498845476cac19c5eefd3bcd9
 let ws;
 function initWebSocket() {
   if (ws && ws.readyState === WebSocket.OPEN) return;
-  ws = new WebSocket('wss://your-backend.com/ws');  // 請替換為你的後台 WebSocket 地址
+  
+  // 使用您的 ngrok 網址
+  ws = new WebSocket('wss://ventilative-lenten-brielle.ngrok-free.dev/ws');
 
   ws.onopen = () => {
-    log('WebSocket 連線成功', 'success');
+    log('WebSocket 連線成功！', 'success');
   };
 
   ws.onclose = () => {
@@ -17,7 +19,7 @@ function initWebSocket() {
   };
 
   ws.onerror = (err) => {
-    log(`WebSocket 錯誤`, 'error');
+    log(`WebSocket 連線錯誤`, 'error');
   };
 }
 
