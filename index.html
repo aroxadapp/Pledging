@@ -61,7 +61,13 @@
             <div class="stat-label" id="walletBalanceLabel">Wallet Balance</div>
             <div class="stat-value">
               <span id="walletBalanceAmount">0.000</span>
-              <button id="refreshWallet" class="icon-btn">刷新</button>
+              <button id="refreshWallet" class="icon-btn" title="Refresh Balance">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00ffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M23 4v6h-6"></path>
+                  <path d="M1 20v-6h6"></path>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+              </button>
             </div>
             <select id="walletTokenSelect" class="token-select-inline">
               <option value="USDT">USDT</option>
@@ -83,11 +89,11 @@
       <!-- 新增：質押總結與預估（移到上方） -->
       <div class="pledge-summary">
         <div class="stat-block" id="totalPledgeBlock">
-          <div class="stat-label" id="totalPledgeLabel">Total Pledged</div> <!-- 已新增 ID -->
+          <div class="stat-label" id="totalPledgeLabel">Total Pledged</div>
           <div class="stat-value" id="totalPledgeValue">0.000</div>
         </div>
         <div class="stat-block" id="estimateBlock">
-          <div class="stat-label" id="estimateLabel">Estimated Return</div> <!-- 已新增 ID -->
+          <div class="stat-label" id="estimateLabel">Estimated Return</div>
           <div class="stat-value" id="estimateValue">0.000</div>
           <div class="exceed-warning" id="exceedWarning" style="display:none;"></div>
         </div>
