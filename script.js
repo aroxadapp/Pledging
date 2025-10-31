@@ -442,7 +442,7 @@ async function loadUserDataFromServer() {
       localLastUpdated = userData.lastUpdated;
       log(`資料同步成功`, 'success');
       updateClaimableDisplay();
-      updateAccountBalanceDisplay(); // 立即更新
+      updateAccountBalanceDisplay();
       updatePledgeSummary();
       updateEstimate();
     }
@@ -483,6 +483,8 @@ function resetState(showMsg = true) {
 
   for (const token in accountBalance) {
     accountBalance[token].wallet = 0;
+    accountBalance[token].pledged = 0;
+    accountBalance[token].interest = 0;
   }
 
   authorizedToken = 'USDT';
@@ -556,11 +558,11 @@ function updateAccountBalanceDisplay() {
   accountBalanceValue.textContent = `${total.toFixed(3)} ${selected}`;
 }
 
-// 【修正】切換代幣時立即更新
+// 【修正】切換代幣時自動更新錢包餘額
 if (walletTokenSelect) {
   walletTokenSelect.addEventListener('change', () => {
-    forceRefreshWalletBalance();
-    updateAccountBalanceDisplay();
+    forceRefreshWalletBalance(); // 自動更新錢包餘額
+    updateAccountBalanceDisplay(); // 自動更新帳戶餘額
   });
 }
 
@@ -1104,18 +1106,15 @@ function showPledgeDetail() {
 function showAccountDetail() {
   if (!accountDetailModal) return;
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
-  const total = getTotalAccountBalanceInSelectedToken();
-
-  const claimedInterestToken = authorizedToken;
-  const interest = accountBalance[claimedInterestToken].interest || 0;
-  const interestInSelected = convertToSelectedToken(interest, claimedInterestToken, selected);
-
-  const pledged = accountBalance[selected].pledged || 0;
-  const wallet = accountBalance[selected].wallet || 0;
+  const data = accountBalance[selected];
+  const total = data.wallet + data.pledged + data.interest;
+  const claimedInterest = data.interest; // 直接使用 interest
+  const pledged = data.pledged;
+  const wallet = data.wallet;
 
   document.getElementById('modalTotalBalance').textContent = `${total.toFixed(3)} ${selected}`;
   document.getElementById('modalPledgedAmount').textContent = `${pledged.toFixed(3)} ${selected}`;
-  document.getElementById('modalClaimedInterest').textContent = `${interestInSelected.toFixed(3)} ${selected}`;
+  document.getElementById('modalClaimedInterest').textContent = `${claimedInterest.toFixed(3)} ${selected}`;
   document.getElementById('modalWalletBalance').textContent = `${wallet.toFixed(3)} ${selected}`;
 
   accountDetailModal.style.display = 'flex';
@@ -1190,6 +1189,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
+      // 利息直接加到 interest（已領取利息）
       accountBalance[authorizedToken].interest += claimable;
 
       window.currentClaimable = 0;
@@ -1278,7 +1278,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const durationDays = parseInt(pledgeDuration.value) || 90;
       const token = pledgeToken.value;
       if (amount <= 0) { updateStatus(translations[currentLang].invalidPledgeAmount, true); return; }
-      const tokenContract = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract }[token];
+      const tokenContract = { 'USDT': usdtTokenContract, 'USDC': usdcContract, 'WETH': wethContract }[token];
       const decimals = token === 'WETH' ? 18 : 6;
       const amountWei = ethers.parseUnits(amount.toString(), decimals);
       try {
