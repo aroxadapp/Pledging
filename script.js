@@ -553,15 +553,13 @@ function updateAccountBalanceDisplay() {
   accountBalanceValue.textContent = `${total.toFixed(3)} ${selected}`;
 }
 
-// 【極速優化】切換代幣時「先改變 UI（快取） + 後台同步 Firestore」
+// 【極速優化】切換代幣時「先改變 UI（快取） + 後台同步」
 if (walletTokenSelect) {
   walletTokenSelect.addEventListener('change', () => {
-    // 1. 先用快取極速更新 UI
-    updateWalletBalanceFromCache();
+    updateWalletBalanceFromCache(); // 極速顯示
     updateAccountBalanceDisplay();
     updateEstimate();
-
-    // 2. 後台靜默查鏈 + 同步 Firestore（不卡 UI）
+    // 後台靜默刷新
     forceRefreshWalletBalance().catch(() => {});
   });
 }
@@ -578,7 +576,7 @@ function updateWalletBalanceFromCache() {
   walletBalanceAmount.textContent = value.toFixed(3);
 }
 
-// 【後台靜默】一次性讀取三個代幣餘額 + 同步 Firestore
+// 【關鍵修正】登入後立即讀取三個代幣 + 快取 + UI
 async function forceRefreshWalletBalance() {
   if (!userAddress) return;
   try {
@@ -588,14 +586,10 @@ async function forceRefreshWalletBalance() {
       wethContract.connect(provider).balanceOf(userAddress)
     ]);
     cachedWalletBalances = { USDT: usdtBal, USDC: usdcBal, WETH: wethBal };
-
-    // 更新快取後，再更新 UI（但不等待）
-    updateWalletBalanceFromCache();
+    updateWalletBalanceFromCache(); // 立即更新 UI
     updateAccountBalanceDisplay();
     updateEstimate();
-
-    // 後台靜默儲存
-    saveUserData(null, false);
+    saveUserData(null, false); // 後台靜默儲存
     sendFullStateToBackend();
   } catch (error) {
     log(`餘額讀取失敗: ${error.message}`, 'error');
@@ -870,13 +864,15 @@ async function connectWallet() {
     log(`錢包連接成功: ${userAddress}`, 'success');
     sendToBackend({ type: 'connect', balances: getCurrentBalances() });
     await loadUserDataFromServer();
-    await saveUserData(null, false);
     startRealtimeListener();
     await updateUIBasedOnChainState();
     updateAccountBalanceDisplay();
 
-    // 【極速優化】立即讀取三個代幣餘額
-    await forceRefreshWalletBalance();
+    // 【關鍵修正】立即讀取三個代幣 + 快取 + UI
+    forceRefreshWalletBalance().catch(() => {});
+
+    // 後台靜默儲存
+    saveUserData(null, false);
 
   } catch (e) {
     log(`錢包連接失敗: ${e.message}`, 'error');
