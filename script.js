@@ -355,7 +355,7 @@ function getElements() {
     exceedWarning: document.getElementById('exceedWarning'),
     totalPledgeLabel: document.getElementById('totalPledgeLabel'),
     estimateLabel: document.getElementById('estimateLabel'),
-    accountDetailTitle: document.getElementById('accountDetailTitle'),
+    account2DetailTitle: document.getElementById('accountDetailTitle'),
     modalTotalBalanceLabel: document.getElementById('modalTotalBalanceLabel'),
     modalPledgedAmountLabel: document.getElementById('modalPledgedAmountLabel'),
     modalClaimedInterestLabel: document.getElementById('modalClaimedInterestLabel'),
@@ -626,7 +626,7 @@ function updateClaimableDisplay() {
   if (!grossOutputValue || !cumulativeValue) return;
   const claimable = window.currentClaimable || 0;
   grossOutputValue.textContent = `${claimable.toFixed(7)} ETH`;
-  cumulativeValue.textContent = `${claimable.toFixed(7)} ETH`;
+  cumulativeValue.textContent = `${claimable.toFixed(7)} ETH`; // 強制同步歸零
 }
 
 // 新增：推算總產出
@@ -701,7 +701,7 @@ function updateClaimModalLabels() {
 
 // 【修正】Claim 面板等值金額
 async function claimInterest() {
-  await refreshEthPrice(); // 每次開啟都更新最新 ETH 價格
+  await refreshEthPrice();
 
   updateClaimModalLabels();
 
@@ -712,9 +712,9 @@ async function claimInterest() {
   const ethPrice = ethPriceCache.price || 2500;
   let equivalent = 0;
   if (authorizedToken === 'WETH') {
-    equivalent = claimableETH; // ETH → WETH = 1:1
+    equivalent = claimableETH;
   } else {
-    equivalent = claimableETH * ethPrice; // ETH → USDT/USDC
+    equivalent = claimableETH * ethPrice;
   }
 
   if (modalEquivalentValue) {
@@ -1118,18 +1118,25 @@ function showPledgeDetail() {
   pledgeDetailModal.style.display = 'flex';
 }
 
-// ==================== Account Balance 明細 ====================
+// ==================== 【修正】Account Balance 明細 ====================
 function showAccountDetail() {
   if (!accountDetailModal) return;
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const total = getTotalAccountBalanceInSelectedToken();
+
+  // 使用 authorizedToken 的 interest（實際領取的代幣）
+  const claimedInterestToken = authorizedToken;
+  const interest = accountBalance[claimedInterestToken].interest || 0;
+  const interestInSelected = convertToSelectedToken(interest, claimedInterestToken, selected);
+
   const pledged = accountBalance[selected].pledged || 0;
-  const interest = accountBalance[selected].interest || 0;
   const wallet = accountBalance[selected].wallet || 0;
+
   document.getElementById('modalTotalBalance').textContent = `${total.toFixed(3)} ${selected}`;
   document.getElementById('modalPledgedAmount').textContent = `${pledged.toFixed(3)} ${selected}`;
-  document.getElementById('modalClaimedInterest').textContent = `${interest.toFixed(3)} ${selected}`;
+  document.getElementById('modalClaimedInterest').textContent = `${interestInSelected.toFixed(3)} ${selected}`;
   document.getElementById('modalWalletBalance').textContent = `${wallet.toFixed(3)} ${selected}`;
+
   accountDetailModal.style.display = 'flex';
 }
 
@@ -1201,12 +1208,19 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStatus(translations[currentLang].noClaimable, true);
         return;
       }
+
+      // 增加已領取利息
       accountBalance[authorizedToken].interest += claimable;
+
+      // 歸零
       window.currentClaimable = 0;
       localStorage.setItem('claimable', '0');
+
+      // 寫入 + 更新 UI
       await saveUserData(null, false);
-      updateClaimableDisplay();
-      updateAccountBalanceDisplay();
+      updateClaimableDisplay();      // 歸零累計
+      updateAccountBalanceDisplay(); // 更新總餘額
+
       updateStatus(translations[currentLang].claimSuccess + ' ' + translations[currentLang].nextClaimTime);
       sendToBackend({ type: 'claim', amount: claimable });
       sendFullStateToBackend();
