@@ -593,7 +593,8 @@ async function initializeWallet() {
       if (connectButton) connectButton.disabled = true;
       return;
     }
-    provider = new window.ethers.providers.Web3Provider(window.ethereum);
+    // 關鍵修正：使用 BrowserProvider
+    provider = new window.ethers.BrowserProvider(window.ethereum);
     window.ethereum.on('accountsChanged', a => {
       if (a.length === 0) disconnectWallet();
       else if (userAddress && a[0].toLowerCase() !== userAddress.toLowerCase()) {
