@@ -270,19 +270,6 @@ async function retry(fn, maxAttempts = 3, delayMs = 3000) {
   }
 }
 
-async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
-  let attempts = 0;
-  while (attempts < maxAttempts) {
-    grossOutputValue = document.getElementById('grossOutputValue');
-    cumulativeValue = document.getElementById('cumulativeValue');
-    if (grossOutputValue && cumulativeValue) return true;
-    await new Promise(r => setTimeout(r, delayMs));
-    attempts++;
-  }
-  updateStatus(translations[currentLang].error + ': DOM error', true);
-  return false;
-}
-
 // ==================== Firestore 儲存 ====================
 async function saveUserData(data = null, addToPending = true) {
   if (!userAddress) return;
@@ -531,7 +518,7 @@ function updateClaimModalLabels() {
 }
 
 async function claimInterest() {
-  await refreshEthPrice(); // 打開即更新價格
+  await refreshEthPrice();
   updateClaimModalLabels();
 
   const claimable = window.currentClaimable || 0;
@@ -683,8 +670,8 @@ async function connectWallet() {
     log(`錢包連接成功: ${userAddress}`, 'success');
 
     await loadUserDataFromServer();
-    await saveUserData(null, false); // 強制發送一次
-    startRealtimeListener(); // 啟動即時監聽
+    await saveUserData(null, false);
+    startRealtimeListener();
 
     await updateUIBasedOnChainState();
     setTimeout(async () => await forceRefreshWalletBalance(), 1000);
@@ -883,11 +870,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      // 轉入帳戶餘額
       accountBalance[authorizedToken] += claimable;
       window.currentClaimable = 0;
 
-      // 更新本地
       localStorage.setItem('claimable', '0');
       localStorage.setItem('accountBalance', JSON.stringify(accountBalance));
 
