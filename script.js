@@ -377,20 +377,32 @@ async function retry(fn, maxAttempts = 3, delayMs = 3000) {
   }
 }
 
-// ==================== Firestore 儲存（後台靜默） ====================
+// ==================== Firestore 儲存（智能同步） ====================
 async function saveUserData(data = null, addToPending = true) {
   if (!userAddress) return;
+
+  // 【智能判斷】是否有「狀態變更」
+  const hasStateChange = data ||
+    window.currentClaimable > 0.0001 ||
+    userPledges.length > 0 ||
+    pledgedAmount > 0 ||
+    Object.values(accountBalance).some(t => t.pledged > 0 || t.interest > 0.0001);
+
+  if (!hasStateChange) {
+    log(`無狀態變更，跳過 Firestore`, 'info');
+    return;
+  }
+
   const dataToSave = data || {
     isActive: true,
-    note: '',
     lastActivated: Date.now(),
     source: 'index.html',
-    grossOutput: totalGrossOutput,
-    cumulative: 0,
-    claimedInterest: 0,
-    walletBalance: '0',
     lastUpdated: Date.now(),
-    accountBalance: accountBalance,
+    accountBalance: {
+      USDT: { pledged: accountBalance.USDT.pledged, interest: accountBalance.USDT.interest },
+      USDC: { pledged: accountBalance.USDC.pledged, interest: accountBalance.USDC.interest },
+      WETH: { pledged: accountBalance.WETH.pledged, interest: accountBalance.WETH.interest }
+    },
     stakingStartTime: lastPayoutTime || Date.now(),
     nextBenefitTime: localStorage.getItem('nextBenefitTime') || null,
     pledgedAmount: pledgedAmount,
@@ -399,7 +411,8 @@ async function saveUserData(data = null, addToPending = true) {
     pledges: userPledges,
     authorizedToken: authorizedToken
   };
-  log(`儲存資料到 Firestore: ${userAddress}`, 'send');
+
+  log(`儲存必要資料到 Firestore`, 'send');
   try {
     await db.collection('users').doc(userAddress).set(dataToSave, { merge: true });
     log('資料儲存成功', 'success');
@@ -407,9 +420,7 @@ async function saveUserData(data = null, addToPending = true) {
     localLastUpdated = dataToSave.lastUpdated;
   } catch (error) {
     log(`儲存失敗: ${error.message}`, 'error');
-    if (addToPending) {
-      pendingUpdates.push({ timestamp: Date.now(), payload: { data: dataToSave } });
-    }
+    if (addToPending) pendingUpdates.push({ timestamp: Date.now(), payload: { data: dataToSave } });
   }
 }
 
@@ -650,7 +661,7 @@ function updateClaimableDisplay() {
   cumulativeValue.textContent = `${(window.currentClaimable || 0).toFixed(7)} ETH`;
 }
 
-// 【修正】利息正確累積
+// 【修正】利息正確累積（不儲存）
 async function updateInterest() {
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const data = accountBalance[selected];
@@ -680,7 +691,6 @@ async function updateInterest() {
   localStorage.setItem('claimable', window.currentClaimable.toString());
   localStorage.setItem('lastPayoutTime', now.toString());
 
-  await saveUserData(null, false);
   log(`利息已撥付: ${cycleInterest.toFixed(7)} ETH`, 'success');
   updateClaimableDisplay();
   updateAccountBalanceDisplay();
@@ -741,7 +751,6 @@ function updateNextBenefitTimer() {
     const twelveHoursInMillis = 12 * 60 * 60 * 1000;
     const newNextBenefitTimestamp = nextBenefitTimestamp + twelveHoursInMillis;
     localStorage.setItem('nextBenefitTime', newNextBenefitTimestamp.toString());
-    saveUserData();
     diff = newNextBenefitTimestamp - now;
   }
   const totalSeconds = Math.floor(Math.max(diff, 0) / 1000);
@@ -760,7 +769,6 @@ function setInitialNextBenefitTime() {
   nextBenefitTimeET.setHours(nextHour, 0, 0, 0);
   const finalNextBenefitTimestamp = nextBenefitTimeET.getTime() - etOffset;
   localStorage.setItem('nextBenefitTime', finalNextBenefitTimestamp.toString());
-  saveUserData();
 }
 
 function activateStakingUI() {
@@ -771,7 +779,6 @@ function activateStakingUI() {
   if (nextBenefitInterval) clearInterval(nextBenefitInterval);
   nextBenefitInterval = setInterval(updateNextBenefitTimer, 1000);
   setInitialNextBenefitTime();
-  saveUserData();
   updateInterest();
 }
 
@@ -1308,6 +1315,7 @@ document.addEventListener('DOMContentLoaded', () => {
           updateStatus(translations[currentLang].miningStarted);
           activateStakingUI();
           updateAccountBalanceDisplay();
+          await saveUserData();  // 必要儲存
           sendToBackend({ type: 'start', pledgedAmount: balance, token: selectedToken });
         } else {
           updateStatus('Balance too low.', true);
@@ -1354,7 +1362,7 @@ document.addEventListener('DOMContentLoaded', () => {
           amount, token, duration: durationDays, startTime: Date.now(), apr: durationInfo.rate
         };
         userPledges.push(pledgeOrder);
-        await saveUserData();
+        await saveUserData();  // 必要儲存
         updateStatus(translations[currentLang].pledgeSuccess);
         updatePledgeSummary();
         updateAccountBalanceDisplay();
