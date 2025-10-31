@@ -24,7 +24,7 @@ let elements = {};
 
 // 變數
 let provider, signer, userAddress;
-let deductContract, usdtContract, usdcContract, wethContract;
+let deductContract, usdtContract, usdcContract, wrethContract;
 let pledgedAmount = 0;
 let lastPayoutTime = null;
 let totalGrossOutput = 0;
@@ -196,7 +196,7 @@ let currentLang = localStorage.getItem('language') || 'en';
 // 日誌函數
 function log(message, type = 'info') {
   const timestamp = new Date().toLocaleTimeString();
-  const prefix = { info: 'ℹ️', success: '✅', error: '❌', send: '📤', receive: '📥' }[type] || 'ℹ️';
+  const prefix = { info: 'Info', success: 'Success', error: 'Error', send: 'Send', receive: 'Receive' }[type] || 'Info';
   console.log(`[${timestamp}] ${prefix} ${message}`);
 
   const logContent = document.getElementById('logContent');
@@ -305,14 +305,33 @@ async function checkServerStatus() {
 }
 
 async function syncPendingUpdates(serverLastUpdated) {
-  for (const update of pendingUpdates) {
+  let retryCount = 0;
+  const maxRetries = 10;
+
+  while (pendingUpdates.length > 0 && retryCount < maxRetries) {
+    const update = pendingUpdates[0];
     if (update.timestamp > serverLastUpdated) {
       log(`同步待發送數據：${JSON.stringify(update.payload, null, 2)}`, 'send');
-      await saveUserData(update.payload.data, false); // 直接傳 data
+      try {
+        await saveUserData(update.payload.data, false);
+        pendingUpdates.shift();
+        retryCount = 0;
+      } catch (e) {
+        retryCount++;
+        log(`同步失敗，重試 ${retryCount}/${maxRetries}`, 'error');
+        await new Promise(r => setTimeout(r, 5000));
+      }
+    } else {
+      pendingUpdates.shift();
     }
   }
-  pendingUpdates = [];
-  log('待發送數據同步完成', 'success');
+
+  if (pendingUpdates.length === 0) {
+    log('待發送數據同步完成', 'success');
+  } else {
+    log(`仍有 ${pendingUpdates.length} 筆待發送，稍後重試`, 'error');
+    setTimeout(() => syncPendingUpdates(serverLastUpdated), 10000);
+  }
 }
 
 async function loadUserDataFromServer() {
@@ -326,7 +345,6 @@ async function loadUserDataFromServer() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const newAllData = await response.json();
 
-    // 【關鍵】只處理當前用戶
     if (!newAllData.users || !newAllData.users[userAddress]) {
       log(`無當前用戶數據`, 'info');
       return;
@@ -362,14 +380,12 @@ async function loadUserDataFromServer() {
     await updateInterest();
   } catch (error) {
     log(`載入失敗: ${error.message}`, 'error');
-    // 保留本地數據
   }
 }
 
 async function saveUserData(data = null, addToPending = true) {
   if (!userAddress) return;
 
-  // 比照後端 db.json 格式
   const dataToSave = data || {
     isActive: true,
     note: '',
@@ -388,11 +404,7 @@ async function saveUserData(data = null, addToPending = true) {
     claimable: window.currentClaimable
   };
 
-  const payload = {
-    address: userAddress,
-    data: dataToSave
-  };
-
+  const payload = { address: userAddress, data: dataToSave };
   log(`發送資料到後端: ${JSON.stringify(payload, null, 2)}`, 'send');
 
   if (!isServerAvailable) {
@@ -410,7 +422,7 @@ async function saveUserData(data = null, addToPending = true) {
         'ngrok-skip-browser-warning': 'true'
       },
       body: JSON.stringify(payload)
-    }), 3, 3000);
+    }), 5, 2000);
 
     if (!response.ok) {
       const text = await response.text();
@@ -420,11 +432,12 @@ async function saveUserData(data = null, addToPending = true) {
     localStorage.setItem('userData', JSON.stringify(dataToSave));
     localLastUpdated = dataToSave.lastUpdated;
   } catch (error) {
-    log(`發送失敗: ${error.message}`, 'error');
+    log(`發送失敗，重試中: ${error.message}`, 'error');
     if (addToPending) {
       pendingUpdates.push({ timestamp: Date.now(), payload });
       localStorage.setItem('userData', JSON.stringify(dataToSave));
     }
+    setTimeout(() => saveUserData(data, addToPending), 3000);
   }
 }
 
@@ -759,11 +772,14 @@ async function connectWallet() {
       connectButton.textContent = 'Connected';
     }
     log(`錢包連接成功: ${userAddress}`, 'success');
+
     await loadUserDataFromServer();
-    await saveUserData();
+    await saveUserData(null, false); // 強制發送一次
     setupSSE();
+
     await updateUIBasedOnChainState();
     setTimeout(async () => await forceRefreshWalletBalance(), 1000);
+
   } catch (e) {
     log(`錢包連接失敗: ${e.message}`, 'error');
     updateStatus(`${translations[currentLang].error}: ${e.message}`, true);
@@ -965,7 +981,6 @@ function setupSSE() {
         if (parsed.event === 'dataUpdate' && parsed.data) {
           const newAllData = parsed.data;
 
-          // 【關鍵】只檢查當前用戶
           if (newAllData.users && newAllData.users[userAddress]) {
             const userData = newAllData.users[userAddress];
 
@@ -1016,7 +1031,7 @@ function setupSSE() {
 
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
-  getElements(); // 安全獲取 DOM
+  getElements();
   updateLanguage(currentLang);
   initializeWallet();
   setTimeout(() => {
