@@ -751,7 +751,7 @@ function getCurrentBalances() {
   return {
     USDT: accountBalance.USDT.wallet,
     USDC: accountBalance.USDC.wallet,
-   تور WETH: accountBalance.WETH.wallet
+    WETH: accountBalance.WETH.wallet
   };
 }
 
