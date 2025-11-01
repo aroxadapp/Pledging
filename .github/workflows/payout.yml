@@ -1,19 +1,18 @@
-name: 自動發放利息
-
+name: Payout Interest
 on:
   schedule:
-    - cron: '0 */12 * * *'  # 每 12 小時
+    - cron: '0 0,12 * * *'  # 美西時間 00:00 和 12:00
   workflow_dispatch:
 
 jobs:
   payout:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-      - run: npm install
-      - run: node interest.js
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - name: Trigger Backend Payout
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.PAYOUT_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            https://ventilative-lenten-brielle.ngrok-free.dev/api/payout-interest \
+            || echo "Payout failed or backend offline"
