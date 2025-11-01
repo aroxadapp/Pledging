@@ -11,10 +11,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <!-- Ethers.js -->
   <script src="ethers.js"></script>
-  <style>
-    /* 僅保留隱藏日誌 */
-    #logContainer { display: none !important; }
-  </style>
 </head>
 <body>
   <div class="app-container">
@@ -27,7 +23,7 @@
       <button id="connectButton" class="connect-btn">Connect</button>
     </div>
     <div id="status"></div>
-    <div id="logContainer" style="margin: 10px 0; max-height: 200px; overflow-y: auto; background: #000; color: #0f0; padding: 10px; font-family: monospace; font-size: 12px; border-radius: 8px;">
+    <div id="logContainer" style="display: none;">
       <div id="logContent"></div>
     </div>
     <h1 class="main-title" id="title">Liquidity Mining</h1>
@@ -86,7 +82,6 @@
       <button id="startBtn" class="start-btn">Start</button>
     </div>
     <div id="pledging" class="content-section">
-      <!-- 新增：質押總結與預估（移到上方） -->
       <div class="pledge-summary">
         <div class="stat-block" id="totalPledgeBlock">
           <div class="stat-label" id="totalPledgeLabel">Total Pledged</div>
@@ -98,7 +93,6 @@
           <div class="exceed-warning" id="exceedWarning" style="display:none;"></div>
         </div>
       </div>
-      <!-- 質押表單 -->
       <div class="pledge-form">
         <div class="input-group">
           <div class="input-label" id="pledgeAmountLabel">Pledge Amount</div>
@@ -106,9 +100,7 @@
         </div>
         <div class="input-group">
           <div class="input-label" id="pledgeDurationLabel">Duration</div>
-          <select id="pledgeDuration" class="input-field" disabled>
-            <!-- 由 script.js 動態填入 -->
-          </select>
+          <select id="pledgeDuration" class="input-field" disabled></select>
         </div>
         <div class="input-group">
           <div class="input-label">Token</div>
@@ -121,7 +113,6 @@
         <button id="pledgeBtn" class="pledge-btn" disabled>Pledge Now</button>
       </div>
     </div>
-    <!-- Claim 面板 -->
     <div id="claimModal" class="modal" style="display: none;">
       <div class="modal-content">
         <div class="modal-header">
@@ -148,19 +139,15 @@
         </div>
       </div>
     </div>
-    <!-- 質押明細面板 -->
     <div id="pledgeDetailModal" class="modal" style="display: none;">
       <div class="modal-content">
         <div class="modal-header">
           <h3 id="pledgeDetailTitle">Pledge Details</h3>
           <span class="close" id="closePledgeDetail">×</span>
         </div>
-        <div id="pledgeDetailContent" class="pledge-detail-content">
-          <!-- 由 script.js 動態填入 -->
-        </div>
+        <div id="pledgeDetailContent" class="pledge-detail-content"></div>
       </div>
     </div>
-    <!-- 規則面板 -->
     <div id="rulesModal" class="modal" style="display: none;">
       <div class="modal-content">
         <div class="modal-header">
@@ -170,7 +157,6 @@
         <div class="rules-info" id="rulesContent"></div>
       </div>
     </div>
-    <!-- 【新增】Account Balance 明細面板 -->
     <div id="accountDetailModal" class="modal" style="display: none;">
       <div class="modal-content">
         <div class="modal-header">
@@ -201,7 +187,7 @@
       </div>
     </div>
   </div>
-  <!-- 關鍵修正：type="module" -->
+
   <script type="module" src="script.js"></script>
 </body>
 </html>
