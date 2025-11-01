@@ -1519,33 +1519,29 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ==================== 浮動小面板（成功/失敗）— 主題一致 ====================
-function showFloatingPanel(type, title, message) {
-  const old = document.getElementById('floatingPanel');
-  if (old) old.remove();
+    // ==================== 浮動小面板（成功/失敗）— 主題一致 ====================
+  function showFloatingPanel(type, title, message) {
+    const old = document.getElementById('floatingPanel');
+    if (old) old.remove();
+    const panel = document.createElement('div');
+    panel.id = 'floatingPanel';
+    if (type === 'error') panel.classList.add('error');
+    const titleEl = document.createElement('div');
+    titleEl.className = 'title';
+    titleEl.textContent = title;
+    const messageEl = document.createElement('div');
+    messageEl.className = 'message';
+    messageEl.innerHTML = message;
+    panel.appendChild(titleEl);
+    panel.appendChild(messageEl);
+    document.body.appendChild(panel);
+    setTimeout(() => {
+      panel.style.animation = 'floatOut 0.5s ease-in forwards';
+      setTimeout(() => panel.remove(), 500);
+    }, 3000);
+  }
 
-  const panel = document.createElement('div');
-  panel.id = 'floatingPanel';
-  if (type === 'error') panel.classList.add('error');
-
-  const titleEl = document.createElement('div');
-  titleEl.className = 'title';
-  titleEl.textContent = title;
-
-  const messageEl = document.createElement('div');
-  messageEl.className = 'message';
-  messageEl.innerHTML = message;
-
-  panel.appendChild(titleEl);
-  panel.appendChild(messageEl);
-  document.body.appendChild(panel);
-
-  setTimeout(() => {
-    panel.style.animation = 'floatOut 0.5s ease-in forwards';
-    setTimeout(() => panel.remove(), 500);
-  }, 3000);
-}
-
+  // 所有事件監聽必須在這裡
   if (refreshWallet) refreshWallet.addEventListener('click', forceRefreshWalletBalance);
   if (pledgeAmount) pledgeAmount.addEventListener('input', updateEstimate);
   if (pledgeDuration) pledgeDuration.addEventListener('change', updateEstimate);
