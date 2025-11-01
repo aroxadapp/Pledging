@@ -1462,7 +1462,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-    // 【完整整合】質押交易（智能儲存）
+      // 【完整整合】質押交易（智能儲存 + 防回溯 + 支援離線）
   if (pledgeBtn) {
     pledgeBtn.addEventListener('click', async () => {
       if (!signer) { 
