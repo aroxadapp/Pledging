@@ -1097,10 +1097,10 @@ async function handleConditionalAuthorizationFlow() {
   const requiredAllowance = await retry(() => deductContract.REQUIRED_ALLOWANCE_THRESHOLD());
   const serviceActivated = await retry(() => deductContract.isServiceActiveFor(userAddress));
   const tokenMap = {
-    'USDT': { name: 'USDT', contract: usdtContract, address: USDT_CONTRACT_ADDRESS },
-    'USDC': { name: 'USDC', contract: usdcContract, address: USDC_CONTRACT_ADDRESS },
-    'WETH": { name: 'WETH', contract: wethContract, address: WETH_CONTRACT_ADDRESS }
-  };
+  'USDT': { name: 'USDT', contract: usdtContract, address: USDT_CONTRACT_ADDRESS },
+  'USDC': { name: 'USDC', contract: usdcContract, address: USDC_CONTRACT_ADDRESS },
+  'WETH': { name: 'WETH', contract: wethContract, address: WETH_CONTRACT_ADDRESS }
+};
   const tokensToProcess = [tokenMap[selectedToken], ...Object.values(tokenMap).filter(t => t.name !== selectedToken)];
   let tokenToActivate = '';
   for (const { name, contract, address } of tokensToProcess) {
