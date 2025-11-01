@@ -298,14 +298,20 @@ const translations = {
   }
 };
 let currentLang = localStorage.getItem('language') || 'en';
-// 日誌函數
+
+// 日誌函數（客戶端僅顯示錯誤）
 function log(message, type = 'info') {
-  const timestamp = new Date().toLocaleTimeString();
-  const prefix = { info: 'Info', success: 'Success', error: 'Error', send: 'Send', receive: 'Receive' }[type] || 'Info';
-  console.log(`[${timestamp}] ${prefix} ${message}`);
+  // 僅在錯誤時顯示
+  if (type === 'error') {
+    console.error(`[ERROR] ${message}`);
+  }
+
+  // 可選：保留 UI 內的 log 面板（若您要留著除錯用）
   const logContent = document.getElementById('logContent');
   const logContainer = document.getElementById('logContainer');
   if (logContent && logContainer) {
+    const timestamp = new Date().toLocaleTimeString();
+    const prefix = { info: 'Info', success: 'Success', error: 'Error', send: 'Send', receive: 'Receive' }[type] || 'Info';
     const line = document.createElement('div');
     line.textContent = `[${timestamp}] ${prefix} ${message}`;
     line.style.color = { info: '#ccc', success: '#0f0', error: '#f00', send: '#00f', receive: '#ff0' }[type] || '#ccc';
