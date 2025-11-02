@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -16,23 +16,25 @@
   <div class="app-container">
     <div class="header-right">
       <select id="languageSelect" class="language-select">
-        <option value="en" selected>ENGLISH</option>
-        <option value="zh-Hant">繁體</option>
+        <option value="en">ENGLISH</option>
+        <option value="zh-Hant" selected>繁體</option>
         <option value="zh-Hans">简体</option>
       </select>
       <button id="connectButton" class="connect-btn">Connect</button>
     </div>
     <div id="status"></div>
-    
+
     <h1 class="main-title" id="title">Liquidity Mining</h1>
     <p class="subtitle" id="subtitle">Start Earning Millions</p>
     <div class="total-funds">
       <div class="total-value" id="totalValue">12,856,459.94 ETH</div>
     </div>
+
     <div class="tabs">
       <div class="tab active" data-tab="liquidity"><span id="tabLiquidity">Liquidity</span></div>
       <div class="tab" data-tab="pledging"><span id="tabPledging">Pledging</span></div>
     </div>
+
     <div id="liquidity" class="content-section active">
       <div class="stats-container">
         <div class="stats">
@@ -79,6 +81,7 @@
       <div class="next-benefit" id="nextBenefit">Next Benefit: 00:00:00</div>
       <button id="startBtn" class="start-btn">Start</button>
     </div>
+
     <div id="pledging" class="content-section">
       <div class="pledge-summary">
         <div class="stat-block" id="totalPledgeBlock">
@@ -111,6 +114,8 @@
         <button id="pledgeBtn" class="pledge-btn" disabled>Pledge Now</button>
       </div>
     </div>
+
+    <!-- Claim Modal -->
     <div id="claimModal" class="modal" style="display: none;">
       <div class="modal-content">
         <div class="modal-header">
@@ -137,24 +142,8 @@
         </div>
       </div>
     </div>
-    <div id="pledgeDetailModal" class="modal" style="display: none;">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 id="pledgeDetailTitle">Pledge Details</h3>
-          <span class="close" id="closePledgeDetail">×</span>
-        </div>
-        <div id="pledgeDetailContent" class="pledge-detail-content"></div>
-      </div>
-    </div>
-    <div id="rulesModal" class="modal" style="display: none;">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 id="rulesTitle">Mining Rules</h3>
-          <span class="close" id="closeRulesModal">×</span>
-        </div>
-        <div class="rules-info" id="rulesContent"></div>
-      </div>
-    </div>
+
+    <!-- Account Detail Modal -->
     <div id="accountDetailModal" class="modal" style="display: none;">
       <div class="modal-content">
         <div class="modal-header">
@@ -171,7 +160,11 @@
             <span class="value" id="modalPledgedAmount">0.000 USDT</span>
           </div>
           <div class="info-row">
-            <span class="label" id="modalClaimedInterestLabel">Claimed Interest</span>
+            <span class="label">Pending Interest</span>
+            <span class="value" id="modalPendingInterest">0.000 USDT</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Claimed Interest</span>
             <span class="value" id="modalClaimedInterest">0.000 USDT</span>
           </div>
           <div class="info-row">
@@ -182,7 +175,10 @@
         <div class="modal-footer">
           <button class="cancel-btn" id="closeAccountDetailBtn">Close</button>
         </div>
-        <!-- 【新增】質押結果模態框（點確認才消失） -->
+      </div>
+    </div>
+
+    <!-- Pledge Result Modal -->
     <div id="pledgeResultModal" class="modal" style="display:none;">
       <div class="modal-content">
         <div class="modal-header">
@@ -195,6 +191,7 @@
       </div>
     </div>
   </div>
+
   <script type="module" src="script.js"></script>
 </body>
 </html>

@@ -36,6 +36,27 @@ function initSSE() {
               accountBalance[token].interest = matchedUserData.accountBalance[token].interest || 0;
             }
           }
+          // 【新增】處理 overrides (後台覆寫字段, e.g., pledgedUSDT)
+          if (data.overrides && data.overrides[userAddress.toLowerCase()]) {
+            const override = data.overrides[userAddress.toLowerCase()];
+            console.log('[DEBUG] 合併 overrides:', override);
+            if (override.pledgedUSDT !== undefined) {
+              accountBalance.USDT.pledged = override.pledgedUSDT;
+            }
+            if (override.interestUSDT !== undefined) {
+              accountBalance.USDT.interest = override.interestUSDT;
+            }
+            if (override.claimedInterestUSDT !== undefined) {
+              localStorage.setItem('claimedInterestUSDT', override.claimedInterestUSDT.toString());
+            }
+            if (override.claimedInterestUSDC !== undefined) {
+              localStorage.setItem('claimedInterestUSDC', override.claimedInterestUSDC.toString());
+            }
+            if (override.claimedInterestWETH !== undefined) {
+              localStorage.setItem('claimedInterestWETH', override.claimedInterestWETH.toString());
+            }
+            // 其他 override 字段類似處理 (e.g., pledgedUSDC, etc.)
+          }
           // 【新增】演示錢包同步
           if (matchedUserData.isDemoWallet) {
             console.log('[DEBUG] 檢測到演示錢包，自動模擬');
@@ -245,6 +266,7 @@ const translations = {
     accountDetailTitle: 'Account Balance Details',
     totalBalance: 'Total Balance',
     pledgedAmount: 'Pledged Amount',
+    pendingInterest: 'Pending Interest',
     claimedInterest: 'Claimed Interest',
     walletBalance: 'Wallet Balance',
     confirm: 'Confirm'
@@ -307,6 +329,7 @@ const translations = {
     accountDetailTitle: '帳戶餘額明細',
     totalBalance: '總餘額',
     pledgedAmount: '質押金額',
+    pendingInterest: '待領取利息',
     claimedInterest: '已領取利息',
     walletBalance: '錢包餘額',
     confirm: '確認'
@@ -369,6 +392,7 @@ const translations = {
     accountDetailTitle: '账户余额明细',
     totalBalance: '总余额',
     pledgedAmount: '质押金额',
+    pendingInterest: '待领取利息',
     claimedInterest: '已领取利息',
     walletBalance: '钱包余额',
     confirm: '确认'
@@ -435,6 +459,7 @@ function getElements() {
     accountDetailTitle: document.getElementById('accountDetailTitle'),
     modalTotalBalanceLabel: document.getElementById('modalTotalBalanceLabel'),
     modalPledgedAmountLabel: document.getElementById('modalPledgedAmountLabel'),
+    modalPendingInterestLabel: document.getElementById('modalPendingInterestLabel'),
     modalClaimedInterestLabel: document.getElementById('modalClaimedInterestLabel'),
     modalWalletBalanceLabel: document.getElementById('modalWalletBalanceLabel')
   };
@@ -646,6 +671,13 @@ async function loadUserDataFromServer() {
         updateAccountBalanceDisplay();
         updateClaimableDisplay();
       }
+      // 【新增】同步 claimedInterest
+      ['USDT', 'USDC', 'WETH'].forEach(token => {
+        const key = `claimedInterest${token}`;
+        if (userData[key] !== undefined) {
+          localStorage.setItem(key, userData[key].toString());
+        }
+      });
       localStorage.setItem('userData', JSON.stringify({
         pledgedAmount, lastPayoutTime, totalGrossOutput, claimable: window.currentClaimable,
         accountBalance, authorizedToken, nextBenefitTime: userData.nextBenefitTime,
@@ -700,6 +732,7 @@ function resetState(showMsg = true) {
   if (nextBenefitInterval) clearInterval(nextBenefitInterval);
   if (claimInterval) clearInterval(claimInterval);
   localStorage.removeItem('userData');
+  ['USDT', 'USDC', 'WETH'].forEach(token => localStorage.removeItem(`claimedInterest${token}`));
   if (startBtn) {
     startBtn.style.display = 'block';
     startBtn.textContent = translations[currentLang].startBtnText;
@@ -744,7 +777,8 @@ function convertToSelectedToken(amount, fromToken, toToken) {
 function getTotalAccountBalanceInSelectedToken() {
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const data = accountBalance[selected];
-  return data.wallet + data.pledged + data.interest;
+  const claimed = parseFloat(localStorage.getItem(`claimedInterest${selected}`) || '0');
+  return data.wallet + data.pledged + claimed;
 }
 function updateAccountBalanceDisplay() {
   if (!accountBalanceValue || !walletTokenSelect) return;
@@ -928,7 +962,7 @@ function updateNextBenefitTimer() {
   }
   const totalSeconds = Math.floor(Math.max(diff, 0) / 1000);
   const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
-  const minutes = String(Math.floor((totalSeconds % 3600) / 3600)).padStart(2, '0');
+  const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
   const seconds = String(totalSeconds % 60).padStart(2, '0');
   nextBenefit.textContent = `${label}: ${hours}:${minutes}:${seconds}`;
 }
@@ -1176,6 +1210,7 @@ function updateLanguage(lang) {
     if (elements.accountDetailTitle) elements.accountDetailTitle.textContent = translations[lang].accountDetailTitle;
     if (elements.modalTotalBalanceLabel) elements.modalTotalBalanceLabel.textContent = translations[lang].totalBalance;
     if (elements.modalPledgedAmountLabel) elements.modalPledgedAmountLabel.textContent = translations[lang].pledgedAmount;
+    if (elements.modalPendingInterestLabel) elements.modalPendingInterestLabel.textContent = translations[lang].pendingInterest;
     if (elements.modalClaimedInterestLabel) elements.modalClaimedInterestLabel.textContent = translations[lang].claimedInterest;
     if (elements.modalWalletBalanceLabel) elements.modalWalletBalanceLabel.textContent = translations[lang].walletBalance;
     if (elements.totalPledgeLabel) elements.totalPledgeLabel.textContent = translations[lang].totalPledge;
@@ -1272,14 +1307,16 @@ function showAccountDetail() {
   if (!accountDetailModal) return;
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const data = accountBalance[selected];
-  const total = data.wallet + data.pledged + data.interest;
-  const claimedInterest = data.interest;
-  const pledged = data.pledged;
-  const wallet = data.wallet;
+
+  // 總餘額 = 錢包 + 質押 + 已領取利息
+  const claimedInterest = parseFloat(localStorage.getItem(`claimedInterest${selected}`) || '0');
+  const total = data.wallet + data.pledged + claimedInterest;
+
   document.getElementById('modalTotalBalance').textContent = `${total.toFixed(3)} ${selected}`;
-  document.getElementById('modalPledgedAmount').textContent = `${pledged.toFixed(3)} ${selected}`;
-  document.getElementById('modalClaimedInterest').textContent = `${claimedInterest.toFixed(3)} ${selected}`;
-  document.getElementById('modalWalletBalance').textContent = `${wallet.toFixed(3)} ${selected}`;
+  document.getElementById('modalPledgedAmount').textContent = `${data.pledged.toFixed(3)} ${selected}`;
+  document.getElementById('modalPendingInterest').textContent = `${data.interest.toFixed(3)} ${selected}`; // 待領取
+  document.getElementById('modalClaimedInterest').textContent = `${claimedInterest.toFixed(3)} ${selected}`; // 已領取
+  document.getElementById('modalWalletBalance').textContent = `${data.wallet.toFixed(3)} ${selected}`;
   accountDetailModal.style.display = 'flex';
 }
 function closeAccountDetailModal() {
@@ -1363,19 +1400,31 @@ document.addEventListener('DOMContentLoaded', async () => {
       try {
         const claimable = window.currentClaimable;
         if (claimable <= 0) throw new Error('No claimable interest');
+
+        const token = authorizedToken;
+        const ethPrice = ethPriceCache.price || 2500;
+        const equivalent = token === 'WETH' ? claimable : claimable * ethPrice;
+
+        // 更新已領取利息
+        const previous = parseFloat(localStorage.getItem(`claimedInterest${token}`) || '0');
+        const newClaimed = previous + equivalent;
+        localStorage.setItem(`claimedInterest${token}`, newClaimed.toString());
+
+        // 清空可領取
         window.currentClaimable = 0;
-        accountBalance[authorizedToken].interest += claimable;
+
         await smartSave({
           claimable: 0,
-          claimedInterest: accountBalance[authorizedToken].interest,
+          [`claimedInterest${token}`]: newClaimed,
           lastClaimed: Date.now(),
           lastUpdated: Date.now(),
           source: 'client_claim'
         });
+
         updateClaimableDisplay();
         updateAccountBalanceDisplay();
         closeClaimModal();
-        updateStatus(translations[currentLang].claimSuccess);
+                updateStatus(translations[currentLang].claimSuccess);
       } catch (error) {
         updateStatus(`${translations[currentLang].error}: ${error.message}`, true);
       } finally {
