@@ -996,9 +996,10 @@ async function connectWallet() {
 async function updateUIBasedOnChainState() {
   if (!userAddress) return;
   try {
-    // 【關鍵】演示錢包跳過鏈上檢查
-    const snap = await db.collection('users').doc(userAddress).get();
-    if (snap.exists() && snap.data().isDemoWallet) {
+    // 【關鍵修正】Firebase Compat SDK 相容
+    const docRef = db.collection('users').doc(userAddress);
+    const snap = await docRef.get();
+    if (snap.exists && snap.data()?.isDemoWallet) {
       if (startBtn) startBtn.style.display = 'none';
       disableInteractiveElements(false);
       updateStatus("演示模式：已自動啟動");
@@ -1554,7 +1555,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             clearInterval(pollInterval);
           }
         }, 3000);
-    }})();
+      }
+    })();
   }
 });
 // 自動餘額監控（每 10 秒）
