@@ -182,10 +182,19 @@
         <div class="modal-footer">
           <button class="cancel-btn" id="closeAccountDetailBtn">Close</button>
         </div>
+        <!-- 【新增】質押結果模態框（點確認才消失） -->
+    <div id="pledgeResultModal" class="modal" style="display:none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="pledgeResultTitle" style="margin:0; color:#00ff00;"></h3>
+        </div>
+        <div id="pledgeResultMessage" style="color:white; margin:15px 0; line-height:1.6; text-align:center;"></div>
+        <div class="modal-footer">
+          <button id="pledgeResultConfirm" class="confirm-btn">確認</button>
+        </div>
       </div>
     </div>
   </div>
-
   <script type="module" src="script.js"></script>
 </body>
 </html>

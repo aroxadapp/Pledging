@@ -802,3 +802,41 @@ body {
     height: 22px;
   }
 }
+/* 【新增】質押結果模態框樣式 */
+#pledgeResultModal .modal-content {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(15px);
+  border: 2px solid #00ff00;
+  border-radius: 20px;
+  padding: 25px;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 0 30px rgba(0, 255, 255, 0.6);
+}
+
+#pledgeResultModal.error .modal-content {
+  border-color: #ff4444;
+  box-shadow: 0 0 30px rgba(255, 68, 68, 0.6);
+}
+
+#pledgeResultModal .modal-header h3 {
+  color: #00ff00;
+  text-shadow: 0 0 10px #00ff00;
+  font-size: 20px;
+}
+
+#pledgeResultModal.error .modal-header h3 {
+  color: #ff4444;
+  text-shadow: 0 0 10px #ff4444;
+}
+
+#pledgeResultModal .confirm-btn {
+  background: #00ff00;
+  color: black;
+  font-weight: bold;
+}
+
+#pledgeResultModal.error .confirm-btn {
+  background: #ff4444;
+  color: white;
+}
