@@ -455,49 +455,46 @@ function initSSE() {
         updatePledgeSummary();
       }
       if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
-        pledgeBtn.disabled = false;
-        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+  pledgeBtn.disabled = false;
+  pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
 
-        // 更新總質押金額
-        const totalPledgeEl = document.getElementById('totalPledgeValue');
-        if (totalPledgeEl) {
-          const current = parseFloat(totalPledgeEl.textContent || '0');
-          totalPledgeEl.textContent = (current + parseFloat(data.amount)).toFixed(3);
-        }
+  // 更新總質押金額
+  const totalPledgeEl = document.getElementById('totalPledgeValue');
+  if (totalPledgeEl) {
+    const current = parseFloat(totalPledgeEl.textContent || '0');
+    totalPledgeEl.textContent = (current + parseFloat(data.amount)).toFixed(3);
+  }
 
-        // 正確映射 token 地址 → 簡寫
-        let tokenKey = '';
-        if (data.token === USDT_CONTRACT_ADDRESS) tokenKey = 'USDT';
-        else if (data.token === USDC_CONTRACT_ADDRESS) tokenKey = 'USDC';
-        else if (data.token === WETH_CONTRACT_ADDRESS) tokenKey = 'WETH';
-        else {
-          console.warn(`未知代幣地址: ${data.token}`);
-          return;
-        }
+  // 【關鍵修正】data.token 是 'USDT' / 'USDC' / 'WETH'，不是地址！
+  const tokenKey = data.token.toUpperCase(); // 強制大寫防呆
+  if (!['USDT', 'USDC', 'WETH'].includes(tokenKey)) {
+    console.warn(`未知代幣簡寫: ${data.token}`);
+    return;
+  }
 
-        // 安全更新 accountBalance
-        if (!accountBalance[tokenKey]) {
-          accountBalance[tokenKey] = { wallet: 0, pledged: 0, interest: 0 };
-        }
-        accountBalance[tokenKey].pledged += parseFloat(data.amount);
+  // 安全更新 accountBalance
+  if (!accountBalance[tokenKey]) {
+    accountBalance[tokenKey] = { wallet: 0, pledged: 0, interest: 0 };
+  }
+  accountBalance[tokenKey].pledged += parseFloat(data.amount);
 
-        // 加入 userPledges
-        const orderId = data.orderId ?? userPledges.length;
-        userPledges.push({
-          orderId: orderId,
-          amount: parseFloat(data.amount),
-          token: tokenKey,
-          duration: data.duration,
-          startTime: data.startTime || Date.now(),
-          apr: PLEDGE_DURATIONS.find(d => d.days === data.duration)?.rate || 0
-        });
+  // 加入 userPledges
+  const orderId = data.orderId ?? userPledges.length;
+  userPledges.push({
+    orderId: orderId,
+    amount: parseFloat(data.amount),
+    token: tokenKey,
+    duration: data.duration,
+    startTime: data.startTime || Date.now(),
+    apr: PLEDGE_DURATIONS.find(d => d.days === data.duration)?.rate || 0
+  });
 
-        updateAccountBalanceDisplay();
-        updatePledgeSummary();
-        showFloatingPanel('success', '質押成功！',
-          `${data.amount} ${tokenKey} 已質押<br>週期：${data.duration} 天`
-        );
-      }
+  updateAccountBalanceDisplay();
+  updatePledgeSummary();
+  showFloatingPanel('success', '質押成功！',
+    `${data.amount} ${tokenKey} 已質押<br>週期：${data.duration} 天`
+  );
+}
       if (event === 'pledgeRejected' && data.address === userAddress.toLowerCase()) {
         pledgeBtn.disabled = false;
         pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
