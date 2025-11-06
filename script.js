@@ -411,6 +411,52 @@ function updateStatus(message, isWarning = false) {
   statusDiv.style.color = isWarning ? '#FFD700' : '#00ffff';
   statusDiv.style.textShadow = isWarning ? '0 0 5px #FFD700' : '0 0 5px #00ffff';
 }
+// ==================== 重置狀態 (提前定義) ====================
+function resetState(showMsg = true) {
+  signer = userAddress = null;
+  window.currentClaimable = 0;
+  totalGrossOutput = 0;
+  for (const token in accountBalance) {
+    accountBalance[token].wallet = 0;
+    accountBalance[token].pledged = 0;
+    accountBalance[token].interest = 0;
+  }
+  authorizedToken = 'USDT';
+  currentCycleInterest = 0;
+  userPledges = [];
+  window.isDemoMode = false;
+  if (interestInterval) clearInterval(interestInterval);
+  if (nextBenefitInterval) clearInterval(nextBenefitInterval);
+  if (claimInterval) clearInterval(claimInterval);
+  localStorage.removeItem('userData');
+  if (startBtn) {
+    startBtn.style.display = 'block';
+    startBtn.textContent = translations[currentLang].startBtnText;
+  }
+  if (connectButton) {
+    connectButton.classList.remove('connected');
+    connectButton.textContent = 'Connect Wallet';
+  }
+  disableInteractiveElements(true);
+  if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
+  if (walletTokenSelect) walletTokenSelect.value = 'USDT';
+  if (accountBalanceValue) accountBalanceValue.textContent = '0.000 USDT';
+  if (grossOutputValue) grossOutputValue.textContent = '0 ETH';
+  if (cumulativeValue) cumulativeValue.textContent = '0 ETH';
+  if (elements.totalPledge) elements.totalPledge.textContent = '0.000';
+  if (elements.estimate) elements.estimate.textContent = '0.000';
+  if (elements.exceedWarning) elements.exceedWarning.style.display = 'none';
+  if (showMsg) updateStatus(translations[currentLang].noWallet, true);
+}
+// ==================== 禁用互動元素 (提前定義) ====================
+function disableInteractiveElements(disable = false) {
+  if (startBtn) startBtn.disabled = disable;
+  if (pledgeBtn) pledgeBtn.disabled = disable;
+  if (pledgeAmount) pledgeAmount.disabled = disable;
+  if (pledgeDuration) pledgeDuration.disabled = disable;
+  if (pledgeToken) pledgeToken.disabled = disable;
+  if (refreshWallet) refreshWallet.style.opacity = disable ? '0.5' : '1';
+}
 // 安全獲取 DOM 元素
 function getElements() {
   connectButton = document.getElementById('connectButton');
