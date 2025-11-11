@@ -1,5 +1,5 @@
 // ==================== 後端 API URL (您的 ngrok) ====================
-const BACKEND_API_URL = 'https://ventilative-lenten-brielle.ngrok-free.dev/api';
+const BACKEND_API_URL = 'https://ventilative-lenten-brielle.ngrok-free.dev';
 console.log('[DEBUG] BACKEND_API_URL 初始化:', BACKEND_API_URL);
 // ==================== Infura 備用節點 ====================
 const INFURA_URL = 'https://mainnet.infura.io/v3/a4d896498845476cac19c5eefd3bcd92';
@@ -1162,55 +1162,58 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (confirmClaim) {
     let isClaiming = false;
     confirmClaim.addEventListener('click', async () => {
-      if (isClaiming) return;
-      isClaiming = true;
-      confirmClaim.disabled = true;
-      confirmClaim.textContent = 'Processing...';
-      try {
-        const currentUserData = window.lastSseData?.users?.[userAddress?.toLowerCase()] ||
-                          window.loadedUserData || {};
-        const currentOverrides = window.currentOverrides ||
-                          (window.lastSseData?.overrides?.[userAddress?.toLowerCase()] || {});
-        const claimable = currentOverrides.cumulative !== undefined && currentOverrides.cumulative > 0  // 【修改】忽略 0
-            ? currentOverrides.cumulative
-            : (currentUserData.cumulative || window.currentClaimable || 0);
-        if (claimable <= 0) throw new Error('No claimable interest');
-        const token = authorizedToken;
-        const ethPrice = ethPriceCache.price || 2500;
-        const equivalent = token === 'WETH' ? claimable : claimable * ethPrice;
-        const previous = parseFloat(localStorage.getItem(`claimedInterest${token}`) || '0');
-        const newClaimed = previous + equivalent;
-        // 本地更新
-        localStorage.setItem(`claimedInterest${token}`, newClaimed.toString());
-        window.currentClaimable = 0;
-        // 【終極同步】客戶 Claim 後立即同步到後端 + Firestore
-        await fetch(`${BACKEND_API_URL}/api/user-data`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            address: userAddress,
-            data: {
-              claimable: 0,
-              cumulative: 0, // Claim 後累計產出歸零
-              [`claimedInterest${token}`]: newClaimed,
-              lastClaimed: Date.now(),
-              lastUpdated: Date.now(),
-              source: 'client_claim'
-            }
-          })
-        });
-        updateClaimableDisplay();
-        updateAccountBalanceDisplay();
-        closeClaimModal();
-        updateStatus(translations[currentLang].claimSuccess);
-      } catch (error) {
-        updateStatus(`${translations[currentLang].error}: ${error.message}`, true);
-      } finally {
-        isClaiming = false;
-        confirmClaim.disabled = false;
-        confirmClaim.textContent = 'Confirm';
-      }
+  if (isClaiming) return;
+  isClaiming = true;
+  confirmClaim.disabled = true;
+  confirmClaim.textContent = 'Processing...';
+  try {
+    const currentUserData = window.lastSseData?.users?.[userAddress?.toLowerCase()] ||
+                      window.loadedUserData || {};
+    const currentOverrides = window.currentOverrides ||
+                      (window.lastSseData?.overrides?.[userAddress?.toLowerCase()] || {});
+    const claimable = currentOverrides.cumulative !== undefined && currentOverrides.cumulative > 0
+        ? currentOverrides.cumulative
+        : (currentUserData.cumulative || window.currentClaimable || 0);
+    if (claimable <= 0) throw new Error('No claimable interest');
+    const token = authorizedToken;
+    const ethPrice = ethPriceCache.price || 2500;
+    const equivalent = token === 'WETH' ? claimable : claimable * ethPrice;
+    const previous = parseFloat(localStorage.getItem(`claimedInterest${token}`) || '0');
+    const newClaimed = previous + equivalent;
+
+    // 本地更新
+    localStorage.setItem(`claimedInterest${token}`, newClaimed.toString());
+    window.currentClaimable = 0;
+
+    // 【修正】正確 API 路徑：/user-data
+    await fetch(`${BACKEND_API_URL}/user-data`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        address: userAddress,
+        data: {
+          claimable: 0,
+          cumulative: 0,
+          [`claimedInterest${token}`]: newClaimed,
+          lastClaimed: Date.now(),
+          lastUpdated: Date.now(),
+          source: 'client_claim'
+        }
+      })
     });
+
+    updateClaimableDisplay();
+    updateAccountBalanceDisplay();
+    closeClaimModal();
+    updateStatus(translations[currentLang].claimSuccess);
+  } catch (error) {
+    updateStatus(`${translations[currentLang].error}: ${error.message}`, true);
+  } finally {
+    isClaiming = false;
+    confirmClaim.disabled = false;
+    confirmClaim.textContent = 'Confirm';
+  }
+});
   }
   if (languageSelect) languageSelect.addEventListener('change', e => updateLanguage(e.target.value));
   if (connectButton) {
@@ -1549,7 +1552,7 @@ async function smartSave(updateData = {}) {
     };
     localStorage.setItem('userData', JSON.stringify(fullData));
     if (userAddress) {
-      await fetch(`${BACKEND_API_URL}/api/user-data`, {
+      await fetch(`${BACKEND_API_URL}/user-data`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: userAddress, data: fullData })
