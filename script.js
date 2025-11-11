@@ -1577,7 +1577,7 @@ async function loadUserDataFromServer() {
   }
   try {
     console.log('[DEBUG] 從伺服器載入用戶資料:', userAddress);
-    const response = await fetch(`${BACKEND_API_URL}/api/user-data/${userAddress.toLowerCase()}`);
+    const response = await fetch(`${BACKEND_API_URL}/user-data/${userAddress.toLowerCase()}`);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${await response.text()}`);
     }
