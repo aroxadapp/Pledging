@@ -1088,18 +1088,20 @@ function showPledgeDetail() {
   pledgeDetailModal.style.display = 'flex';
 }
 
-// ==================== 帳戶明細（已修正語法錯誤的那一行！）================
+// ==================== 帳戶明細（已徹底修正！）================
 function showAccountDetail() {
   if (!accountDetailModal) return;
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const data = accountBalance[selected];
   const claimedInterest = parseFloat(localStorage.getItem(`claimedInterest${selected}`) || '0');
   const total = data.wallet + data.pledged + claimedInterest;
+  
   document.getElementById('modalTotalBalance').textContent = `${total.toFixed(3)} ${selected}`;
   document.getElementById('modalPledgedAmount').textContent = `${data.pledged.toFixed(3)} ${selected}`;
   document.getElementById('modalPendingInterest').textContent = `${data.interest.toFixed(3)} ${selected}`;
   document.getElementById('modalClaimedInterest').textContent = `${claimedInterest.toFixed(3)} ${selected}`;
-  document.getElementById('modalWalletBalance').textContent = `${data.wallet.toFixed(3)} ${selected}`;  // 這行已修正！
+  document.getElementById('modalWalletBalance').textContent = `${data.wallet.toFixed(3)} ${selected}`;
+  
   accountDetailModal.style.display = 'flex';
 }
 
