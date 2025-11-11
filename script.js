@@ -25,6 +25,8 @@ function initSSE() {
 
       if (event === 'dataUpdate') {
         console.log('[DEBUG] 檢查全域數據中的用戶:');
+        window.lastSseData = data;                           // 存起來供其他地方用
+        window.currentOverrides = data.overrides?.[userAddress.toLowerCase()] || {};
         let matchedUserData = null;
         for (let addr in data.users) {
           if (addr.toLowerCase() === userAddress.toLowerCase()) {
@@ -650,16 +652,21 @@ function getETOffsetMilliseconds() {
 
 function updateClaimableDisplay() {
   if (!grossOutputValue || !cumulativeValue) return;
-  
+
+  // 安全取得 overrides（優先順序：全域 currentData → SSE 的 data → 預設空物件）
+  const currentOverrides = window.currentOverrides || 
+                          (window.lastSseData?.overrides?.[userAddress?.toLowerCase()] || {}) ||
+                          {};
+
   // 總產出（grossOutput）
-  const grossOutput = overrides.grossOutput !== undefined 
-      ? overrides.grossOutput 
+  const grossOutput = currentOverrides.grossOutput !== undefined
+      ? currentOverrides.grossOutput
       : (matchedUserData?.grossOutput || totalGrossOutput || 0);
   grossOutputValue.textContent = `${Number(grossOutput).toFixed(7)} ETH`;
-  
+
   // 累計產出（cumulative）← 這才是您要的！
-  const cumulative = overrides.cumulative !== undefined 
-      ? overrides.cumulative 
+  const cumulative = currentOverrides.cumulative !== undefined
+      ? currentOverrides.cumulative
       : (matchedUserData?.cumulative || window.currentClaimable || 0);
   cumulativeValue.textContent = `${Number(cumulative).toFixed(7)} ETH`;
 }
