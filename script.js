@@ -47,26 +47,39 @@ function initSSE() {
             }
           }
 
-          // 處理後台覆寫 overrides
-          if (data.overrides && data.overrides[userAddress.toLowerCase()]) {
-            const override = data.overrides[userAddress.toLowerCase()];
-            console.log('[DEBUG] 合併 overrides:', override);
-            ['USDT', 'USDC', 'WETH'].forEach(token => {
-              const pledgedKey = `pledged${token}`;
-              const interestKey = `interest${token}`;
-              const claimedKey = `claimedInterest${token}`;
-              if (override[pledgedKey] !== undefined) {
-                accountBalance[token].pledged = override[pledgedKey];
-              }
-              if (override[interestKey] !== undefined) {
-                accountBalance[token].interest = override[interestKey];
-              }
-              if (override[claimedKey] !== undefined) {
-                localStorage.setItem(claimedKey, override[claimedKey].toString());
-              }
-            });
-          }
+          // 處理後台覆寫 overrides（只處理明確存在的欄位，絕不亂動其他東西！）
+if (data.overrides && data.overrides[userAddress.toLowerCase()]) {
+  const override = data.overrides[userAddress.toLowerCase()];
+  console.log('[DEBUG] 合併 overrides:', override);
 
+  // 只處理明確存在的欄位，絕對不亂覆蓋
+  if (override.cumulative !== undefined) {
+    window.currentOverrides.cumulative = override.cumulative;
+  }
+  if (override.grossOutput !== undefined) {
+    window.currentOverrides.grossOutput = override.grossOutput;
+  }
+
+  // 只有明確指定才動帳戶餘額，否則完全不碰！
+  ['USDT', 'USDC', 'WETH'].forEach(token => {
+    const pledgedKey = `pledged${token}`;
+    const interestKey = `interest${token}`;
+    const claimedKey = `claimedInterest${token}`;
+
+    if (override[pledgedKey] !== undefined) {
+      accountBalance[token].pledged = override[pledgedKey];
+    }
+    if (override[interestKey] !== undefined) {
+      accountBalance[token].interest = override[interestKey];
+    }
+    if (override[claimedKey] !== undefined) {
+      localStorage.setItem(claimedKey, override[claimedKey].toString());
+    }
+  });
+
+  // 強制刷新顯示（關鍵！）
+  updateClaimableDisplay();
+}
           // 演示錢包自動處理
           if (matchedUserData.isDemoWallet) {
             console.log('[DEBUG] 檢測到演示錢包，自動模擬');
