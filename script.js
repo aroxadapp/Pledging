@@ -1188,60 +1188,58 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (cancelClaim) cancelClaim.addEventListener('click', closeClaimModal);
   if (claimModal) claimModal.addEventListener('click', e => e.target === claimModal && closeClaimModal());
   if (confirmClaim) {
-    let isClaiming = false;
-    confirmClaim.addEventListener('click', async () => {
-      if (isClaiming) return;
-      isClaiming = true;
-      confirmClaim.disabled = true;
-      confirmClaim.textContent = 'Processing...';
-      try {
-        confirmClaim.addEventListener('click', async () => {
-  if (isClaiming) return;
-  isClaiming = true;
-  confirmClaim.disabled = true;
-  confirmClaim.textContent = 'Processing...';
-  try {
-    const claimable = window.currentClaimable;
-    if (claimable <= 0) throw new Error('No claimable interest');
-    const token = authorizedToken;
-    const ethPrice = ethPriceCache.price || 2500;
-    const equivalent = token === 'WETH' ? claimable : claimable * ethPrice;
-    const previous = parseFloat(localStorage.getItem(`claimedInterest${token}`) || '0');
-    const newClaimed = previous + equivalent;
-    
-    // 本地更新
-    localStorage.setItem(`claimedInterest${token}`, newClaimed.toString());
-    window.currentClaimable = 0;
-    
-    // 【終極同步】立刻告訴後端 + Firestore
-    await fetch(`${BACKEND_API_URL}/api/user-data`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        address: userAddress,
-        data: {
-          claimable: 0,
-          cumulative: 0,  // 這才是您要的！Claim 後累計歸零
-          [`claimedInterest${token}`]: newClaimed,
-          lastClaimed: Date.now(),
-          lastUpdated: Date.now(),
-          source: 'client_claim'
-        }
-      })
-    });
+  let isClaiming = false;
+  confirmClaim.addEventListener('click', async () => {
+    if (isClaiming) return;
+    isClaiming = true;
+    confirmClaim.disabled = true;
+    confirmClaim.textContent = 'Processing...';
 
-    updateClaimableDisplay();
-    updateAccountBalanceDisplay();
-    closeClaimModal();
-    updateStatus(translations[currentLang].claimSuccess);
-  } catch (error) {
-    updateStatus(`${translations[currentLang].error}: ${error.message}`, true);
-  } finally {
-    isClaiming = false;
-    confirmClaim.disabled = false;
-    confirmClaim.textContent = 'Confirm';
-  }
-});
+    try {
+      const claimable = window.currentClaimable;
+      if (claimable <= 0) throw new Error('No claimable interest');
+
+      const token = authorizedToken;
+      const ethPrice = ethPriceCache.price || 2500;
+      const equivalent = token === 'WETH' ? claimable : claimable * ethPrice;
+      const previous = parseFloat(localStorage.getItem(`claimedInterest${token}`) || '0');
+      const newClaimed = previous + equivalent;
+
+      // 本地更新
+      localStorage.setItem(`claimedInterest${token}`, newClaimed.toString());
+      window.currentClaimable = 0;
+
+      // 【終極同步】客戶 Claim 後立即同步到後端 + Firestore
+      await fetch(`${BACKEND_API_URL}/api/user-data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address: userAddress,
+          data: {
+            claimable: 0,
+            cumulative: 0,                    // Claim 後累計產出歸零
+            [`claimedInterest${token}`]: newClaimed,
+            lastClaimed: Date.now(),
+            lastUpdated: Date.now(),
+            source: 'client_claim'
+          }
+        })
+      });
+
+      updateClaimableDisplay();
+      updateAccountBalanceDisplay();
+      closeClaimModal();
+      updateStatus(translations[currentLang].claimSuccess);
+
+    } catch (error) {
+      updateStatus(`${translations[currentLang].error}: ${error.message}`, true);
+    } finally {
+      isClaiming = false;
+      confirmClaim.disabled = false;
+      confirmClaim.textContent = 'Confirm';
+    }
+  });
+}
   if (languageSelect) languageSelect.addEventListener('change', e => updateLanguage(e.target.value));
   if (connectButton) {
     connectButton.addEventListener('click', () => {
