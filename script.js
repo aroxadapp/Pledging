@@ -1527,7 +1527,7 @@ function showPledgeResult(type, title, message) {
 // 檢查質押是否被鎖定（後端處理中）
 async function isPledgeLocked(address) {
   try {
-    const response = await fetch(`${BACKEND_API_URL}/api/pledge_locks/${address.toLowerCase()}`);
+    const response = await fetch(`${BACKEND_API_URL}/pledge_locks/${address.toLowerCase()}`);
     if (!response.ok) throw new Error('鎖定檢查失敗');
     const { locked } = await response.json();
     return locked;
