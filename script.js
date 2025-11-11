@@ -679,26 +679,42 @@ async function updateInterest() {
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const data = accountBalance[selected];
   const totalBalance = data.wallet + data.pledged;
+  
+  // 如果後台有強制覆寫 cumulative，就絕對不要再動它！
+  const hasOverride = window.currentOverrides?.cumulative !== undefined ||
+                     (window.lastSseData?.overrides?.[userAddress?.toLowerCase()]?.cumulative !== undefined);
+  
+  if (hasOverride) {
+    // 後台強制指定了數值，我們完全不插手，直接返回
+    return;
+  }
+
   if (totalBalance <= 0) {
     window.currentClaimable = 0;
     updateClaimableDisplay();
     return;
   }
+
   const now = Date.now();
   const etOffset = getETOffsetMilliseconds();
   const nowET = new Date(now + etOffset);
   const isPayoutTime = nowET.getHours() === 0 || nowET.getHours() === 12;
   const isExactMinute = nowET.getMinutes() === 0;
+
+  // 只有在美西時間整點 00 分 00 秒才發放收益
   if (!isPayoutTime || !isExactMinute) return;
+
   const lastPayout = parseInt(localStorage.getItem('lastPayoutTime')) || 0;
   const lastPayoutET = new Date(lastPayout + etOffset);
   const wasPayoutTime = lastPayoutET.getHours() === 0 || lastPayoutET.getHours() === 12;
   if (wasPayoutTime) return;
+
   const cycleInterest = totalBalance * (MONTHLY_RATE / 60);
   window.currentClaimable += cycleInterest;
   totalGrossOutput += cycleInterest;
   localStorage.setItem('claimable', window.currentClaimable.toString());
   localStorage.setItem('lastPayoutTime', now.toString());
+  
   updateClaimableDisplay();
   updateAccountBalanceDisplay();
 }
