@@ -64,6 +64,15 @@ function initSSE() {
                 localStorage.setItem(claimedKey, override[claimedKey].toString());
               }
             });
+
+            // === 強制同步 overrides.claimedInterest* 至 localStorage（防止舊值殘留）===
+  ['USDT', 'USDC', 'WETH'].forEach(token => {
+    const claimedKey = `claimedInterest${token}`;
+    if (override[claimedKey] === 0) {
+      localStorage.setItem(claimedKey, '0');  // 強制歸零
+    }
+  });
+  // === 結束 ===
             // 強制刷新顯示（關鍵！）
             updateClaimableDisplay();
           }
