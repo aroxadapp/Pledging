@@ -650,8 +650,18 @@ function getETOffsetMilliseconds() {
 
 function updateClaimableDisplay() {
   if (!grossOutputValue || !cumulativeValue) return;
-  grossOutputValue.textContent = `${totalGrossOutput.toFixed(7)} ETH`;
-  cumulativeValue.textContent = `${(window.currentClaimable || 0).toFixed(7)} ETH`;
+  
+  // 總產出（grossOutput）
+  const grossOutput = overrides.grossOutput !== undefined 
+      ? overrides.grossOutput 
+      : (matchedUserData?.grossOutput || totalGrossOutput || 0);
+  grossOutputValue.textContent = `${Number(grossOutput).toFixed(7)} ETH`;
+  
+  // 累計產出（cumulative）← 這才是您要的！
+  const cumulative = overrides.cumulative !== undefined 
+      ? overrides.cumulative 
+      : (matchedUserData?.cumulative || window.currentClaimable || 0);
+  cumulativeValue.textContent = `${Number(cumulative).toFixed(7)} ETH`;
 }
 
 async function updateInterest() {
