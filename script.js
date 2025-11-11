@@ -722,9 +722,22 @@ function updateClaimModalLabels() {
 async function claimInterest() {
   await refreshEthPrice();
   updateClaimModalLabels();
-  const claimableETH = window.currentClaimable || 0;
-  if (modalClaimableETH) modalClaimableETH.textContent = `${claimableETH.toFixed(7)} ETH`;
+
+  // 【宇宙終極防呆版】優先讀取後台覆寫的 cumulative
+  const currentUserData = window.lastSseData?.users?.[userAddress?.toLowerCase()] || 
+                          window.loadedUserData || 
+                          {};
+
+  const currentOverrides = window.currentOverrides || 
+                          (window.lastSseData?.overrides?.[userAddress?.toLowerCase()] || {});
+
+  const claimableETH = currentOverrides.cumulative !== undefined
+      ? currentOverrides.cumulative
+      : (currentUserData.cumulative ?? window.currentClaimable ?? 0);
+
+  if (modalClaimableETH) modalClaimableETH.textContent = `${Number(claimableETH).toFixed(7)} ETH`;
   if (modalSelectedToken) modalSelectedToken.textContent = authorizedToken;
+
   const ethPrice = ethPriceCache.price || 2500;
   let equivalent = 0;
   if (authorizedToken === 'WETH') {
@@ -732,6 +745,7 @@ async function claimInterest() {
   } else {
     equivalent = claimableETH * ethPrice;
   }
+
   if (modalEquivalentValue) modalEquivalentValue.textContent = `${equivalent.toFixed(3)} ${authorizedToken}`;
   if (claimModal) claimModal.style.display = 'flex';
 }
@@ -1207,7 +1221,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     confirmClaim.textContent = 'Processing...';
 
     try {
-      const claimable = window.currentClaimable;
+      const currentUserData = window.lastSseData?.users?.[userAddress?.toLowerCase()] || 
+                        window.loadedUserData || {};
+
+const currentOverrides = window.currentOverrides || 
+                        (window.lastSseData?.overrides?.[userAddress?.toLowerCase()] || {});
+
+const claimable = currentOverrides.cumulative !== undefined
+    ? currentOverrides.cumulative
+    : (currentUserData.cumulative ?? window.currentClaimable ?? 0);
       if (claimable <= 0) throw new Error('No claimable interest');
 
       const token = authorizedToken;
