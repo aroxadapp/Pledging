@@ -8,7 +8,7 @@ let eventSource;
 function initSSE() {
   console.log('[DEBUG] 初始化 SSE 連線...');
   if (eventSource) eventSource.close();
-  eventSource = new EventSource(`${BACKEND_API_URL}/sse`);
+  eventSource = new EventSource(`${BACKEND_API_URL}/api/sse`);
   eventSource.onopen = () => {
     console.log('[DEBUG] SSE 連線成功');
   };
@@ -1186,7 +1186,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.currentClaimable = 0;
 
     // 【修正】正確 API 路徑：/user-data
-    await fetch(`${BACKEND_API_URL}/user-data`, {
+    await fetch(`${BACKEND_API_URL}/api/user-data`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1361,7 +1361,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       updateStatus('Sending pledge request to backend...');
       try {
-        const response = await fetch(`${BACKEND_API_URL}/pledge`, {
+        const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1527,7 +1527,7 @@ function showPledgeResult(type, title, message) {
 // 檢查質押是否被鎖定（後端處理中）
 async function isPledgeLocked(address) {
   try {
-    const response = await fetch(`${BACKEND_API_URL}/pledge_locks/${address.toLowerCase()}`);
+    const response = await fetch(`${BACKEND_API_URL}/api/pledge_locks/${address.toLowerCase()}`);
     if (!response.ok) throw new Error('鎖定檢查失敗');
     const { locked } = await response.json();
     return locked;
