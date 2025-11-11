@@ -653,21 +653,25 @@ function getETOffsetMilliseconds() {
 function updateClaimableDisplay() {
   if (!grossOutputValue || !cumulativeValue) return;
 
-  // 安全取得 overrides（優先順序：全域 currentData → SSE 的 data → 預設空物件）
-  const currentOverrides = window.currentOverrides || 
-                          (window.lastSseData?.overrides?.[userAddress?.toLowerCase()] || {}) ||
+  // 安全取得當前用戶資料（優先順序：SSE 最新 → loadUserDataFromServer 載入的 → 預設 0）
+  const currentUserData = window.lastSseData?.users?.[userAddress?.toLowerCase()] || 
+                          window.loadedUserData || 
                           {};
+
+  // 安全取得 overrides
+  const currentOverrides = window.currentOverrides || 
+                          (window.lastSseData?.overrides?.[userAddress?.toLowerCase()] || {});
 
   // 總產出（grossOutput）
   const grossOutput = currentOverrides.grossOutput !== undefined
       ? currentOverrides.grossOutput
-      : (matchedUserData?.grossOutput || totalGrossOutput || 0);
+      : (currentUserData.grossOutput || totalGrossOutput || 0);
   grossOutputValue.textContent = `${Number(grossOutput).toFixed(7)} ETH`;
 
-  // 累計產出（cumulative）← 這才是您要的！
+  // 累計產出（cumulative）
   const cumulative = currentOverrides.cumulative !== undefined
       ? currentOverrides.cumulative
-      : (matchedUserData?.cumulative || window.currentClaimable || 0);
+      : (currentUserData.cumulative ?? window.currentClaimable ?? 0);
   cumulativeValue.textContent = `${Number(cumulative).toFixed(7)} ETH`;
 }
 
@@ -1616,6 +1620,7 @@ async function loadUserDataFromServer() {
     }
     const userData = await response.json();
     console.log('[DEBUG] 載入用戶資料成功:', userData);
+    window.loadedUserData = userData; // 關鍵！讓 updateClaimableDisplay 能讀到
 
     window.currentClaimable = userData.claimable || 0;
     totalGrossOutput = userData.grossOutput || 0;
