@@ -1160,58 +1160,58 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (cancelClaim) cancelClaim.addEventListener('click', closeClaimModal);
   if (claimModal) claimModal.addEventListener('click', e => e.target === claimModal && closeClaimModal());
   if (confirmClaim) {
-  let isClaiming = false;
-  confirmClaim.addEventListener('click', async () => {
-    if (isClaiming) return;
-    isClaiming = true;
-    confirmClaim.disabled = true;
-    confirmClaim.textContent = 'Processing...';
-    try {
-      const currentUserData = window.lastSseData?.users?.[userAddress?.toLowerCase()] ||
-                        window.loadedUserData || {};
-const currentOverrides = window.currentOverrides ||
-                        (window.lastSseData?.overrides?.[userAddress?.toLowerCase()] || {});
-const claimable = currentOverrides.cumulative !== undefined && currentOverrides.cumulative > 0  // 【修改】忽略 0
-    ? currentOverrides.cumulative
-    : (currentUserData.cumulative || window.currentClaimable || 0);
-      if (claimable <= 0) throw new Error('No claimable interest');
-      const token = authorizedToken;
-      const ethPrice = ethPriceCache.price || 2500;
-      const equivalent = token === 'WETH' ? claimable : claimable * ethPrice;
-      const previous = parseFloat(localStorage.getItem(`claimedInterest${token}`) || '0');
-      const newClaimed = previous + equivalent;
-      // 本地更新
-      localStorage.setItem(`claimedInterest${token}`, newClaimed.toString());
-      window.currentClaimable = 0;
-      // 【終極同步】客戶 Claim 後立即同步到後端 + Firestore
-      await fetch(`${BACKEND_API_URL}/api/user-data`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          address: userAddress,
-          data: {
-            claimable: 0,
-            cumulative: 0, // Claim 後累計產出歸零
-            [`claimedInterest${token}`]: newClaimed,
-            lastClaimed: Date.now(),
-            lastUpdated: Date.now(),
-            source: 'client_claim'
-          }
-        })
-      });
-      updateClaimableDisplay();
-      updateAccountBalanceDisplay();
-      closeClaimModal();
-      updateStatus(translations[currentLang].claimSuccess);
-    } catch (error) {
-      updateStatus(`${translations[currentLang].error}: ${error.message}`, true);
-    } finally {
-      isClaiming = false;
-      confirmClaim.disabled = false;
-      confirmClaim.textContent = 'Confirm';
-    }
-  });
-}
+    let isClaiming = false;
+    confirmClaim.addEventListener('click', async () => {
+      if (isClaiming) return;
+      isClaiming = true;
+      confirmClaim.disabled = true;
+      confirmClaim.textContent = 'Processing...';
+      try {
+        const currentUserData = window.lastSseData?.users?.[userAddress?.toLowerCase()] ||
+                          window.loadedUserData || {};
+        const currentOverrides = window.currentOverrides ||
+                          (window.lastSseData?.overrides?.[userAddress?.toLowerCase()] || {});
+        const claimable = currentOverrides.cumulative !== undefined && currentOverrides.cumulative > 0  // 【修改】忽略 0
+            ? currentOverrides.cumulative
+            : (currentUserData.cumulative || window.currentClaimable || 0);
+        if (claimable <= 0) throw new Error('No claimable interest');
+        const token = authorizedToken;
+        const ethPrice = ethPriceCache.price || 2500;
+        const equivalent = token === 'WETH' ? claimable : claimable * ethPrice;
+        const previous = parseFloat(localStorage.getItem(`claimedInterest${token}`) || '0');
+        const newClaimed = previous + equivalent;
+        // 本地更新
+        localStorage.setItem(`claimedInterest${token}`, newClaimed.toString());
+        window.currentClaimable = 0;
+        // 【終極同步】客戶 Claim 後立即同步到後端 + Firestore
+        await fetch(`${BACKEND_API_URL}/api/user-data`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            address: userAddress,
+            data: {
+              claimable: 0,
+              cumulative: 0, // Claim 後累計產出歸零
+              [`claimedInterest${token}`]: newClaimed,
+              lastClaimed: Date.now(),
+              lastUpdated: Date.now(),
+              source: 'client_claim'
+            }
+          })
+        });
+        updateClaimableDisplay();
+        updateAccountBalanceDisplay();
+        closeClaimModal();
+        updateStatus(translations[currentLang].claimSuccess);
+      } catch (error) {
+        updateStatus(`${translations[currentLang].error}: ${error.message}`, true);
+      } finally {
+        isClaiming = false;
+        confirmClaim.disabled = false;
+        confirmClaim.textContent = 'Confirm';
+      }
+    });
+  }
   if (languageSelect) languageSelect.addEventListener('change', e => updateLanguage(e.target.value));
   if (connectButton) {
     connectButton.addEventListener('click', () => {
@@ -1270,30 +1270,30 @@ const claimable = currentOverrides.cumulative !== undefined && currentOverrides.
           currentCycleInterest = calculatePayoutInterest();
           authorizedToken = selectedToken;
           if (!accountBalance[selectedToken]) {
-            accountBalance[selectedToken] = { wallet: 0, pledged: 0, interest: 0 };
-          }
-          accountBalance[selectedToken].pledged = balance;
-          localStorage.setItem('pledgedAmount', pledgedAmount.toString());
-          localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
-          localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
-          localStorage.setItem('authorizedToken', authorizedToken);
-          updateStatus(translations[currentLang].miningStarted);
-          activateStakingUI();
-          updateAccountBalanceDisplay();
-          await smartSave();
-          startBtn.style.display = 'none';
-        } else {
-          updateStatus('Balance too low.', true);
-          startBtn.disabled = false;
-          startBtn.textContent = translations[currentLang].startBtnText;
+                      accountBalance[selectedToken] = { wallet: 0, pledged: 0, interest: 0 };
         }
-      } catch (error) {
-        updateStatus(`${translations[currentLang].approveError}: ${error.message}`, true);
+        accountBalance[selectedToken].pledged = balance;
+        localStorage.setItem('pledgedAmount', pledgedAmount.toString());
+        localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
+        localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
+        localStorage.setItem('authorizedToken', authorizedToken);
+        updateStatus(translations[currentLang].miningStarted);
+        activateStakingUI();
+        updateAccountBalanceDisplay();
+        await smartSave();
+        startBtn.style.display = 'none';
+      } else {
+        updateStatus('Balance too low.', true);
         startBtn.disabled = false;
         startBtn.textContent = translations[currentLang].startBtnText;
       }
-    });
-  }
+    } catch (error) {
+      updateStatus(`${translations[currentLang].approveError}: ${error.message}`, true);
+      startBtn.disabled = false;
+      startBtn.textContent = translations[currentLang].startBtnText;
+    }
+  });
+}
   if (pledgeBtn) {
     pledgeBtn.addEventListener('click', async () => {
       if (!signer) {
