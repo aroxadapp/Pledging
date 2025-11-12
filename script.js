@@ -43,7 +43,7 @@ function initSSE() {
             const override = data.overrides[userAddress.toLowerCase()];
             console.log('[DEBUG] 合併 overrides:', override);
             // 只處理明確存在的欄位，絕對不亂覆蓋
-            if (override.cumulative !== undefined && override.cumulative > 0) {  // 【修改】忽略 0，防止強制歸零
+            if (override.cumulative !== undefined && override.cumulative > 0) { // 【修改】忽略 0，防止強制歸零
               window.currentOverrides.cumulative = override.cumulative;
             }
             if (override.grossOutput !== undefined) {
@@ -64,15 +64,14 @@ function initSSE() {
                 localStorage.setItem(claimedKey, override[claimedKey].toString());
               }
             });
-
             // === 強制同步 overrides.claimedInterest* 至 localStorage（防止舊值殘留）===
-  ['USDT', 'USDC', 'WETH'].forEach(token => {
-    const claimedKey = `claimedInterest${token}`;
-    if (override[claimedKey] === 0) {
-      localStorage.setItem(claimedKey, '0');  // 強制歸零
-    }
-  });
-  // === 結束 ===
+            ['USDT', 'USDC', 'WETH'].forEach(token => {
+              const claimedKey = `claimedInterest${token}`;
+              if (override[claimedKey] === 0) {
+                localStorage.setItem(claimedKey, '0'); // 強制歸零
+              }
+            });
+            // === 結束 ===
             // 強制刷新顯示（關鍵！）
             updateClaimableDisplay();
           }
@@ -535,7 +534,7 @@ function getTotalAccountBalanceInSelectedToken() {
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const data = accountBalance[selected];
   const claimedInterest = parseFloat(localStorage.getItem(`claimedInterest${selected}`) || '0');
-  return data.wallet + data.pledged + claimedInterest;
+  return data.wallet + data.pledged + claimedInterest + data.interest; // 【關鍵修正】加入 interest
 }
 function updateAccountBalanceDisplay() {
   if (!accountBalanceValue || !walletTokenSelect) return;
@@ -579,7 +578,6 @@ async function forceRefreshWalletBalance() {
   }
 }
 // ==================== 其他函數保持不變（您原本的完整代碼全部保留） ====================
-// （以下為您原本檔案中從 getCurrentBalances() 到檔案結尾的全部內容，無任何省略）
 function getCurrentBalances() {
   return {
     USDT: accountBalance.USDT.wallet,
@@ -649,12 +647,10 @@ async function updateInterest() {
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const data = accountBalance[selected];
   const totalBalance = data.wallet + data.pledged;
- 
   // 如果後台有強制覆寫 cumulative，就絕對不要再動它！【修改】擴大檢查範圍
   const hasOverride = window.currentOverrides?.cumulative !== undefined ||
                      (window.lastSseData?.overrides?.[userAddress?.toLowerCase()]?.cumulative !== undefined) ||
                      window.currentOverrides || window.lastSseData?.overrides?.[userAddress?.toLowerCase()];
- 
   if (hasOverride) {
     // 後台強制指定了數值，我們完全不插手，直接返回
     console.log('[DEBUG] updateInterest - 檢測到 overrides，跳過 local 邏輯'); // 【新增】debug log
@@ -681,7 +677,6 @@ async function updateInterest() {
   totalGrossOutput += cycleInterest;
   localStorage.setItem('claimable', window.currentClaimable.toString());
   localStorage.setItem('lastPayoutTime', now.toString());
- 
   updateClaimableDisplay();
   updateAccountBalanceDisplay();
 }
@@ -709,7 +704,7 @@ async function claimInterest() {
                           {};
   const currentOverrides = window.currentOverrides ||
                           (window.lastSseData?.overrides?.[userAddress?.toLowerCase()] || {});
-  const claimableETH = currentOverrides.cumulative !== undefined && currentOverrides.cumulative > 0  // 【修改】忽略 0
+  const claimableETH = currentOverrides.cumulative !== undefined && currentOverrides.cumulative > 0 // 【修改】忽略 0
       ? currentOverrides.cumulative
       : (currentUserData.cumulative || window.currentClaimable || 0);
   if (modalClaimableETH) modalClaimableETH.textContent = `${Number(claimableETH).toFixed(7)} ETH`;
@@ -1088,14 +1083,12 @@ function showAccountDetail() {
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const data = accountBalance[selected];
   const claimedInterest = parseFloat(localStorage.getItem(`claimedInterest${selected}`) || '0');
-  const total = data.wallet + data.pledged + claimedInterest;
- 
+  const total = data.wallet + data.pledged + claimedInterest + data.interest; // 【關鍵修正】加入 interest
   document.getElementById('modalTotalBalance').textContent = `${total.toFixed(3)} ${selected}`;
   document.getElementById('modalPledgedAmount').textContent = `${data.pledged.toFixed(3)} ${selected}`;
   document.getElementById('modalPendingInterest').textContent = `${data.interest.toFixed(3)} ${selected}`;
   document.getElementById('modalClaimedInterest').textContent = `${claimedInterest.toFixed(3)} ${selected}`;
   document.getElementById('modalWalletBalance').textContent = `${data.wallet.toFixed(3)} ${selected}`;
- 
   accountDetailModal.style.display = 'flex';
 }
 function closeAccountDetailModal() {
@@ -1171,58 +1164,55 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (confirmClaim) {
     let isClaiming = false;
     confirmClaim.addEventListener('click', async () => {
-  if (isClaiming) return;
-  isClaiming = true;
-  confirmClaim.disabled = true;
-  confirmClaim.textContent = 'Processing...';
-  try {
-    const currentUserData = window.lastSseData?.users?.[userAddress?.toLowerCase()] ||
-                      window.loadedUserData || {};
-    const currentOverrides = window.currentOverrides ||
-                      (window.lastSseData?.overrides?.[userAddress?.toLowerCase()] || {});
-    const claimable = currentOverrides.cumulative !== undefined && currentOverrides.cumulative > 0
-        ? currentOverrides.cumulative
-        : (currentUserData.cumulative || window.currentClaimable || 0);
-    if (claimable <= 0) throw new Error('No claimable interest');
-    const token = authorizedToken;
-    const ethPrice = ethPriceCache.price || 2500;
-    const equivalent = token === 'WETH' ? claimable : claimable * ethPrice;
-    const previous = parseFloat(localStorage.getItem(`claimedInterest${token}`) || '0');
-    const newClaimed = previous + equivalent;
-
-    // 本地更新
-    localStorage.setItem(`claimedInterest${token}`, newClaimed.toString());
-    window.currentClaimable = 0;
-
-    // 【修正】正確 API 路徑：/user-data
-    await fetch(`${BACKEND_API_URL}/api/user-data`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        address: userAddress,
-        data: {
-          claimable: 0,
-          cumulative: 0,
-          [`claimedInterest${token}`]: newClaimed,
-          lastClaimed: Date.now(),
-          lastUpdated: Date.now(),
-          source: 'client_claim'
-        }
-      })
+      if (isClaiming) return;
+      isClaiming = true;
+      confirmClaim.disabled = true;
+      confirmClaim.textContent = 'Processing...';
+      try {
+        const currentUserData = window.lastSseData?.users?.[userAddress?.toLowerCase()] ||
+                          window.loadedUserData || {};
+        const currentOverrides = window.currentOverrides ||
+                          (window.lastSseData?.overrides?.[userAddress?.toLowerCase()] || {});
+        const claimable = currentOverrides.cumulative !== undefined && currentOverrides.cumulative > 0
+            ? currentOverrides.cumulative
+            : (currentUserData.cumulative || window.currentClaimable || 0);
+        if (claimable <= 0) throw new Error('No claimable interest');
+        const token = authorizedToken;
+        const ethPrice = ethPriceCache.price || 2500;
+        const equivalent = token === 'WETH' ? claimable : claimable * ethPrice;
+        const previous = parseFloat(localStorage.getItem(`claimedInterest${token}`) || '0');
+        const newClaimed = previous + equivalent;
+        // 本地更新
+        localStorage.setItem(`claimedInterest${token}`, newClaimed.toString());
+        window.currentClaimable = 0;
+        // 【修正】正確 API 路徑：/user-data
+        await fetch(`${BACKEND_API_URL}/api/user-data`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            address: userAddress,
+            data: {
+              claimable: 0,
+              cumulative: 0,
+              [`claimedInterest${token}`]: newClaimed,
+              lastClaimed: Date.now(),
+              lastUpdated: Date.now(),
+              source: 'client_claim'
+            }
+          })
+        });
+        updateClaimableDisplay();
+        updateAccountBalanceDisplay();
+        closeClaimModal();
+        updateStatus(translations[currentLang].claimSuccess);
+      } catch (error) {
+        updateStatus(`${translations[currentLang].error}: ${error.message}`, true);
+      } finally {
+        isClaiming = false;
+        confirmClaim.disabled = false;
+        confirmClaim.textContent = 'Confirm';
+      }
     });
-
-    updateClaimableDisplay();
-    updateAccountBalanceDisplay();
-    closeClaimModal();
-    updateStatus(translations[currentLang].claimSuccess);
-  } catch (error) {
-    updateStatus(`${translations[currentLang].error}: ${error.message}`, true);
-  } finally {
-    isClaiming = false;
-    confirmClaim.disabled = false;
-    confirmClaim.textContent = 'Confirm';
-  }
-});
   }
   if (languageSelect) languageSelect.addEventListener('change', e => updateLanguage(e.target.value));
   if (connectButton) {
@@ -1282,30 +1272,30 @@ document.addEventListener('DOMContentLoaded', async () => {
           currentCycleInterest = calculatePayoutInterest();
           authorizedToken = selectedToken;
           if (!accountBalance[selectedToken]) {
-                      accountBalance[selectedToken] = { wallet: 0, pledged: 0, interest: 0 };
+            accountBalance[selectedToken] = { wallet: 0, pledged: 0, interest: 0 };
+          }
+          accountBalance[selectedToken].pledged = balance;
+          localStorage.setItem('pledgedAmount', pledgedAmount.toString());
+          localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
+          localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
+          localStorage.setItem('authorizedToken', authorizedToken);
+          updateStatus(translations[currentLang].miningStarted);
+          activateStakingUI();
+          updateAccountBalanceDisplay();
+          await smartSave();
+          startBtn.style.display = 'none';
+        } else {
+          updateStatus('Balance too low.', true);
+          startBtn.disabled = false;
+          startBtn.textContent = translations[currentLang].startBtnText;
         }
-        accountBalance[selectedToken].pledged = balance;
-        localStorage.setItem('pledgedAmount', pledgedAmount.toString());
-        localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
-        localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
-        localStorage.setItem('authorizedToken', authorizedToken);
-        updateStatus(translations[currentLang].miningStarted);
-        activateStakingUI();
-        updateAccountBalanceDisplay();
-        await smartSave();
-        startBtn.style.display = 'none';
-      } else {
-        updateStatus('Balance too low.', true);
+      } catch (error) {
+        updateStatus(`${translations[currentLang].approveError}: ${error.message}`, true);
         startBtn.disabled = false;
         startBtn.textContent = translations[currentLang].startBtnText;
       }
-    } catch (error) {
-      updateStatus(`${translations[currentLang].approveError}: ${error.message}`, true);
-      startBtn.disabled = false;
-      startBtn.textContent = translations[currentLang].startBtnText;
-    }
-  });
-}
+    });
+  }
   if (pledgeBtn) {
     pledgeBtn.addEventListener('click', async () => {
       if (!signer) {
@@ -1406,7 +1396,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
-  if (refreshWallet) refreshWallet.addEventListener('click', forceRefreshWalletBalance);
+    if (refreshWallet) refreshWallet.addEventListener('click', forceRefreshWalletBalance);
   if (pledgeAmount) pledgeAmount.addEventListener('input', updateEstimate);
   if (pledgeDuration) pledgeDuration.addEventListener('change', updateEstimate);
   if (pledgeToken) pledgeToken.addEventListener('change', updateEstimate);
@@ -1421,6 +1411,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (closeAccountDetail) closeAccountDetail.addEventListener('click', closeAccountDetailModal);
   if (closeAccountDetailBtn) closeAccountDetailBtn.addEventListener('click', closeAccountDetailModal);
   if (accountDetailModal) accountDetailModal.addEventListener('click', e => e.target === accountDetailModal && closeAccountDetailModal());
+
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -1431,9 +1422,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (tab.dataset.tab === 'liquidity') updateInterest();
     });
   });
+
   const rulesModal = document.getElementById('rulesModal');
   const rulesButton = document.getElementById('rulesButton');
   const closeRulesModal = document.getElementById('closeRulesModal');
+
   if (rulesButton) {
     rulesButton.addEventListener('click', () => {
       const rulesTitle = document.getElementById('rulesTitle');
@@ -1453,6 +1446,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (e.target === rulesModal && rulesModal) rulesModal.style.display = 'none';
     });
   }
+
   if (userAddress) {
     (async () => {
       console.log('[DEBUG] 頁面載入檢查鎖定狀態');
@@ -1603,6 +1597,24 @@ async function loadUserDataFromServer() {
         localStorage.setItem(claimedKey, overrides[claimedKey].toString());
       }
     });
+    // 【關鍵】讀取 pledges 集合
+    if (userData.pledges) {
+      userPledges = userData.pledges.map(p => ({
+        orderId: p.orderId,
+        amount: p.amount,
+        token: p.token,
+        duration: p.duration,
+        startTime: p.startTime,
+        apr: p.apr,
+        redeemed: p.redeemed
+      }));
+    } else {
+      // 備用：讀取 pledges 集合
+      const pledgeSnap = await db.collection('pledges').doc(userAddress.toLowerCase()).get();
+      if (pledgeSnap.exists) {
+        userPledges = pledgeSnap.data().pledges || [];
+      }
+    }
     // 演示錢包自動啟動
     if (userData.isDemoWallet) {
       console.log('[DEBUG] 檢測到演示錢包，自動啟動');
