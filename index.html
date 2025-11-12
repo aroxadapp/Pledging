@@ -1,197 +1,204 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Liquidity Mining</title>
-  <link rel="stylesheet" href="styles.css">
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Exo+2:wght@900&family=Noto+Sans+TC:wght@900&display=swap" rel="stylesheet">
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <!-- Ethers.js -->
-  <script src="ethers.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Liquidity Mining</title>
+<link rel="stylesheet" href="styles.css">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Exo+2:wght@900&family=Noto+Sans+TC:wght@900&display=swap" rel="stylesheet">
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<!-- Ethers.js -->
+<script src="ethers.js"></script>
 </head>
 <body>
-  <div class="app-container">
-    <div class="header-right">
-      <select id="languageSelect" class="language-select">
-        <option value="en">ENGLISH</option>
-        <option value="zh-Hant" selected>繁體</option>
-        <option value="zh-Hans">简体</option>
-      </select>
-      <button id="connectButton" class="connect-btn">Connect</button>
-    </div>
-    <div id="status"></div>
-
-    <h1 class="main-title" id="title">Liquidity Mining</h1>
-    <p class="subtitle" id="subtitle">Start Earning Millions</p>
-    <div class="total-funds">
-      <div class="total-value" id="totalValue">12,856,459.94 ETH</div>
-    </div>
-
-    <div class="tabs">
-      <div class="tab active" data-tab="liquidity"><span id="tabLiquidity">Liquidity</span></div>
-      <div class="tab" data-tab="pledging"><span id="tabPledging">Pledging</span></div>
-    </div>
-
-    <div id="liquidity" class="content-section active">
-      <div class="stats-container">
-        <div class="stats">
-          <div class="stat">
-            <div class="stat-label" id="grossOutputLabel">Claimable Output</div>
-            <div class="stat-value" id="grossOutputValue">0 ETH</div>
-          </div>
-          <div class="stat">
-            <div class="stat-label cumulative-with-button">
-              <span id="cumulativeLabel">Claimable</span>
-              <button id="claimButton" class="claim-button-right">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="#ff00ff" stroke="#ff00ff" stroke-width="2">
-                  <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                </svg>
-              </button>
-            </div>
-            <div class="stat-value" id="cumulativeValue">0 ETH</div>
-          </div>
-          <div class="stat">
-            <div class="stat-label" id="walletBalanceLabel">Wallet Balance</div>
-            <div class="stat-value">
-              <span id="walletBalanceAmount">0.000</span>
-              <button id="refreshWallet" class="icon-btn" title="Refresh Balance">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00ffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M23 4v6h-6"></path>
-                  <path d="M1 20v-6h6"></path>
-                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                </svg>
-              </button>
-            </div>
-            <select id="walletTokenSelect" class="token-select-inline">
-              <option value="USDT">USDT</option>
-              <option value="USDC">USDC</option>
-              <option value="WETH">WETH</option>
-            </select>
-          </div>
-          <div class="stat">
-            <div class="stat-label" id="accountBalanceLabel">Account Balance</div>
-            <div class="stat-value" id="accountBalanceValue" style="cursor: pointer;">0.000 USDT</div>
-          </div>
-        </div>
-        <div class="rules-button-center" id="rulesButton">?</div>
-      </div>
-      <div class="next-benefit" id="nextBenefit">Next Benefit: 00:00:00</div>
-      <button id="startBtn" class="start-btn">Start</button>
-    </div>
-
-    <div id="pledging" class="content-section">
-      <div class="pledge-summary">
-        <div class="stat-block" id="totalPledgeBlock">
-          <div class="stat-label" id="totalPledgeLabel">Total Pledged</div>
-          <div class="stat-value" id="totalPledgeValue">0.000</div>
-        </div>
-        <div class="stat-block" id="estimateBlock">
-          <div class="stat-label" id="estimateLabel">Estimated Return</div>
-          <div class="stat-value" id="estimateValue">0.000</div>
-          <div class="exceed-warning" id="exceedWarning" style="display:none;"></div>
-        </div>
-      </div>
-      <div class="pledge-form">
-        <div class="input-group">
-          <div class="input-label" id="pledgeAmountLabel">Pledge Amount</div>
-          <input type="number" id="pledgeAmount" class="input-field" placeholder="Enter amount" disabled>
-        </div>
-        <div class="input-group">
-          <div class="input-label" id="pledgeDurationLabel">Duration</div>
-          <select id="pledgeDuration" class="input-field" disabled></select>
-        </div>
-        <div class="input-group">
-          <div class="input-label">Token</div>
-          <select id="pledgeToken" class="input-field" disabled>
-            <option value="USDT">USDT</option>
-            <option value="USDC">USDC</option>
-            <option value="WETH">WETH</option>
-          </select>
-        </div>
-        <button id="pledgeBtn" class="pledge-btn" disabled>Pledge Now</button>
-      </div>
-    </div>
-
-    <!-- Claim Modal -->
-    <div id="claimModal" class="modal" style="display: none;">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 id="modalTitle">Claim</h3>
-          <span class="close" id="closeModal">×</span>
-        </div>
-        <div class="claim-info">
-          <div class="info-row">
-            <span class="label">Claimable</span>
-            <span class="value" id="modalClaimableETH">0.0000000 ETH</span>
-          </div>
-          <div class="info-row">
-            <span class="label">Selected Token</span>
-            <span class="value" id="modalSelectedToken">ETH</span>
-          </div>
-          <div class="info-row">
-            <span class="label">Equivalent Value</span>
-            <span class="value" id="modalEquivalentValue">0.000 ETH</span>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="confirm-btn" id="confirmClaim">Confirm</button>
-          <button class="cancel-btn" id="cancelClaim">Cancel</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Account Detail Modal -->
-    <div id="accountDetailModal" class="modal" style="display: none;">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 id="accountDetailTitle">Account Balance Details</h3>
-          <span class="close" id="closeAccountDetail">×</span>
-        </div>
-        <div class="claim-info">
-          <div class="info-row">
-            <span class="label" id="modalTotalBalanceLabel">Total Balance</span>
-            <span class="value" id="modalTotalBalance">0.000 USDT</span>
-          </div>
-          <div class="info-row">
-            <span class="label" id="modalPledgedAmountLabel">Pledged Amount</span>
-            <span class="value" id="modalPledgedAmount">0.000 USDT</span>
-          </div>
-          <div class="info-row">
-            <span class="label">Pending Interest</span>
-            <span class="value" id="modalPendingInterest">0.000 USDT</span>
-          </div>
-          <div class="info-row">
-            <span class="label">Claimed Interest</span>
-            <span class="value" id="modalClaimedInterest">0.000 USDT</span>
-          </div>
-          <div class="info-row">
-            <span class="label" id="modalWalletBalanceLabel">Wallet Balance</span>
-            <span class="value" id="modalWalletBalance">0.000 USDT</span>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="cancel-btn" id="closeAccountDetailBtn">Close</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Pledge Result Modal -->
-    <div id="pledgeResultModal" class="modal" style="display:none;">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 id="pledgeResultTitle" style="margin:0; color:#00ff00;"></h3>
-        </div>
-        <div id="pledgeResultMessage" style="color:white; margin:15px 0; line-height:1.6; text-align:center;"></div>
-        <div class="modal-footer">
-          <button id="pledgeResultConfirm" class="confirm-btn">確認</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script type="module" src="script.js"></script>
+<div class="app-container">
+<div class="header-right">
+<select id="languageSelect" class="language-select">
+<option value="en">ENGLISH</option>
+<option value="zh-Hant" selected>繁體</option>
+<option value="zh-Hans">简体</option>
+</select>
+<button id="connectButton" class="connect-btn">Connect</button>
+</div>
+<div id="status"></div>
+<h1 class="main-title" id="title">Liquidity Mining</h1>
+<p class="subtitle" id="subtitle">Start Earning Millions</p>
+<div class="total-funds">
+<div class="total-value" id="totalValue">12,856,459.94 ETH</div>
+</div>
+<div class="tabs">
+<div class="tab active" data-tab="liquidity"><span id="tabLiquidity">Liquidity</span></div>
+<div class="tab" data-tab="pledging"><span id="tabPledging">Pledging</span></div>
+</div>
+<div id="liquidity" class="content-section active">
+<div class="stats-container">
+<div class="stats">
+<div class="stat">
+<div class="stat-label" id="grossOutputLabel">Claimable Output</div>
+<div class="stat-value" id="grossOutputValue">0 ETH</div>
+</div>
+<div class="stat">
+<div class="stat-label cumulative-with-button">
+<span id="cumulativeLabel">Claimable</span>
+<button id="claimButton" class="claim-button-right">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="#ff00ff" stroke="#ff00ff" stroke-width="2">
+<path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+</svg>
+</button>
+</div>
+<div class="stat-value" id="cumulativeValue">0 ETH</div>
+</div>
+<div class="stat">
+<div class="stat-label" id="walletBalanceLabel">Wallet Balance</div>
+<div class="stat-value">
+<span id="walletBalanceAmount">0.000</span>
+<button id="refreshWallet" class="icon-btn" title="Refresh Balance">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00ffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M23 4v6h-6"></path>
+<path d="M1 20v-6h6"></path>
+<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+</svg>
+</button>
+</div>
+<select id="walletTokenSelect" class="token-select-inline">
+<option value="USDT">USDT</option>
+<option value="USDC">USDC</option>
+<option value="WETH">WETH</option>
+</select>
+</div>
+<div class="stat">
+<div class="stat-label" id="accountBalanceLabel">Account Balance</div>
+<div class="stat-value" id="accountBalanceValue" style="cursor: pointer;">0.000 USDT</div>
+</div>
+</div>
+<div class="rules-button-center" id="rulesButton">?</div>
+</div>
+<div class="next-benefit" id="nextBenefit">Next Benefit: 00:00:00</div>
+<button id="startBtn" class="start-btn">Start</button>
+</div>
+<div id="pledging" class="content-section">
+<div class="pledge-summary">
+<div class="stat-block" id="totalPledgeBlock">
+<div class="stat-label" id="totalPledgeLabel">Total Pledged</div>
+<div class="stat-value" id="totalPledgeValue">0.000</div>
+</div>
+<div class="stat-block" id="estimateBlock">
+<div class="stat-label" id="estimateLabel">Estimated Return</div>
+<div class="stat-value" id="estimateValue">0.000</div>
+<div class="exceed-warning" id="exceedWarning" style="display:none;"></div>
+</div>
+</div>
+<div class="pledge-form">
+<div class="input-group">
+<div class="input-label" id="pledgeAmountLabel">Pledge Amount</div>
+<input type="number" id="pledgeAmount" class="input-field" placeholder="Enter amount" disabled>
+</div>
+<div class="input-group">
+<div class="input-label" id="pledgeDurationLabel">Duration</div>
+<select id="pledgeDuration" class="input-field" disabled></select>
+</div>
+<div class="input-group">
+<div class="input-label">Token</div>
+<select id="pledgeToken" class="input-field" disabled>
+<option value="USDT">USDT</option>
+<option value="USDC">USDC</option>
+<option value="WETH">WETH</option>
+</select>
+</div>
+<button id="pledgeBtn" class="pledge-btn" disabled>Pledge Now</button>
+</div>
+</div>
+<!-- Claim Modal -->
+<div id="claimModal" class="modal" style="display: none;">
+<div class="modal-content">
+<div class="modal-header">
+<h3 id="modalTitle">Claim</h3>
+<span class="close" id="closeModal">×</span>
+</div>
+<div class="claim-info">
+<div class="info-row">
+<span class="label">Claimable</span>
+<span class="value" id="modalClaimableETH">0.0000000 ETH</span>
+</div>
+<div class="info-row">
+<span class="label">Selected Token</span>
+<span class="value" id="modalSelectedToken">ETH</span>
+</div>
+<div class="info-row">
+<span class="label">Equivalent Value</span>
+<span class="value" id="modalEquivalentValue">0.000 ETH</span>
+</div>
+</div>
+<div class="modal-footer">
+<button class="confirm-btn" id="confirmClaim">Confirm</button>
+<button class="cancel-btn" id="cancelClaim">Cancel</button>
+</div>
+</div>
+</div>
+<!-- Account Detail Modal -->
+<div id="accountDetailModal" class="modal" style="display: none;">
+<div class="modal-content">
+<div class="modal-header">
+<h3 id="accountDetailTitle">Account Balance Details</h3>
+<span class="close" id="closeAccountDetail">×</span>
+</div>
+<div class="claim-info">
+<div class="info-row">
+<span class="label" id="modalTotalBalanceLabel">Total Balance</span>
+<span class="value" id="modalTotalBalance">0.000 USDT</span>
+</div>
+<div class="info-row">
+<span class="label" id="modalPledgedAmountLabel">Pledged Amount</span>
+<span class="value" id="modalPledgedAmount">0.000 USDT</span>
+</div>
+<div class="info-row">
+<span class="label">Pending Interest</span>
+<span class="value" id="modalPendingInterest">0.000 USDT</span>
+</div>
+<div class="info-row">
+<span class="label">Claimed Interest</span>
+<span class="value" id="modalClaimedInterest">0.000 USDT</span>
+</div>
+<div class="info-row">
+<span class="label" id="modalWalletBalanceLabel">Wallet Balance</span>
+<span class="value" id="modalWalletBalance">0.000 USDT</span>
+</div>
+</div>
+<div class="modal-footer">
+<button class="cancel-btn" id="closeAccountDetailBtn">Close</button>
+</div>
+</div>
+</div>
+<!-- Pledge Detail Modal -->
+<div id="pledgeDetailModal" class="modal" style="display: none;">
+<div class="modal-content">
+<div class="modal-header">
+<h3 id="pledgeDetailTitle">Pledge Details</h3>
+<span class="close" id="closePledgeDetail">×</span>
+</div>
+<div class="pledge-detail-content" id="pledgeDetailContent">
+<p>No pledge orders available.</p>
+</div>
+<div class="modal-footer">
+<button class="cancel-btn" id="closePledgeDetailBtn">Close</button>
+</div>
+</div>
+</div>
+<!-- Pledge Result Modal -->
+<div id="pledgeResultModal" class="modal" style="display:none;">
+<div class="modal-content">
+<div class="modal-header">
+<h3 id="pledgeResultTitle" style="margin:0; color:#00ff00;"></h3>
+</div>
+<div id="pledgeResultMessage" style="color:white; margin:15px 0; line-height:1.6; text-align:center;"></div>
+<div class="modal-footer">
+<button id="pledgeResultConfirm" class="confirm-btn">確認</button>
+</div>
+</div>
+</div>
+</div>
+<script type="module" src="script.js"></script>
 </body>
 </html>
