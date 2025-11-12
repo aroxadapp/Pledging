@@ -1412,6 +1412,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (pledgeToken) pledgeToken.addEventListener('change', updateEstimate);
   if (totalPledgeBlock) totalPledgeBlock.addEventListener('click', showPledgeDetail);
   if (closePledgeDetail) closePledgeDetail.addEventListener('click', () => pledgeDetailModal.style.display = 'none');
+  if (closePledgeDetailBtn) closePledgeDetailBtn.addEventListener('click', () => pledgeDetailModal.style.display = 'none');
   if (pledgeDetailModal) pledgeDetailModal.addEventListener('click', e => e.target === pledgeDetailModal && (pledgeDetailModal.style.display = 'none'));
   if (accountBalanceValue) {
     accountBalanceValue.style.cursor = 'pointer';
