@@ -798,7 +798,7 @@ function closeClaimModal() {
 function updateNextBenefitTimer() {
   if (!nextBenefit) return;
 
- Roe  const safeLang = currentLang && translations[currentLang] ? currentLang : 'en';
+  const safeLang = currentLang && translations[currentLang] ? currentLang : 'en';
   const defaultText = translations[safeLang].nextBenefit || 'Next Benefit: 00:00:00';
   const label = defaultText.split(':')[0].trim();
 
