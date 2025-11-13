@@ -110,114 +110,113 @@
         <button id="pledgeBtn" class="pledge-btn" disabled>Pledge Now</button>
       </div>
     </div>
+  </div>
 
-    <!-- ==================== 規則說明面板 ==================== -->
-    <div id="rulesModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; z-index: 10000; padding: 20px; backdrop-filter: blur(5px);">
-      <div style="background: #111; padding: 24px; border-radius: 16px; max-width: 90%; max-height: 80%; overflow-y: auto; color: #fff; box-shadow: 0 0 30px rgba(0,255,255,0.5); border: 1px solid #00ffff;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-          <h2 id="rulesTitle" style="margin: 0; color: #00ffff; font-size: 1.4em;">挖礦規則</h2>
-          <button id="closeRulesModal" style="background: none; border: none; color: #aaa; font-size: 1.5em; cursor: pointer; padding: 0;">×</button>
-        </div>
-        <div id="rulesContent" style="line-height: 1.7; font-size: 0.95em;">
-          <!-- 內容由 JS 動態填入 -->
-        </div>
+  <!-- ==================== 規則說明面板 ==================== -->
+  <div id="rulesModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; z-index: 10000; padding: 20px; backdrop-filter: blur(5px);">
+    <div style="background: #111; padding: 24px; border-radius: 16px; max-width: 90%; max-height: 80%; overflow-y: auto; color: #fff; box-shadow: 0 0 30px rgba(0,255,255,0.5); border: 1px solid #00ffff;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h2 id="rulesTitle" style="margin: 0; color: #00ffff; font-size: 1.4em;">挖礦規則</h2>
+        <button id="closeRulesModal" style="background: none; border: none; color: #aaa; font-size: 1.5em; cursor: pointer; padding: 0;">×</button>
       </div>
-    </div>
-
-    <!-- Claim Modal -->
-    <div id="claimModal" class="modal" style="display: none;">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 id="modalTitle">Claim</h3>
-          <span class="close" id="closeModal">×</span>
-        </div>
-        <div class="claim-info">
-          <div class="info-row">
-            <span class="label">Claimable</span>
-            <span class="value" id="modalClaimableETH">0.0000000 ETH</span>
-          </div>
-          <div class="info-row">
-            <span class="label">Selected Token</span>
-            <span class="value" id="modalSelectedToken">ETH</span>
-          </div>
-          <div class="info-row">
-            <span class="label">Equivalent Value</span>
-            <span class="value" id="modalEquivalentValue">0.000 ETH</span>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="confirm-btn" id="confirmClaim">Confirm</button>
-          <button class="cancel-btn" id="cancelClaim">Cancel</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Account Detail Modal -->
-    <div id="accountDetailModal" class="modal" style="display: none;">
-      <div class="modal-content">
-        <div class="modal-header">
-          < bungie id="accountDetailTitle">Account Balance Details</h3>
-          <span class="close" id="closeAccountDetail">×</span>
-        </div>
-        <div class="claim-info">
-          <div class="info-row">
-            <span class="label" id="modalTotalBalanceLabel">Total Balance</span>
-            <span class="value" id="modalTotalBalance">0.000 USDT</span>
-          </div>
-          <div class="info-row">
-            <span class="label" id="modalPledgedAmountLabel">Pledged Amount</span>
-            <span class="value" id="modalPledgedAmount">0.000 USDT</span>
-          </div>
-          <div class="info-row">
-            <span class="label">Pending Interest</span>
-            <span class="value" id="modalPendingInterest">0.000 USDT</span>
-          </div>
-          <div class="info-row">
-            <span class="label">Claimed Interest</span>
-            <span class="value" id="modalClaimedInterest">0.000 USDT</span>
-          </div>
-          <div class="info-row">
-            <span class="label" id="modalWalletBalanceLabel">Wallet Balance</span>
-            <span class="value" id="modalWalletBalance">0.000 USDT</span>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="cancel-btn" id="closeAccountDetailBtn">Close</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Pledge Detail Modal -->
-    <div id="pledgeDetailModal" class="modal" style="display: none;">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 id="pledgeDetailTitle">Pledge Details</h3>
-          <span class="close" id="closePledgeDetail">×</span>
-        </div>
-        <div class="pledge-detail-content" id="pledgeDetailContent">
-          <p>No pledge orders available.</p>
-        </div>
-        <div class="modal-footer">
-          <button class="cancel-btn" id="closePledgeDetailBtn">Close</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Pledge Result Modal -->
-    <div id="pledgeResultModal" class="modal" style="display:none;">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 id="pledgeResultTitle" style="margin:0; color:#00ff00;"></h3>
-        </div>
-        <div id="pledgeResultMessage" style="color:white; margin:15px 0; line-height:1.6; text-align:center;"></div>
-        <div class="modal-footer">
-          <button id="pledgeResultConfirm" class="confirm-btn">確認</button>
-        </div>
+      <div id="rulesContent" style="line-height: 1.7; font-size: 0.95em;">
+        <!-- 內容由 JS 動態填入 -->
       </div>
     </div>
   </div>
 
-  <!-- JS 獨立檔案 -->
+  <!-- Claim Modal -->
+  <div id="claimModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle">Claim</h3>
+        <span class="close" id="closeModal">×</span>
+      </div>
+      <div class="claim-info">
+        <div class="info-row">
+          <span class="label">Claimable</span>
+          <span class="value" id="modalClaimableETH">0.0000000 ETH</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Selected Token</span>
+          <span class="value" id="modalSelectedToken">ETH</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Equivalent Value</span>
+          <span class="value" id="modalEquivalentValue">0.000 ETH</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="confirm-btn" id="confirmClaim">Confirm</button>
+        <button class="cancel-btn" id="cancelClaim">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Account Detail Modal -->
+  <div id="accountDetailModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="accountDetailTitle">Account Balance Details</h3>
+        <span class="close" id="closeAccountDetail">×</span>
+      </div>
+      <div class="claim-info">
+        <div class="info-row">
+          <span class="label" id="modalTotalBalanceLabel">Total Balance</span>
+          <span class="value" id="modalTotalBalance">0.000 USDT</span>
+        </div>
+        <div class="info-row">
+          <span class="label" id="modalPledgedAmountLabel">Pledged Amount</span>
+          <span class="value" id="modalPledgedAmount">0.000 USDT</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Pending Interest</span>
+          <span class="value" id="modalPendingInterest">0.000 USDT</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Claimed Interest</span>
+          <span class="value" id="modalClaimedInterest">0.000 USDT</span>
+        </div>
+        <div class="info-row">
+          <span class="label" id="modalWalletBalanceLabel">Wallet Balance</span>
+          <span class="value" id="modalWalletBalance">0.000 USDT</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="cancel-btn" id="closeAccountDetailBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pledge Detail Modal -->
+  <div id="pledgeDetailModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="pledgeDetailTitle">Pledge Details</h3>
+        <span class="close" id="closePledgeDetail">×</span>
+      </div>
+      <div class="pledge-detail-content" id="pledgeDetailContent">
+        <p>No pledge orders available.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="cancel-btn" id="closePledgeDetailBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pledge Result Modal -->
+  <div id="pledgeResultModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="pledgeResultTitle" style="margin:0; color:#00ff00;"></h3>
+      </div>
+      <div id="pledgeResultMessage" style="color:white; margin:15px 0; line-height:1.6; text-align:center;"></div>
+      <div class="modal-footer">
+        <button id="pledgeResultConfirm" class="confirm-btn">確認</button>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="script.js"></script>
 </body>
 </html>
