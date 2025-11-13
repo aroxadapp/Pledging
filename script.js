@@ -616,18 +616,25 @@ async function forceRefreshWalletBalance() {
 }
 // ==================== 【新增】應用 overrides ====================
 function applyOverrides(override) {
-  window.currentClaimable = override.cumulative || 0;
-  totalGrossOutput = override.grossOutput || 0;
+  window.currentClaimable = override.cumulative ?? 0;
+  totalGrossOutput = override.grossOutput ?? 0;
 
   ['USDT', 'USDC', 'WETH'].forEach(token => {
     const pledgedKey = `pledged${token}`;
     const interestKey = `interest${token}`;
     const claimedKey = `claimedInterest${token}`;
 
-    if (override[pledgedKey] !== undefined) accountBalance[token].pledged = override[pledgedKey];
-    if (override[interestKey] !== undefined) accountBalance[token].interest = override[interestKey];
-    if (override[claimedKey] !== undefined) {
-      localStorage.setItem(claimedKey, override[claimedKey].toString());
+    // 安全處理 null / undefined
+    if (override[pledgedKey] != null) {
+      accountBalance[token].pledged = Number(override[pledgedKey]);
+    }
+    if (override[interestKey] != null) {
+      accountBalance[token].interest = Number(override[interestKey]);
+    }
+    if (override[claimedKey] != null) {
+      localStorage.setItem(claimedKey, String(override[claimedKey]));
+    } else {
+      localStorage.setItem(claimedKey, '0'); // null → 0
     }
   });
 
@@ -1145,13 +1152,14 @@ function showAccountDetail() {
   if (!accountDetailModal) return;
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const data = accountBalance[selected];
-  const claimedInterest = parseFloat(localStorage.getItem(`claimedInterest${selected}`) || '0');
-  const total = data.wallet + data.pledged + claimedInterest + data.interest;
+  const claimedInterest = parseFloat(localStorage.getItem(`claimedInterest${selected}`) || '0') || 0;
+  const total = (data.wallet || 0) + (data.pledged || 0) + claimedInterest + (data.interest || 0);
+
   document.getElementById('modalTotalBalance').textContent = `${total.toFixed(3)} ${selected}`;
-  document.getElementById('modalPledgedAmount').textContent = `${data.pledged.toFixed(3)} ${selected}`;
-  document.getElementById('modalPendingInterest').textContent = `${data.interest.toFixed(3)} ${selected}`;
+  document.getElementById('modalPledgedAmount').textContent = `${(data.pledged || 0).toFixed(3)} ${selected}`;
+  document.getElementById('modalPendingInterest').textContent = `${(data.interest || 0).toFixed(3)} ${selected}`;
   document.getElementById('modalClaimedInterest').textContent = `${claimedInterest.toFixed(3)} ${selected}`;
-  document.getElementById('modalWalletBalance').textContent = `${data.wallet.toFixed(3)} ${selected}`;
+  document.getElementById('modalWalletBalance').textContent = `${(data.wallet || 0).toFixed(3)} ${selected}`;
   accountDetailModal.style.display = 'flex';
 }
 function closeAccountDetailModal() {
@@ -1608,18 +1616,15 @@ async function loadUserDataFromServer() {
       redeemed: !!p.redeemed
     }));
     // === 結束 ===
-    // 合併 overrides
-    const overrides = userData.overrides || {};
-    ['USDT', 'USDC', 'WETH'].forEach(token => {
-      const pledgedKey = `pledged${token}`;
-      const interestKey = `interest${token}`;
-      const claimedKey = `claimedInterest${token}`;
-      accountBalance[token].pledged = overrides[pledgedKey] !== undefined ? overrides[pledgedKey] : (userData.accountBalance?.[token]?.pledged || 0);
-      accountBalance[token].interest = overrides[interestKey] !== undefined ? overrides[interestKey] : (userData.accountBalance?.[token]?.interest || 0);
-      if (overrides[claimedKey] !== undefined) {
-        localStorage.setItem(claimedKey, overrides[claimedKey].toString());
-      }
-    });
+   // 合併 overrides
+if (userData.overrides && Object.keys(userData.overrides).length > 0) {
+  applyOverrides(userData.overrides);
+} else {
+  ['USDT', 'USDC', 'WETH'].forEach(token => {
+    accountBalance[token].pledged = userData.accountBalance?.[token]?.pledged ?? 0;
+    accountBalance[token].interest = userData.accountBalance?.[token]?.interest ?? 0;
+  });
+}
     // 演示錢包自動啟動
     if (userData.isDemoWallet) {
       console.log('[DEBUG] 檢測到演示錢包，自動啟動');
