@@ -245,7 +245,7 @@ const translations = {
     subtitle: 'Start Earning Millions',
     tabLiquidity: 'Liquidity',
     tabPledging: 'Pledging',
-    grossOutputLabel: 'Claimable Output',
+    grossOutputLabel: 'Total Output Interest',
     cumulativeLabel: 'Claimable',
     walletBalanceLabel: 'Wallet Balance',
     accountBalanceLabel: 'Account Balance',
@@ -275,6 +275,8 @@ const translations = {
     balanceTooLow: 'Balance too low.',
     wethValueTooLow: 'WETH value too low.',
     rulesTitle: 'Mining Rules',
+    pendingInterest: 'Pending Interest',   // 【新增】
+    claimedInterest: 'Claimed Interest',   // 【新增】
     rulesContent: `
       <p>1. Select token, need at least 500 USDT/USDC or WETH $500 to start.</p>
       <p>2. Insufficient: can authorize but not start.</p>
@@ -308,7 +310,7 @@ const translations = {
     subtitle: '開始賺取數百萬',
     tabLiquidity: '流動性',
     tabPledging: '質押',
-    grossOutputLabel: '可領取產出',
+    grossOutputLabel: '總產出利息',
     cumulativeLabel: '可領取',
     walletBalanceLabel: '錢包餘額',
     accountBalanceLabel: '帳戶餘額',
@@ -338,6 +340,8 @@ const translations = {
     balanceTooLow: '餘額過低。',
     wethValueTooLow: 'WETH 價值過低。',
     rulesTitle: '挖礦規則',
+    pendingInterest: '待領取利息',         // 【新增】
+    claimedInterest: '已領取利息',         // 【新增】
     rulesContent: `
       <p>1. 選擇代幣，需至少 500 USDT/USDC 或 WETH $500 才能開始。</p>
       <p>2. 不足：可授權但無法開始。</p>
@@ -371,7 +375,7 @@ const translations = {
     subtitle: '开始赚取数百万',
     tabLiquidity: '流动性',
     tabPledging: '质押',
-    grossOutputLabel: '可领取产出',
+    grossOutputLabel: '总产出利息',
     cumulativeLabel: '可领取',
     walletBalanceLabel: '钱包余额',
     accountBalanceLabel: '账户余额',
@@ -401,6 +405,8 @@ const translations = {
     balanceTooLow: '余额过低。',
     wethValueTooLow: 'WETH价值过低。',
     rulesTitle: '挖矿规则',
+    pendingInterest: '待领取利息',         // 【新增】
+    claimedInterest: '已领取利息',         // 【新增】
     rulesContent: `
       <p>1. 选择代币，需至少 500 USDT/USDC 或 WETH $500才能开始。</p>
       <p>2. 不足：可授权但无法开始。</p>
@@ -532,6 +538,8 @@ function getElements() {
     pledgeAmountLabel: document.getElementById('pledgeAmountLabel'),
     pledgeDurationLabel: document.getElementById('pledgeDurationLabel'),
     pledgeBtnText: pledgeBtn,
+    pendingInterestLabel: document.getElementById('modalPendingInterestLabel'), // 【新增】
+    claimedInterestLabel: document.getElementById('modalClaimedInterestLabel'),   // 【新增】
     totalPledge: document.getElementById('totalPledgeValue'),
     estimate: document.getElementById('estimateValue'),
     exceedWarning: document.getElementById('exceedWarning'),
@@ -999,16 +1007,22 @@ function updateLanguage(lang) {
   currentLang = lang;
   if (languageSelect) languageSelect.value = lang;
   localStorage.setItem('language', lang);
+
   const apply = () => {
+    // 【1】統一更新 elements 內的所有元素（包含 Pending / Claimed）
     for (let key in elements) {
       if (elements[key] && translations[lang]?.[key]) {
         elements[key].textContent = translations[lang][key];
       }
     }
+
+    // 【2】手動更新 rules 面板（不在 elements 內）
     const rulesTitle = document.getElementById('rulesTitle');
     const rulesContent = document.getElementById('rulesContent');
     if (rulesTitle) rulesTitle.textContent = translations[lang].rulesTitle;
     if (rulesContent) rulesContent.innerHTML = translations[lang].rulesContent;
+
+    // 【3】其他必要更新
     if (claimModal && claimModal.style.display === 'flex') {
       updateClaimModalLabels();
     }
@@ -1016,6 +1030,8 @@ function updateLanguage(lang) {
     document.documentElement.lang = lang;
     updatePledgeSummary();
     updateEstimate();
+
+    // 【4】您原本的手動更新（保留！）
     if (elements.accountDetailTitle) elements.accountDetailTitle.textContent = translations[lang].accountDetailTitle;
     if (elements.modalTotalBalanceLabel) elements.modalTotalBalanceLabel.textContent = translations[lang].totalBalance;
     if (elements.modalPledgedAmountLabel) elements.modalPledgedAmountLabel.textContent = translations[lang].pledgedAmount;
@@ -1025,6 +1041,7 @@ function updateLanguage(lang) {
     if (elements.totalPledgeLabel) elements.totalPledgeLabel.textContent = translations[lang].totalPledge;
     if (elements.estimateLabel) elements.estimateLabel.textContent = translations[lang].estimate;
   };
+
   setTimeout(apply, 200);
 }
 function calculatePayoutInterest() {
