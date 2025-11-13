@@ -518,7 +518,7 @@ function getElements() {
   accountDetailModal = document.getElementById('accountDetailModal');
   closeAccountDetail = document.getElementById('closeAccountDetail');
   closeAccountDetailBtn = document.getElementById('closeAccountDetailBtn');
-  rulesModal = document.getElementById('rulesModal'); // 【關鍵】獲取 rulesModal
+  
   elements = {
     title: document.getElementById('title'),
     subtitle: document.getElementById('subtitle'),
@@ -547,28 +547,26 @@ function getElements() {
 }
 // ==================== 綁定 ? 按鈕 ====================
 function bindRulesButton() {
+  const rulesModal = document.getElementById('rulesModal');
   const rulesButton = document.getElementById('rulesButton');
   const closeRulesModal = document.getElementById('closeRulesModal');
-  const rulesModal = document.getElementById('rulesModal'); // 每次都重新獲取
 
-  if (!rulesModal) {
-    console.warn('[DEBUG] rulesModal 未找到，延遲重試...');
-    setTimeout(bindRulesButton, 100);
-    return;
+  if (!rulesModal || !rulesButton) {
+    console.warn('[DEBUG] rulesModal 或 rulesButton 未就緒，等待下次嘗試...');
+    return; // 不再 setTimeout，交給 DOMContentLoaded 控制
   }
 
   // 清除舊事件（防重複綁定）
-  if (rulesButton) {
-    const newButton = rulesButton.cloneNode(true);
-    rulesButton.parentNode.replaceChild(newButton, rulesButton);
-    newButton.addEventListener('click', () => {
-      const rulesTitle = document.getElementById('rulesTitle');
-      const rulesContent = document.getElementById('rulesContent');
-      if (rulesTitle) rulesTitle.textContent = translations[currentLang].rulesTitle;
-      if (rulesContent) rulesContent.innerHTML = translations[currentLang].rulesContent;
-      rulesModal.style.display = 'flex';
-    });
-  }
+  const newButton = rulesButton.cloneNode(true);
+  rulesButton.parentNode.replaceChild(newButton, rulesButton);
+
+  newButton.addEventListener('click', () => {
+    const rulesTitle = document.getElementById('rulesTitle');
+    const rulesContent = document.getElementById('rulesContent');
+    if (rulesTitle) rulesTitle.textContent = translations[currentLang].rulesTitle;
+    if (rulesContent) rulesContent.innerHTML = translations[currentLang].rulesContent;
+    rulesModal.style.display = 'flex';
+  });
 
   if (closeRulesModal) {
     const newClose = closeRulesModal.cloneNode(true);
@@ -579,10 +577,8 @@ function bindRulesButton() {
   }
 
   // 背景點擊關閉
-  const newModal = rulesModal.cloneNode(true);
-  rulesModal.parentNode.replaceChild(newModal, rulesModal);
-  newModal.addEventListener('click', e => {
-    if (e.target === newModal) newModal.style.display = 'none';
+  rulesModal.addEventListener('click', e => {
+    if (e.target === rulesModal) rulesModal.style.display = 'none';
   });
 
   console.log('[DEBUG] ? 按鈕事件綁定成功');
@@ -1189,7 +1185,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 【關鍵修正】強制延遲綁定 ? 按鈕，確保 DOM 完全就緒
   setTimeout(() => {
-    bindRulesButton();
+      bindRulesButton(); // 立即綁定一次即可
     console.log('[DEBUG] ? 按鈕事件已強制重新綁定');
   }, 200);
 
