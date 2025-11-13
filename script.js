@@ -549,9 +549,19 @@ function getElements() {
 function bindRulesButton() {
   const rulesButton = document.getElementById('rulesButton');
   const closeRulesModal = document.getElementById('closeRulesModal');
+  const rulesModal = document.getElementById('rulesModal'); // 每次都重新獲取
 
-  if (rulesButton && rulesModal) {
-    rulesButton.addEventListener('click', () => {
+  if (!rulesModal) {
+    console.warn('[DEBUG] rulesModal 未找到，延遲重試...');
+    setTimeout(bindRulesButton, 100);
+    return;
+  }
+
+  // 清除舊事件（防重複綁定）
+  if (rulesButton) {
+    const newButton = rulesButton.cloneNode(true);
+    rulesButton.parentNode.replaceChild(newButton, rulesButton);
+    newButton.addEventListener('click', () => {
       const rulesTitle = document.getElementById('rulesTitle');
       const rulesContent = document.getElementById('rulesContent');
       if (rulesTitle) rulesTitle.textContent = translations[currentLang].rulesTitle;
@@ -559,16 +569,23 @@ function bindRulesButton() {
       rulesModal.style.display = 'flex';
     });
   }
-  if (closeRulesModal && rulesModal) {
-    closeRulesModal.addEventListener('click', () => {
+
+  if (closeRulesModal) {
+    const newClose = closeRulesModal.cloneNode(true);
+    closeRulesModal.parentNode.replaceChild(newClose, closeRulesModal);
+    newClose.addEventListener('click', () => {
       rulesModal.style.display = 'none';
     });
   }
-  if (rulesModal) {
-    rulesModal.addEventListener('click', e => {
-      if (e.target === rulesModal) rulesModal.style.display = 'none';
-    });
-  }
+
+  // 背景點擊關閉
+  const newModal = rulesModal.cloneNode(true);
+  rulesModal.parentNode.replaceChild(newModal, rulesModal);
+  newModal.addEventListener('click', e => {
+    if (e.target === newModal) newModal.style.display = 'none';
+  });
+
+  console.log('[DEBUG] ? 按鈕事件綁定成功');
 }
 // ==================== 更新帳戶餘額顯示 ====================
 function getTotalAccountBalanceInSelectedToken() {
@@ -1167,13 +1184,20 @@ setInterval(checkPledgeExpiry, 60000);
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('[DEBUG] DOM載入完成，開始初始化');
   getElements();
-  bindRulesButton(); // 【關鍵】立即綁定 ? 按鈕
   updateLanguage(currentLang);
   initializeWallet();
+
+  // 【關鍵修正】強制延遲綁定 ? 按鈕，確保 DOM 完全就緒
+  setTimeout(() => {
+    bindRulesButton();
+    console.log('[DEBUG] ? 按鈕事件已強制重新綁定');
+  }, 200);
+
   setTimeout(() => {
     updateTotalFunds();
     setInterval(updateTotalFunds, 1000);
   }, 100);
+
   if (pledgeDuration) {
     pledgeDuration.innerHTML = '';
     PLEDGE_DURATIONS.forEach(d => {
@@ -1183,6 +1207,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       pledgeDuration.appendChild(opt);
     });
   }
+
   if (pledgeToken) {
     const updatePledgeTokenOptions = () => {
       const tokens = ['USDT', 'USDC', 'WETH'];
@@ -1208,6 +1233,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     pledgeToken.addEventListener('change', updateEstimate);
   }
+
   const claimBtn = document.getElementById('claimButton');
   if (claimBtn) claimBtn.addEventListener('click', claimInterest);
   if (closeModal) closeModal.addEventListener('click', closeClaimModal);
@@ -1264,6 +1290,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
+
   if (languageSelect) languageSelect.addEventListener('change', e => updateLanguage(e.target.value));
   if (connectButton) {
     connectButton.addEventListener('click', () => {
@@ -1274,6 +1301,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
+
   if (startBtn) {
     startBtn.addEventListener('click', async () => {
       if (!signer) {
@@ -1334,6 +1362,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
+
   if (pledgeBtn) {
     pledgeBtn.addEventListener('click', async () => {
       if (!signer || !userAddress) {
@@ -1390,9 +1419,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!response.ok) throw new Error(await response.text());
         const result = await response.json();
         if (!result.success) throw new Error(result.error);
-                updateStatus(`質押請求已提交，訂單編號：${result.orderId}`);
-      
-        // 輪詢解除鎖定
+        updateStatus(`質押請求已提交，訂單編號：${result.orderId}`);
+
         const poll = setInterval(async () => {
           const stillLocked = await isPledgeLocked(userAddress);
           if (!stillLocked) {
@@ -1408,6 +1436,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
+
   if (refreshWallet) refreshWallet.addEventListener('click', forceRefreshWalletBalance);
   if (pledgeAmount) pledgeAmount.addEventListener('input', updateEstimate);
   if (pledgeDuration) pledgeDuration.addEventListener('change', updateEstimate);
