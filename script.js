@@ -8,7 +8,7 @@ let eventSource;
 function initSSE() {
   console.log('[DEBUG] 初始化 SSE 連線...');
   if (eventSource) eventSource.close();
-  eventSource = new EventSource(`${BACKEND_API_URL}/api/sse`);
+  eventSource = new EventSource(`${BACKEND_API_URL}/api/sse?address=${userAddress}`);
   eventSource.onopen = () => {
     console.log('[DEBUG] SSE 連線成功');
   };
