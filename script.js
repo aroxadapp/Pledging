@@ -765,6 +765,69 @@ function switchTab(tabName) {
   });
   updateLanguage(currentLang);
 }
+// ==================== 領取利息面板 ====================
+let currentClaimToken = '';
+function openClaimInterestModal(tokenKey) {
+  const interest = accountBalance[tokenKey]?.interest || 0;
+  if (interest <= 0) {
+    showPledgeResult('info', '無可領取', '目前沒有可領取的利息。');
+    return;
+  }
+  currentClaimToken = tokenKey;
+  document.getElementById('claimableAmount').textContent = safeFixed(interest);
+  document.getElementById('claimToken').textContent = tokenKey;
+  const confirmBtn = document.getElementById('confirmClaimInterestBtn');
+  confirmBtn.disabled = false;
+  confirmBtn.textContent = '確認領取';
+  document.getElementById('claimInterestModal').style.display = 'flex';
+}
+document.getElementById('closeClaimInterestModal').onclick = () => {
+  document.getElementById('claimInterestModal').style.display = 'none';
+};
+document.getElementById('confirmClaimInterestBtn').onclick = async () => {
+  const tokenKey = currentClaimToken;
+  const interest = accountBalance[tokenKey].interest;
+  const btn = document.getElementById('confirmClaimInterestBtn');
+  btn.disabled = true;
+  btn.textContent = '處理中...';
+  try {
+    const field = `claimedInterest${tokenKey}`;
+    const claimed = (parseFloat(localStorage.getItem(field) || '0')) + interest;
+    await fetch(`${BACKEND_API_URL}/api/user-data`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-address': userAddress
+      },
+      body: JSON.stringify({
+        address: userAddress,
+        data: {
+          [field]: claimed,
+          accountBalance: {
+            ...accountBalance,
+            [tokenKey]: {
+              ...accountBalance[tokenKey],
+              interest: 0
+            }
+          }
+        }
+      })
+    });
+    // 更新本地
+    localStorage.setItem(field, claimed.toString());
+    accountBalance[tokenKey].interest = 0;
+    updateAccountBalanceDisplay();
+    updatePledgeSummary();
+    showPledgeResult('success', '領取成功', `${safeFixed(interest)} ${tokenKey} 已轉入已領取利息`);
+    document.getElementById('claimInterestModal').style.display = 'none';
+  } catch (error) {
+    console.error('領取失敗:', error);
+    showPledgeResult('error', '領取失敗', error.message || '請稍後再試');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '確認領取';
+  }
+};
 // ==================== 帳戶明細 Modal ====================
 function showAccountDetail() {
   if (!accountDetailModal) return;
@@ -772,17 +835,14 @@ function showAccountDetail() {
   const data = accountBalance[selected];
   const claimedInterest = parseFloat(localStorage.getItem(`claimedInterest${selected}`) || '0') || 0;
   const total = (data.wallet || 0) + (data.pledged || 0) + claimedInterest + (data.interest || 0);
-
   const updateEl = (id, value) => {
     const el = document.getElementById(id);
     if (el) el.textContent = value;
   };
-
   updateEl('modalTotalBalance', `${safeFixed(total)} ${selected}`);
   updateEl('modalPledgedAmount', `${safeFixed(data.pledged || 0)} ${selected}`);
   updateEl('modalClaimedInterest', `${safeFixed(claimedInterest)} ${selected}`);
   updateEl('modalWalletBalance', `${safeFixed(data.wallet || 0)} ${selected}`);
-
   const pendingEl = document.getElementById(`pendingInterest${selected}`);
   if (pendingEl) {
     pendingEl.textContent = `${safeFixed(data.interest || 0)} ${selected}`;
@@ -790,9 +850,7 @@ function showAccountDetail() {
     pendingEl.style.color = data.interest > 0 ? '#00ff00' : '#aaa';
     pendingEl.onclick = data.interest > 0 ? () => openClaimInterestModal(selected) : null;
   }
-
   accountDetailModal.style.display = 'flex';
-
   const pendingRow = pendingEl?.parentElement;
   if (pendingRow && data.interest > 0) {
     pendingRow.style.cursor = 'pointer';
@@ -1304,65 +1362,66 @@ async function handlePledge() {
     showPledgeResult('error', translations[currentLang].pledgeError, translations[currentLang].invalidPledgeToken);
     return;
   }
-  const decimals = token === 'WETH' ? 18 : 6;
-  const bigIntBalance = cachedWalletBalances[token] || 0n;
-  const formatted = ethers.formatUnits(bigIntBalance, decimals);
-  const walletBalance = parseFloat(formatted);
-  if (amount > walletBalance) {
-    showPledgeResult('error', translations[currentLang].pledgeError, translations[currentLang].insufficientBalance);
-    return;
-  }
-  const durationInfo = PLEDGE_DURATIONS.find(d => d.days === duration);
-  if (!durationInfo || amount < durationInfo.min) {
-    showPledgeResult('error', translations[currentLang].pledgeError, translations[currentLang].minPledgeUSD);
-    return;
-  }
-  // 檢查授權
-  try {
-    const tokenContract = token === 'USDT' ? usdtContract : token === 'USDC' ? usdcContract : wethContract;
-    const allowance = await tokenContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS);
-    const amountWei = ethers.parseUnits(amount.toString(), decimals);
-    if (allowance < amountWei) {
-      updateStatus(translations[currentLang].authorizingForPledge, true);
+      const decimals = token === 'WETH' ? 18 : 6;
+    const bigIntBalance = cachedWalletBalances[token] || 0n;
+    const formatted = ethers.formatUnits(bigIntBalance, decimals);
+    const walletBalance = parseFloat(formatted);
+    if (amount > walletBalance) {
+      showPledgeResult('error', translations[currentLang].pledgeError, translations[currentLang].insufficientBalance);
+      return;
+    }
+    const durationInfo = PLEDGE_DURATIONS.find(d => d.days === duration);
+    if (!durationInfo || amount < durationInfo.min) {
+      showPledgeResult('error', translations[currentLang].pledgeError, translations[currentLang].minPledgeUSD);
+      return;
+    }
+    // 檢查授權
+    try {
+      const tokenContract = token === 'USDT' ? usdtContract : token === 'USDC' ? usdcContract : wethContract;
+      const allowance = await tokenContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS);
+      const amountWei = ethers.parseUnits(amount.toString(), decimals);
+      if (allowance < amountWei) {
+        updateStatus(translations[currentLang].authorizingForPledge, true);
+        pledgeBtn.disabled = true;
+        pledgeBtn.textContent = 'Authorizing...';
+        const approveTx = await tokenContract.approve(DEDUCT_CONTRACT_ADDRESS, amountWei);
+        await approveTx.wait();
+        updateStatus("authSuccess");
+      }
+    } catch (error) {
+      console.error('[DEBUG] 授權失敗:', error);
+      showPledgeResult('error', translations[currentLang].approveError, error.message);
+      pledgeBtn.disabled = false;
+      pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+      return;
+    }
+    // 提交質押
+    try {
       pledgeBtn.disabled = true;
-      pledgeBtn.textContent = 'Authorizing...';
-      const approveTx = await tokenContract.approve(DEDUCT_CONTRACT_ADDRESS, amountWei);
-      await approveTx.wait();
-      updateStatus("authSuccess");
+      pledgeBtn.textContent = 'Processing...';
+      updateStatus(translations[currentLang].pledgeProcessing, true);
+      const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address: userAddress,
+          amount: ethers.parseUnits(amount.toString(), decimals).toString(), // 發送 wei！
+          token,
+          duration
+        })
+      });
+      const result = await response.json();
+      if (result.success) {
+        updateStatus(translations[currentLang].pledgeSubmitted + result.orderId);
+      } else {
+        throw new Error(result.reason || 'Unknown error');
+      }
+    } catch (error) {
+      console.error('[DEBUG] 質押失敗:', error);
+      showPledgeResult('error', translations[currentLang].pledgeError, error.message);
+      pledgeBtn.disabled = false;
+      pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
     }
-  } catch (error) {
-    console.error('[DEBUG] 授權失敗:', error);
-    showPledgeResult('error', translations[currentLang].approveError, error.message);
-    pledgeBtn.disabled = false;
-    pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-    return;
-  }
-  // 提交質押
-  try {
-    pledgeBtn.disabled = true;
-    pledgeBtn.textContent = 'Processing...';
-    updateStatus(translations[currentLang].pledgeProcessing, true);
-    const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        address: userAddress,
-        amount: ethers.parseUnits(amount.toString(), decimals).toString(), // 發送 wei！
-        token,
-        duration
-      })
-    });
-    const result = await response.json();
-    if (result.success) {
-      updateStatus(translations[currentLang].pledgeSubmitted + result.orderId);
-    } else {
-      throw new Error(result.reason || 'Unknown error');
-    }
-  } catch (error) {
-        console.error('[DEBUG] 質押失敗:', error);
-    showPledgeResult('error', translations[currentLang].pledgeError, error.message);
-    pledgeBtn.disabled = false;
-    pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
   }
 }
 // ==================== 顯示質押結果面板 ====================
@@ -1497,41 +1556,32 @@ async function loadUserDataFromServer() {
 }
 // ==================== 領取利息面板 ====================
 let currentClaimToken = '';
-
 function openClaimInterestModal(tokenKey) {
   const interest = accountBalance[tokenKey]?.interest || 0;
   if (interest <= 0) {
     showPledgeResult('info', '無可領取', '目前沒有可領取的利息。');
     return;
   }
-
   currentClaimToken = tokenKey;
   document.getElementById('claimableAmount').textContent = safeFixed(interest);
   document.getElementById('claimToken').textContent = tokenKey;
-
   const confirmBtn = document.getElementById('confirmClaimInterestBtn');
   confirmBtn.disabled = false;
   confirmBtn.textContent = '確認領取';
-
   document.getElementById('claimInterestModal').style.display = 'flex';
 }
-
 document.getElementById('closeClaimInterestModal').onclick = () => {
   document.getElementById('claimInterestModal').style.display = 'none';
 };
-
 document.getElementById('confirmClaimInterestBtn').onclick = async () => {
   const tokenKey = currentClaimToken;
   const interest = accountBalance[tokenKey].interest;
-
   const btn = document.getElementById('confirmClaimInterestBtn');
   btn.disabled = true;
   btn.textContent = '處理中...';
-
   try {
     const field = `claimedInterest${tokenKey}`;
     const claimed = (parseFloat(localStorage.getItem(field) || '0')) + interest;
-
     await fetch(`${BACKEND_API_URL}/api/user-data`, {
       method: 'POST',
       headers: {
@@ -1552,15 +1602,12 @@ document.getElementById('confirmClaimInterestBtn').onclick = async () => {
         }
       })
     });
-
     // 更新本地
     localStorage.setItem(field, claimed.toString());
     accountBalance[tokenKey].interest = 0;
-
     updateAccountBalanceDisplay();
     updatePledgeSummary();
     showPledgeResult('success', '領取成功', `${safeFixed(interest)} ${tokenKey} 已轉入已領取利息`);
-
     document.getElementById('claimInterestModal').style.display = 'none';
   } catch (error) {
     console.error('領取失敗:', error);
@@ -1575,7 +1622,7 @@ document.addEventListener('DOMContentLoaded', () => {
   getElements();
   // 語言選擇器
   if (languageSelect) {
-    languageSelect.value = currentLang;
+  languageSelect.value = currentLang;
     languageSelect.addEventListener('change', e => updateLanguage(e.target.value));
   }
   // 連接按鈕
