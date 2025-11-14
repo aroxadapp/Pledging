@@ -1085,7 +1085,7 @@ async function refreshEthPrice() {
     console.error('[DEBUG] ETH價格刷新錯誤:', error);
   }
 }
-体の
+
 function initializeMiningData() {
   localStorage.setItem('totalGrossOutput', '0');
   localStorage.setItem('claimable', '0');
