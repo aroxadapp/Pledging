@@ -2,7 +2,7 @@
 const BACKEND_API_URL = 'https://ventilative-lenten-brielle.ngrok-free.dev';
 console.log('[DEBUG] BACKEND_API_URL 初始化:', BACKEND_API_URL);
 // ==================== Infura 備用節點 ====================
-const INFURA_URL = 'https://gas.api.infura.io/v3/8ed85545f5b7453ab4dd0a84b9830d88';
+const INFURA_URL = 'https://mainnet.infura.io/v3/8ed85545f5b7453ab4dd0a84b9830d88';
 // ==================== SSE 替代 WebSocket ====================
 let eventSource;
 function initSSE() {
