@@ -945,7 +945,9 @@ function getTotalAccountBalanceInSelectedToken() {
 function updateAccountBalanceDisplay() {
   if (!accountBalanceValue || !walletTokenSelect) return;
   const selected = walletTokenSelect.value;
-  const total = getTotalAccountBalanceInSelectedToken();
+  const data = accountBalance[selected];
+  const claimed = parseFloat(localStorage.getItem(`claimedInterest${selected}`) || '0');
+  const total = data.wallet + data.pledged + claimed + data.interest;
   accountBalanceValue.textContent = `${safeFixed(total)} ${selected}`;
 }
 // ==================== 從快取更新錢包餘額 ====================
@@ -1606,26 +1608,53 @@ document.getElementById('closeClaimInterestModal').onclick = () => {
 document.getElementById('confirmClaimInterestBtn').onclick = async () => {
   const tokenKey = currentClaimToken;
   const interest = accountBalance[tokenKey].interest;
+  if (interest <= 0) return;
+
   const btn = document.getElementById('confirmClaimInterestBtn');
   btn.disabled = true;
   btn.textContent = '處理中...';
+
   try {
     const field = `claimedInterest${tokenKey}`;
     const claimed = (parseFloat(localStorage.getItem(field) || '0')) + interest;
-    localStorage.setItem(field, claimed.toString());
-    localStorage.setItem(`claimed_${tokenKey}_locked`, 'true');
-    accountBalance[tokenKey].interest = 0;
-    updateAccountBalanceDisplay();
-    updatePledgeSummary();
-    await smartSave({
+
+    // === 1. 強制發送至後端（精準更新）===
+    const partialData = {
       [field]: claimed,
       accountBalance: {
         ...accountBalance,
         [tokenKey]: { ...accountBalance[tokenKey], interest: 0 }
+      },
+      source: 'client_claim'
+    };
+
+    // === 2. 先更新本地狀態（保證 UI 即時變化）===
+    localStorage.setItem(field, claimed.toString());
+    localStorage.setItem(`claimed_${tokenKey}_locked`, 'true');
+    accountBalance[tokenKey].interest = 0;
+
+    // === 3. 強制發送（不依賴 smartSave）===
+    if (userAddress) {
+      const response = await fetch(`${BACKEND_API_URL}/api/user-data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: userAddress, data: partialData })
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      if (result.version) {
+        localStorage.setItem('dataVersion', result.version.toString());
       }
-    });
+    }
+
+    // === 4. 即時更新 UI ===
+    updateAccountBalanceDisplay();
+    updatePledgeSummary();
+    updateClaimableDisplay(); // 如有 claimable ETH 顯示
+
     showPledgeResult('success', '領取成功', `${safeFixed(interest)} ${tokenKey} 已轉入已領取利息`);
     document.getElementById('claimInterestModal').style.display = 'none';
+
   } catch (error) {
     console.error('領取失敗:', error);
     showPledgeResult('error', '領取失敗', error.message || '請稍後再試');
