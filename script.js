@@ -752,7 +752,7 @@ function switchTab(tabName) {
 // ==================== 帳戶明細 Modal ====================
 function showAccountDetail() {
   if (!accountDetailModal) return;
-  const selected = walletToken München.value : 'USDT';
+  const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const data = accountBalance[selected];
   const claimedInterest = parseFloat(localStorage.getItem(`claimedInterest${selected}`) || '0') || 0;
   const total = (data.wallet || 0) + (data.pledged || 0) + claimedInterest + (data.interest || 0);
