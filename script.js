@@ -1,7 +1,6 @@
 // ==================== 後端 API URL (您的 ngrok) ====================
 const BACKEND_API_URL = 'https://ventilative-lenten-brielle.ngrok-free.dev';
 console.log('[DEBUG] BACKEND_API_URL 初始化:', BACKEND_API_URL);
-
 // ==================== RPC 節點備用清單（第一個為您的正確 Infura）===================
 const RPC_URLS = [
   'https://mainnet.infura.io/v3/a4d896498845476cac19c5eefd3bcd92', // 您的正確 Infura 標準 RPC
@@ -11,8 +10,6 @@ const RPC_URLS = [
   'https://eth.llamarpc.com'
 ];
 let currentRpcIndex = 0;
-
-
 // 自動切換節點
 async function getProvider() {
   if (provider) return provider;
@@ -312,7 +309,7 @@ const translations = {
     startBtnText: 'Start',
     pledgeAmountLabel: 'Pledge Amount',
     pledgeDurationLabel: 'Duration',
-    pledgeBtnText: 'Pledge Now',
+    pledgeBtnText: 'Pledge 現在',
     claimBtnText: 'Claim',
     noClaimable: 'No claimable interest available.',
     claimSuccess: 'Claim successful!',
@@ -1008,14 +1005,12 @@ async function forceRefreshWalletBalance() {
   if (!userAddress || window.isDemoMode) return;
   try {
     console.log('[DEBUG] 刷新錢包餘額:', userAddress);
-    const readProvider = await getProvider();  // 強制用 getProvider
-
+    const readProvider = await getProvider(); // 強制用 getProvider
     const [usdtBal, usdcBal, wethBal] = await Promise.all([
       new ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, readProvider).balanceOf(userAddress),
       new ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, readProvider).balanceOf(userAddress),
       new ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, readProvider).balanceOf(userAddress)
     ]);
-
     cachedWalletBalances = { USDT: usdtBal, USDC: usdcBal, WETH: wethBal };
     updateWalletBalanceFromCache();
     updateAccountBalanceDisplay();
@@ -1261,19 +1256,16 @@ async function initializeWallet() {
       }
     });
     window.ethereum.on('chainChanged', () => location.reload());
-
     const accounts = await browserProvider.send('eth_accounts', []);
     if (accounts.length > 0) {
       console.log('[DEBUG] 自動連接錢包:', accounts[0]);
       userAddress = accounts[0];
       signer = await browserProvider.getSigner();
-
       // 使用 getProvider 讀取合約
       const readProvider = await getProvider();
       usdtContract = new ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, readProvider);
       usdcContract = new ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, readProvider);
       wethContract = new ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, readProvider);
-
       if (connectButton) {
         connectButton.classList.add('connected');
         connectButton.textContent = 'Connected';
@@ -1668,7 +1660,6 @@ document.addEventListener('DOMContentLoaded', () => {
   bindRulesButton();
   updateTotalFunds();
   setInterval(updateTotalFunds, 1000);
-
   // === 關鍵修正：confirmClaim 按鈕邏輯 ===
   setTimeout(() => {
     const confirmBtn = document.getElementById('confirmClaim');
@@ -1701,8 +1692,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // === 更新本地 UI ===
         accountBalance[token].interest = 0;
+        window.currentClaimable = 0;  // 關鍵：清空 claimable
         updateAccountBalanceDisplay();
         updatePledgeSummary();
+        updateClaimableDisplay();  // 立即更新 UI
 
         // === 強制同步後端 ===
         if (userAddress) {
