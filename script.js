@@ -67,21 +67,19 @@ function initSSE() {
           console.log('[DEBUG] 未找到匹配用戶數據');
         }
       }
-      if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
+  if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
   console.log('[DEBUG] 接收質押接受:', data);
   const rawAmount = data.amount;
-  const amount = Number(rawAmount);  // 後端發送的是「實際金額」（1, 50, 100）
+  const amount = Number(rawAmount);
   const tokenKey = data.token.toUpperCase();
   const duration = Number(data.duration) || 90;
   const orderId = data.orderId || `order_${Date.now()}`;
   const startTime = data.startTime ? Number(data.startTime) : Date.now();
   if (!['USDT', 'USDC', 'WETH'].includes(tokenKey)) return;
 
-  // 關鍵：直接使用 amount（不是除以 decimals）
   const finalAmount = amount;
-
   if (!accountBalance[tokenKey]) accountBalance[tokenKey] = { wallet: 0, pledged: 0, interest: 0 };
-  accountBalance[tokenKey].pledged += finalAmount;  // 累加！
+  accountBalance[tokenKey].pledged += finalAmount;
 
   const durationInfo = PLEDGE_DURATIONS.find(d => d.days === duration) || { rate: 0 };
   const newOrder = {
@@ -96,7 +94,8 @@ function initSSE() {
   userPledges.push(newOrder);
   updateAccountBalanceDisplay();
   updatePledgeSummary();
-  updatePledgedAmountDisplay?.(); // 如果有
+  // 刪除這行！→ updatePledgedAmountDisplay?.();
+
   const estimatedInterest = (finalAmount * durationInfo.rate).toFixed(3);
   showPledgeResult('success', translations[currentLang].pledgeSuccess,
     `${finalAmount.toFixed(3)} ${tokenKey} ${translations[currentLang].pledgeSuccess}!<br>` +
