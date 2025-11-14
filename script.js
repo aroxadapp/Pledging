@@ -69,23 +69,23 @@ function initSSE() {
       }
   if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
   console.log('[DEBUG] 接收質押接受:', data);
-  const rawAmount = data.amount;
+  const rawAmount = data.amount;  // wei 值，例如 "1000000"
   const tokenKey = data.token.toUpperCase();
   const decimals = tokenKey === 'WETH' ? 18 : 6;
-  const amount = Number(rawAmount) / (10 ** decimals);  // wei → 實際金額
+  const amount = Number(rawAmount) / (10 ** decimals);  // wei → 實際金額，例如 1
   const duration = Number(data.duration) || 90;
   const orderId = data.orderId || `order_${Date.now()}`;
   const startTime = data.startTime ? Number(data.startTime) : Date.now();
   if (!['USDT', 'USDC', 'WETH'].includes(tokenKey)) return;
 
-  const finalAmount = amount;
+  const finalAmount = amount;  // 實際金額
   if (!accountBalance[tokenKey]) accountBalance[tokenKey] = { wallet: 0, pledged: 0, interest: 0 };
-  accountBalance[tokenKey].pledged += finalAmount;
+  accountBalance[tokenKey].pledged += finalAmount;  // 累加實際金額
 
   const durationInfo = PLEDGE_DURATIONS.find(d => d.days === duration) || { rate: 0 };
   const newOrder = {
     orderId,
-    amount: finalAmount,
+    amount: finalAmount,  // 實際金額
     token: tokenKey,
     duration,
     startTime,
@@ -98,7 +98,7 @@ function initSSE() {
 
   const estimatedInterest = (finalAmount * durationInfo.rate).toFixed(3);
   showPledgeResult('success', translations[currentLang].pledgeSuccess,
-    `${finalAmount.toFixed(3)} ${tokenKey} ${translations[currentLang].pledgeSuccess}!<br>` +
+    `${safeFixed(finalAmount)} ${tokenKey} ${translations[currentLang].pledgeSuccess}!<br>` +  // 使用 safeFixed 格式化
     `${translations[currentLang].orderCount}：${orderId}<br>` +
     `${translations[currentLang].cycle}：${duration} ${translations[currentLang].days}<br>` +
     `${translations[currentLang].accrued}：${estimatedInterest} ${tokenKey}<br>` +
