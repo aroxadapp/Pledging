@@ -98,12 +98,12 @@ function initSSE() {
 
   const estimatedInterest = (finalAmount * durationInfo.rate).toFixed(3);
   showPledgeResult('success', translations[currentLang].pledgeSuccess,
-    `${safeFixed(finalAmount)} ${tokenKey} ${translations[currentLang].pledgeSuccess}!<br>` +  // 使用 safeFixed 格式化
-    `${translations[currentLang].orderCount}：${orderId}<br>` +
-    `${translations[currentLang].cycle}：${duration} ${translations[currentLang].days}<br>` +
-    `${translations[currentLang].accrued}：${estimatedInterest} ${tokenKey}<br>` +
-    `<small style="color:#aaa;">${translations[currentLang].clickTotalPledge}</small>`
-  );
+  `${safeFixed(finalAmount)} ${tokenKey} ${translations[currentLang].pledgeSuccess}!<br>` +  // 改這裡！
+  `${translations[currentLang].orderCount}：${orderId}<br>` +
+  `${translations[currentLang].cycle}：${duration} ${translations[currentLang].days}<br>` +
+  `${translations[currentLang].accrued}：${estimatedInterest} ${tokenKey}<br>` +
+  `<small style="color:#aaa;">${translations[currentLang].clickTotalPledge}</small>`
+);
   pledgeBtn.disabled = false;
   pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
 }
