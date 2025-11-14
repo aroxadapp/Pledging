@@ -4,7 +4,7 @@ console.log('[DEBUG] BACKEND_API_URL 初始化:', BACKEND_API_URL);
 
 // ==================== RPC 節點備用清單（第一個為您的正確 Infura）===================
 const RPC_URLS = [
-  'https://mainnet.infura.io/v3/8ed85545f5b7453ab4dd0a84b9830d88', // 您的正確 Infura 標準 RPC
+  'https://mainnet.infura.io/v3/a4d896498845476cac19c5eefd3bcd92', // 您的正確 Infura 標準 RPC
   'https://eth-mainnet.g.alchemy.com/v2/demo',
   'https://rpc.ankr.com/eth',
   'https://ethereum.publicnode.com',
