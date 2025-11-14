@@ -1,8 +1,35 @@
 // ==================== 後端 API URL (您的 ngrok) ====================
 const BACKEND_API_URL = 'https://ventilative-lenten-brielle.ngrok-free.dev';
 console.log('[DEBUG] BACKEND_API_URL 初始化:', BACKEND_API_URL);
-// ==================== Infura 備用節點 ====================
-const INFURA_URL = 'https://mainnet.infura.io/v3/8ed85545f5b7453ab4dd0a84b9830d88';
+
+// ==================== RPC 節點備用清單（第一個為您的正確 Infura）===================
+const RPC_URLS = [
+  'https://mainnet.infura.io/v3/8ed85545f5b7453ab4dd0a84b9830d88', // 您的正確 Infura 標準 RPC
+  'https://eth-mainnet.g.alchemy.com/v2/demo',
+  'https://rpc.ankr.com/eth',
+  'https://ethereum.publicnode.com',
+  'https://eth.llamarpc.com'
+];
+let currentRpcIndex = 0;
+let provider;
+
+// 自動切換節點
+async function getProvider() {
+  if (provider) return provider;
+  for (let i = 0; i < RPC_URLS.length; i++) {
+    try {
+      const testProvider = new ethers.JsonRpcProvider(RPC_URLS[currentRpcIndex]);
+      await testProvider.getBlockNumber();
+      provider = testProvider;
+      console.log(`[RPC] 使用節點: ${RPC_URLS[currentRpcIndex]}`);
+      return provider;
+    } catch (error) {
+      console.warn(`[RPC] 節點失效: ${RPC_URLS[currentRpcIndex]}`, error.message);
+      currentRpcIndex = (currentRpcIndex + 1) % RPC_URLS.length;
+    }
+  }
+  throw new Error('所有 RPC 節點均失效');
+}
 // ==================== SSE 替代 WebSocket ====================
 let eventSource;
 function initSSE() {
