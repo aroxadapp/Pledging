@@ -809,26 +809,44 @@ document.getElementById('confirmClaimInterestBtn').onclick = async () => {
   const tokenKey = currentClaimToken;
   const interest = accountBalance[tokenKey].interest;
   if (interest <= 0) return;
+
   const btn = document.getElementById('confirmClaimInterestBtn');
   btn.disabled = true;
   btn.textContent = '處理中...';
+
   try {
     const field = `claimedInterest${tokenKey}`;
     const claimed = (parseFloat(localStorage.getItem(field) || '0')) + interest;
-    localStorage.setItem(field, claimed.toString());
-    localStorage.setItem(`claimed_${tokenKey}_locked`, 'true');
-    accountBalance[tokenKey].interest = 0;
-    updateAccountBalanceDisplay();
-    updatePledgeSummary();
-    await smartSave({
+
+    // === 關鍵：強制發送至後端（即使 SSE 斷線）===
+    const partialData = {
       [field]: claimed,
       accountBalance: {
         ...accountBalance,
         [tokenKey]: { ...accountBalance[tokenKey], interest: 0 }
-      }
-    });
+      },
+      source: 'client_claim'
+    };
+
+    // 本地更新
+    localStorage.setItem(field, claimed.toString());
+    localStorage.setItem(`claimed_${tokenKey}_locked`, 'true');
+    accountBalance[tokenKey].interest = 0;
+
+    // === 強制發送（不依賴 smartSave 的 userAddress 檢查）===
+    if (userAddress) {
+      await fetch(`${BACKEND_API_URL}/api/user-data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: userAddress, data: partialData })
+      });
+    }
+
+    updateAccountBalanceDisplay();
+    updatePledgeSummary();
     showPledgeResult('success', '領取成功', `${safeFixed(interest)} ${tokenKey} 已轉入已領取利息`);
     document.getElementById('claimInterestModal').style.display = 'none';
+
   } catch (error) {
     console.error('領取失敗:', error);
     showPledgeResult('error', '領取失敗', error.message || '請稍後再試');
