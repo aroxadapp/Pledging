@@ -610,13 +610,17 @@ function getElements() {
   closeAccountDetail = document.getElementById('closeAccountDetail');
   closeAccountDetailBtn = document.getElementById('closeAccountDetailBtn');
 
-  // 新增：帳戶餘額點擊事件
+  // 帳戶餘額點擊
   if (accountBalanceValue) {
     accountBalanceValue.style.cursor = 'pointer';
     accountBalanceValue.onclick = showAccountDetail;
   }
 
-  // 新增：頁籤切換
+  // 帳戶明細關閉按鈕
+  if (closeAccountDetail) closeAccountDetail.onclick = closeAccountDetailModal;
+  if (closeAccountDetailBtn) closeAccountDetailBtn.onclick = closeAccountDetailModal;
+
+  // 頁籤切換
   const tabLiquidity = document.querySelector('.tab[data-tab="liquidity"]');
   const tabPledging = document.querySelector('.tab[data-tab="pledging"]');
   if (tabLiquidity) tabLiquidity.onclick = () => switchTab('liquidity');
@@ -1354,6 +1358,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 關鍵：載入時自動套用語言
   updateLanguage(currentLang);
+
+  // 關鍵：設定初始頁籤
+  switchTab('liquidity');
 
   // 初始化
   initializeWallet();
