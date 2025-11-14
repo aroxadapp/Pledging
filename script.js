@@ -11,7 +11,7 @@ const RPC_URLS = [
   'https://eth.llamarpc.com'
 ];
 let currentRpcIndex = 0;
-let provider;
+
 
 // 自動切換節點
 async function getProvider() {
