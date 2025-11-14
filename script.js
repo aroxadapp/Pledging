@@ -593,13 +593,14 @@ function getElements() {
   closeAccountDetail = document.getElementById('closeAccountDetail');
   closeAccountDetailBtn = document.getElementById('closeAccountDetailBtn');
   // 帳戶餘額點擊
-  if (accountBalanceValue) {
-   414    accountBalanceValue.style.cursor = 'pointer';
-    accountBalanceValue.onclick = showAccountDetail;
-  }
-  // 帳戶明細關閉按鈕
-  if (closeAccountDetail) closeAccountDetail.onclick = closeAccountDetailModal;
-  if (closeAccountDetailBtn) closeAccountDetailBtn.onclick = closeAccountDetailModal;
+if (accountBalanceValue) {
+  accountBalanceValue.style.cursor = 'pointer';
+  accountBalanceValue.onclick = showAccountDetail;
+}
+
+// 帳戶明細關閉按鈕
+if (closeAccountDetail) closeAccountDetail.onclick = closeAccountDetailModal;
+if (closeAccountDetailBtn) closeAccountDetailBtn.onclick = closeAccountDetailModal;
   elements = {
     title: document.getElementById('title'),
     subtitle: document.getElementById('subtitle'),
