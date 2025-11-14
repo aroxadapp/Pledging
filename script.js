@@ -1321,15 +1321,15 @@ async function handlePledge() {
     updateStatus(translations[currentLang].pledgeProcessing, true);
 
     const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        address: userAddress,
-        amount: ethers.parseUnits(amount.toString(), decimals).toString(),
-        token,
-        duration
-      })
-    });
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    address: userAddress,
+    amount: amount.toString(),  // 發送 1, 50, 100
+    token,
+    duration
+  })
+});
 
     const result = await response.json();
     if (result.success) {
