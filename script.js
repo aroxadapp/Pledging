@@ -1036,27 +1036,39 @@ function updateLanguage(lang) {
   if (languageSelect) languageSelect.value = lang;
 
   const apply = () => {
-    getElements(); // 強制更新
+    getElements(); // 強制重新抓取 DOM
+
+    // 更新所有翻譯元素
     for (let key in elements) {
       if (elements[key] && translations[lang]?.[key]) {
         elements[key].textContent = translations[lang][key];
       }
     }
+
+    // 按鈕文字
     if (startBtn) startBtn.textContent = translations[lang].startBtnText;
     if (pledgeBtn) pledgeBtn.textContent = translations[lang].pledgeBtnText;
-    if (connectButton && !userAddress) connectButton.textContent = translations[lang].noWallet || 'Connect Wallet';
+    if (connectButton && !userAddress) {
+      connectButton.textContent = translations[lang].noWallet || 'Connect Wallet';
+    }
+
+    // 動態 UI
     updateNextBenefitTimer();
     updatePledgeSummary();
     updateEstimate();
     updateClaimableDisplay();
     updateAccountBalanceDisplay();
+
+    // 帳戶明細標籤
     const labels = ['totalBalance', 'pledgedAmount', 'pendingInterest', 'claimedInterest', 'walletBalance', 'totalPledge', 'estimate'];
     labels.forEach(key => {
-      const el = document.getElementById(`modal${key.charAt(0).toUpperCase() + key.slice(1)}Label`) || document.getElementById(`${key}Label`);
+      const el = document.getElementById(`modal${key.charAt(0).toUpperCase() + key.slice(1)}Label`) ||
+                 document.getElementById(`${key}Label`);
       if (el && translations[lang][key]) el.textContent = translations[lang][key];
     });
   };
-  setTimeout(apply, 100);
+
+  setTimeout(apply, 100); // 確保 DOM 就緒
 }
 
 // ==================== 其他功能函數 ====================
@@ -1260,6 +1272,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (connectButton) {
     connectButton.addEventListener('click', connectWallet);
   }
+
+  // 關鍵：載入時自動套用語言
+  updateLanguage(currentLang); // <--- 這行必須加！
 
   // 初始化
   initializeWallet();
