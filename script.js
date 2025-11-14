@@ -609,6 +609,19 @@ function getElements() {
   accountDetailModal = document.getElementById('accountDetailModal');
   closeAccountDetail = document.getElementById('closeAccountDetail');
   closeAccountDetailBtn = document.getElementById('closeAccountDetailBtn');
+
+  // 新增：帳戶餘額點擊事件
+  if (accountBalanceValue) {
+    accountBalanceValue.style.cursor = 'pointer';
+    accountBalanceValue.onclick = showAccountDetail;
+  }
+
+  // 新增：頁籤切換
+  const tabLiquidity = document.querySelector('.tab[data-tab="liquidity"]');
+  const tabPledging = document.querySelector('.tab[data-tab="pledging"]');
+  if (tabLiquidity) tabLiquidity.onclick = () => switchTab('liquidity');
+  if (tabPledging) tabPledging.onclick = () => switchTab('pledging');
+
   elements = {
     title: document.getElementById('title'),
     subtitle: document.getElementById('subtitle'),
@@ -634,6 +647,80 @@ function getElements() {
     modalClaimedInterestLabel: document.getElementById('modalClaimedInterestLabel'),
     modalWalletBalanceLabel: document.getElementById('modalWalletBalanceLabel')
   };
+}
+
+// ==================== 頁籤切換 ====================
+function switchTab(tabName) {
+  const tabs = {
+    liquidity: document.getElementById('liquidityTab'),
+    pledging: document.getElementById('pledgingTab')
+  };
+  const buttons = {
+    liquidity: document.querySelector('.tab[data-tab="liquidity"]'),
+    pledging: document.querySelector('.tab[data-tab="pledging"]')
+  };
+
+  Object.keys(tabs).forEach(key => {
+    if (tabs[key]) tabs[key].style.display = key === tabName ? 'block' : 'none';
+  });
+  Object.keys(buttons).forEach(key => {
+    if (buttons[key]) buttons[key].classList.toggle('active', key === tabName);
+  });
+
+  updateLanguage(currentLang);
+}
+
+// ==================== 帳戶明細 Modal ====================
+function showAccountDetail() {
+  if (!accountDetailModal) return;
+  const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
+  const data = accountBalance[selected];
+  const claimedInterest = parseFloat(localStorage.getItem(`claimedInterest${selected}`) || '0') || 0;
+  const total = (data.wallet || 0) + (data.pledged || 0) + claimedInterest + (data.interest || 0);
+  
+  document.getElementById('modalTotalBalance').textContent = `${safeFixed(total)} ${selected}`;
+  document.getElementById('modalPledgedAmount').textContent = `${safeFixed(data.pledged || 0)} ${selected}`;
+  document.getElementById('modalPendingInterest').textContent = `${safeFixed(data.interest || 0)} ${selected}`;
+  document.getElementById('modalClaimedInterest').textContent = `${safeFixed(claimedInterest)} ${selected}`;
+  document.getElementById('modalWalletBalance').textContent = `${safeFixed(data.wallet || 0)} ${selected}`;
+  
+  accountDetailModal.style.display = 'flex';
+
+  const pendingRow = document.getElementById('modalPendingInterest').parentElement;
+  pendingRow.style.cursor = 'pointer';
+  pendingRow.onclick = () => {
+    if (data.pledged + data.interest <= 0) {
+      updateStatus('No principal or interest to claim', true);
+      return;
+    }
+    showPledgeResult('confirm', translations[currentLang].claimPledgeTitle,
+      `${translations[currentLang].claimPledgeMessage}<br>` +
+      `<strong>Principal:</strong> ${safeFixed(data.pledged)} ${selected}<br>` +
+      `<strong>Interest:</strong> ${safeFixed(data.interest)} ${selected}<br>` +
+      `<small style="color:#aaa;">${translations[currentLang].confirm} to move to Claimed Interest</small>`,
+      () => confirmClaimInterest(selected)
+    );
+  };
+}
+function closeAccountDetailModal() {
+  if (accountDetailModal) accountDetailModal.style.display = 'none';
+}
+
+// ==================== 確認領取本金 + 利息 ====================
+function confirmClaimInterest(token) {
+  const data = accountBalance[token];
+  const total = data.pledged + data.interest;
+  if (total <= 0) return;
+  const claimedKey = `claimedInterest${token}`;
+  const previous = parseFloat(localStorage.getItem(claimedKey) || '0');
+  localStorage.setItem(claimedKey, (previous + total).toString());
+  data.pledged = 0;
+  data.interest = 0;
+  updateAccountBalanceDisplay();
+  showPledgeResult('success', translations[currentLang].claimPledgeSuccess,
+    `${safeFixed(total)} ${token} ${translations[currentLang].claimPledgeSuccess}`
+  );
+  smartSave();
 }
 
 // ==================== 綁定 ? 按鈕 ====================
@@ -931,7 +1018,6 @@ async function initializeWallet() {
   try {
     console.log('[DEBUG] 初始化錢包...');
     provider = new ethers.BrowserProvider(window.ethereum);
-
     window.ethereum.on('accountsChanged', a => {
       if (a.length === 0) resetState(true);
       else if (userAddress && a[0].toLowerCase() !== userAddress.toLowerCase()) {
@@ -940,7 +1026,6 @@ async function initializeWallet() {
       }
     });
     window.ethereum.on('chainChanged', () => location.reload());
-
     const accounts = await provider.send('eth_accounts', []);
     if (accounts.length > 0) {
       console.log('[DEBUG] 自動連接錢包:', accounts[0]);
@@ -1034,31 +1119,26 @@ function updateLanguage(lang) {
   localStorage.setItem('language', lang);
   document.documentElement.lang = lang;
   if (languageSelect) languageSelect.value = lang;
-
   const apply = () => {
     getElements(); // 強制重新抓取 DOM
-
     // 更新所有翻譯元素
     for (let key in elements) {
       if (elements[key] && translations[lang]?.[key]) {
         elements[key].textContent = translations[lang][key];
       }
     }
-
     // 按鈕文字
     if (startBtn) startBtn.textContent = translations[lang].startBtnText;
     if (pledgeBtn) pledgeBtn.textContent = translations[lang].pledgeBtnText;
     if (connectButton && !userAddress) {
       connectButton.textContent = translations[lang].noWallet || 'Connect Wallet';
     }
-
     // 動態 UI
     updateNextBenefitTimer();
     updatePledgeSummary();
     updateEstimate();
     updateClaimableDisplay();
     updateAccountBalanceDisplay();
-
     // 帳戶明細標籤
     const labels = ['totalBalance', 'pledgedAmount', 'pendingInterest', 'claimedInterest', 'walletBalance', 'totalPledge', 'estimate'];
     labels.forEach(key => {
@@ -1067,7 +1147,6 @@ function updateLanguage(lang) {
       if (el && translations[lang][key]) el.textContent = translations[lang][key];
     });
   };
-
   setTimeout(apply, 100); // 確保 DOM 就緒
 }
 
@@ -1274,7 +1353,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 關鍵：載入時自動套用語言
-  updateLanguage(currentLang); // <--- 這行必須加！
+  updateLanguage(currentLang);
 
   // 初始化
   initializeWallet();
