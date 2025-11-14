@@ -32,7 +32,7 @@
       <div class="tab" data-tab="pledging"><span id="tabPledging">Pledging</span></div>
     </div>
 
-    <!-- 修正：ID 為 liquidityTab -->
+    <!-- Liquidity Tab -->
     <div id="liquidityTab" class="content-section active">
       <div class="stats-container">
         <div class="stats">
@@ -80,12 +80,11 @@
       <button id="startBtn" class="start-btn">Start</button>
     </div>
 
-    <!-- 修正：ID 為 pledgingTab -->
+    <!-- Pledging Tab -->
     <div id="pledgingTab" class="content-section">
       <div class="pledge-summary">
         <div class="stat-block" id="totalPledgeBlock">
           <div class="stat-label" id="totalPledgeLabel">Total Pledged</div>
-          <!-- 修正：加上 id="totalPledgeValue" + 點擊事件 -->
           <div class="stat-value" id="totalPledgeValue" style="cursor: pointer;">0.000</div>
         </div>
         <div class="stat-block" id="estimateBlock">
@@ -175,7 +174,7 @@
         </div>
         <div class="info-row">
           <span class="label" id="modalPendingInterestLabel">Pending Interest</span>
-          <span class="value" id="modalPendingInterest">0.000 USDT</span>
+          <span class="value" id="pendingInterestUSDT" style="cursor: pointer;">0.000 USDT</span>
         </div>
         <div class="info-row">
           <span class="label" id="modalClaimedInterestLabel">Claimed Interest</span>
@@ -217,6 +216,18 @@
       <div id="pledgeResultMessage" style="color:white; margin:15px 0; line-height:1.6; text-align:center;"></div>
       <div class="modal-footer">
         <button id="pledgeResultConfirm" class="confirm-btn">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 新增：領取利息面板 ==================== -->
+  <div id="claimInterestModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 10001; padding: 20px;">
+    <div style="background: #1a1a2e; padding: 25px; border-radius: 12px; border: 2px solid #00aa00; width: 90%; max-width: 400px; color: white;">
+      <h3 style="margin: 0 0 15px; color: #00aa00;">領取利息</h3>
+      <p style="margin: 10px 0;"><strong>可領取：</strong><span id="claimableAmount">0.000</span> <span id="claimToken">USDT</span></p>
+      <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+        <button id="closeClaimInterestModal" style="background: #666; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer;">關閉</button>
+        <button id="confirmClaimInterestBtn" style="background: #00aa00; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer;">確認領取</button>
       </div>
     </div>
   </div>
