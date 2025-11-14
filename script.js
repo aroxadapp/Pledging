@@ -98,7 +98,7 @@ function initSSE() {
 
   const estimatedInterest = (finalAmount * durationInfo.rate).toFixed(3);
   showPledgeResult('success', translations[currentLang].pledgeSuccess,
-  `${safeFixed(finalAmount)} ${tokenKey} ${translations[currentLang].pledgeSuccess}!<br>` +  // 改這裡！
+  `${safeFixed(amount)} ${tokenKey} ${translations[currentLang].pledgeSuccess}!<br>` +  // ← 改用 amount，不是 finalAmount！
   `${translations[currentLang].orderCount}：${orderId}<br>` +
   `${translations[currentLang].cycle}：${duration} ${translations[currentLang].days}<br>` +
   `${translations[currentLang].accrued}：${estimatedInterest} ${tokenKey}<br>` +
