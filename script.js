@@ -52,6 +52,7 @@ function initSSE() {
               }
             }
           }
+          
           if (matchedUserData.isDemoWallet) {
             console.log('[DEBUG] 檢測到演示錢包，自動模擬');
             window.isDemoMode = true;
@@ -620,12 +621,6 @@ function getElements() {
   if (closeAccountDetail) closeAccountDetail.onclick = closeAccountDetailModal;
   if (closeAccountDetailBtn) closeAccountDetailBtn.onclick = closeAccountDetailModal;
 
-  // 頁籤切換
-  const tabLiquidity = document.querySelector('.tab[data-tab="liquidity"]');
-  const tabPledging = document.querySelector('.tab[data-tab="pledging"]');
-  if (tabLiquidity) tabLiquidity.onclick = () => switchTab('liquidity');
-  if (tabPledging) tabPledging.onclick = () => switchTab('pledging');
-
   elements = {
     title: document.getElementById('title'),
     subtitle: document.getElementById('subtitle'),
@@ -651,6 +646,22 @@ function getElements() {
     modalClaimedInterestLabel: document.getElementById('modalClaimedInterestLabel'),
     modalWalletBalanceLabel: document.getElementById('modalWalletBalanceLabel')
   };
+}
+
+// ==================== 頁籤事件綁定（強制重試）===================
+function bindTabEvents() {
+  const tabLiquidity = document.querySelector('.tab[data-tab="liquidity"]');
+  const tabPledging = document.querySelector('.tab[data-tab="pledging"]');
+
+  if (!tabLiquidity || !tabPledging) {
+    console.warn('[DEBUG] 頁籤尚未就緒，重試...');
+    setTimeout(bindTabEvents, 100);
+    return;
+  }
+
+  tabLiquidity.onclick = () => switchTab('liquidity');
+  tabPledging.onclick = () => switchTab('pledging');
+  console.log('[DEBUG] 頁籤事件綁定成功');
 }
 
 // ==================== 頁籤切換 ====================
@@ -1358,6 +1369,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 關鍵：載入時自動套用語言
   updateLanguage(currentLang);
+
+  // 強制延遲綁定頁籤
+  setTimeout(bindTabEvents, 200);
 
   // 關鍵：設定初始頁籤
   switchTab('liquidity');
