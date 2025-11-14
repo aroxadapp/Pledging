@@ -639,13 +639,13 @@ async function forceRefreshWalletBalance() {
     updateStatus(`Balance read failed: ${error.message}`, true);
   }
 }
-// ==================== 【新增】應用 overrides ====================
+// ==================== 【修復】應用 overrides ====================
 function applyOverrides(override) {
   window.currentClaimable = override.cumulative ?? 0;
   totalGrossOutput = override.grossOutput ?? 0;
   ['USDT', 'USDC', 'WETH'].forEach(token => {
     const pledgedKey = `pledged${token}`;
-    const interest  = `interest${token}`;
+    const interestKey = `interest${token}`;  // ← 修正：加上 "Key"
     const claimedKey = `claimedInterest${token}`;
     if (override[pledgedKey] != null) {
       accountBalance[token].pledged = Number(override[pledgedKey]);
