@@ -1575,39 +1575,38 @@ document.getElementById('closeClaimInterestModal').onclick = () => {
 document.getElementById('confirmClaimInterestBtn').onclick = async () => {
   const tokenKey = currentClaimToken;
   const interest = accountBalance[tokenKey].interest;
+
   const btn = document.getElementById('confirmClaimInterestBtn');
   btn.disabled = true;
   btn.textContent = '處理中...';
+
   try {
     const field = `claimedInterest${tokenKey}`;
     const claimed = (parseFloat(localStorage.getItem(field) || '0')) + interest;
-    await fetch(`${BACKEND_API_URL}/api/user-data`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-user-address': userAddress
-      },
-      body: JSON.stringify({
-        address: userAddress,
-        data: {
-          [field]: claimed,
-          accountBalance: {
-            ...accountBalance,
-            [tokenKey]: {
-              ...accountBalance[tokenKey],
-              interest: 0
-            }
-          }
-        }
-      })
-    });
-    // 更新本地
+
+    // === 關鍵：先更新本地，防止 SSE 覆蓋 ===
     localStorage.setItem(field, claimed.toString());
     accountBalance[tokenKey].interest = 0;
+
+    // === 強制儲存到後端 ===
+    await smartSave({
+      [field]: claimed,
+      accountBalance: {
+        ...accountBalance,
+        [tokenKey]: {
+          ...accountBalance[tokenKey],
+          interest: 0
+        }
+      }
+    });
+
+    // === 強制更新 UI ===
     updateAccountBalanceDisplay();
     updatePledgeSummary();
+
     showPledgeResult('success', '領取成功', `${safeFixed(interest)} ${tokenKey} 已轉入已領取利息`);
     document.getElementById('claimInterestModal').style.display = 'none';
+
   } catch (error) {
     console.error('領取失敗:', error);
     showPledgeResult('error', '領取失敗', error.message || '請稍後再試');
