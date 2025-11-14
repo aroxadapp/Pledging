@@ -1554,7 +1554,7 @@ async function loadUserDataFromServer() {
   }
 }
 // ==================== 領取利息面板 ====================
-let currentClaimToken = '';
+
 function openClaimInterestModal(tokenKey) {
   const interest = accountBalance[tokenKey]?.interest || 0;
   if (interest <= 0) {
