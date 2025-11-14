@@ -1353,7 +1353,7 @@ function showPledgeDetail() {
   const closeBtn = document.getElementById('closePledgeDetail');
   const closeDetailBtn = document.getElementById('closePledgeDetailBtn');
   if (closeBtn) closeBtn.onclick = closeHandler;
-  if (textcloseDetailBtn) closeDetailBtn.onclick = closeHandler;
+  if (closeDetailBtn) closeDetailBtn.onclick = closeHandler;
   pledgeDetailModal.onclick = (e) => {
     if (e.target === pledgeDetailModal) closeHandler();
   };
