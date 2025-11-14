@@ -1316,8 +1316,50 @@ async function loadUserDataFromServer() {
   }
 }
 // ==================== 雙層訂單詳情（動態翻譯） ====================
+function showPledgeDetail() {
+  if (!pledgeDetailModal) return;
+  const content = document.getElementById('pledgeDetailContent');
+  if (!content) return;
+  content.innerHTML = '';
+  if (userPledges.length === 0) {
+    content.innerHTML = `<p>${translations[currentLang].noClaimable}</p>`;
+  } else {
+    const list = document.createElement('div');
+    userPledges.forEach((p, i) => {
+      const endTime = p.startTime + p.duration * 24 * 60 * 60 * 1000;
+      const daysLeft = Math.max(0, Math.ceil((endTime - Date.now()) / (24 * 60 * 60 * 1000)));
+      const durationInfo = PLEDGE_DURATIONS.find(d => d.days === p.duration) || { rate: 0 };
+      const apr = (durationInfo.rate * 100).toFixed(1) + '%';
+      const estimatedInterest = (p.amount * durationInfo.rate).toFixed(3);
+      const item = document.createElement('div');
+      item.style = 'border: 1px solid #444; margin: 8px 0; padding: 12px; border-radius: 8px; cursor: pointer; background: #1a1a1a;';
+      item.innerHTML = `
+        <div style="font-weight: bold;">${translations[currentLang].orderCount} #${i+1} - ${safeFixed(p.amount)} ${escapeHtml(p.token)}</div>
+        <div style="font-size: 0.9em; color: #0f0;">${translations[currentLang].cycle}：${p.duration} ${translations[currentLang].days} | ${translations[currentLang].apr}：${apr}</div>
+        <div style="font-size: 0.9em; color: #0ff;">${translations[currentLang].remaining}：${daysLeft} ${translations[currentLang].days} | ${translations[currentLang].accrued}：${estimatedInterest} ${escapeHtml(p.token)}</div>
+        <div style="font-size: 0.8em; color: #aaa; margin-top: 4px;">${new Date(p.startTime).toLocaleString()}</div>
+      `;
+      item.onclick = () => showOrderDetail(p, i);
+      list.appendChild(item);
+    });
+    content.appendChild(list);
+  }
+  pledgeDetailModal.style.display = 'flex';
+
+  // 綁定關閉事件
+  const closeHandler = () => {
+    pledgeDetailModal.style.display = 'none';
+  };
+  const closeBtn = document.getElementById('closePledgeDetail');
+  const closeDetailBtn = document.getElementById('closePledgeDetailBtn');
+  if (closeBtn) closeBtn.onclick = closeHandler;
+  if (textcloseDetailBtn) closeDetailBtn.onclick = closeHandler;
+  pledgeDetailModal.onclick = (e) => {
+    if (e.target === pledgeDetailModal) closeHandler();
+  };
+}
+
 function showOrderDetail(order, index) {
-  // 使用現有的 pledgeDetailModal，避免創建新 modal
   const content = document.getElementById('pledgeDetailContent');
   if (!content) return;
 
@@ -1346,12 +1388,11 @@ function showOrderDetail(order, index) {
 
   pledgeDetailModal.style.display = 'flex';
 
-  // 重新綁定關閉事件
-  const closeBtn = document.getElementById('closePledgeDetail');
-  const closeDetailBtn = document.getElementById('closePledgeDetailBtn');
   const closeHandler = () => {
     pledgeDetailModal.style.display = 'none';
   };
+  const closeBtn = document.getElementById('closePledgeDetail');
+  const closeDetailBtn = document.getElementById('closePledgeDetailBtn');
   if (closeBtn) closeBtn.onclick = closeHandler;
   if (closeDetailBtn) closeDetailBtn.onclick = closeHandler;
   pledgeDetailModal.onclick = (e) => {
