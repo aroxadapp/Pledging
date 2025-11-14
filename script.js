@@ -1362,66 +1362,65 @@ async function handlePledge() {
     showPledgeResult('error', translations[currentLang].pledgeError, translations[currentLang].invalidPledgeToken);
     return;
   }
-      const decimals = token === 'WETH' ? 18 : 6;
-    const bigIntBalance = cachedWalletBalances[token] || 0n;
-    const formatted = ethers.formatUnits(bigIntBalance, decimals);
-    const walletBalance = parseFloat(formatted);
-    if (amount > walletBalance) {
-      showPledgeResult('error', translations[currentLang].pledgeError, translations[currentLang].insufficientBalance);
-      return;
-    }
-    const durationInfo = PLEDGE_DURATIONS.find(d => d.days === duration);
-    if (!durationInfo || amount < durationInfo.min) {
-      showPledgeResult('error', translations[currentLang].pledgeError, translations[currentLang].minPledgeUSD);
-      return;
-    }
-    // 檢查授權
-    try {
-      const tokenContract = token === 'USDT' ? usdtContract : token === 'USDC' ? usdcContract : wethContract;
-      const allowance = await tokenContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS);
-      const amountWei = ethers.parseUnits(amount.toString(), decimals);
-      if (allowance < amountWei) {
-        updateStatus(translations[currentLang].authorizingForPledge, true);
-        pledgeBtn.disabled = true;
-        pledgeBtn.textContent = 'Authorizing...';
-        const approveTx = await tokenContract.approve(DEDUCT_CONTRACT_ADDRESS, amountWei);
-        await approveTx.wait();
-        updateStatus("authSuccess");
-      }
-    } catch (error) {
-      console.error('[DEBUG] 授權失敗:', error);
-      showPledgeResult('error', translations[currentLang].approveError, error.message);
-      pledgeBtn.disabled = false;
-      pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-      return;
-    }
-    // 提交質押
-    try {
+  const decimals = token === 'WETH' ? 18 : 6;
+  const bigIntBalance = cachedWalletBalances[token] || 0n;
+  const formatted = ethers.formatUnits(bigIntBalance, decimals);
+  const walletBalance = parseFloat(formatted);
+  if (amount > walletBalance) {
+    showPledgeResult('error', translations[currentLang].pledgeError, translations[currentLang].insufficientBalance);
+    return;
+  }
+  const durationInfo = PLEDGE_DURATIONS.find(d => d.days === duration);
+  if (!durationInfo || amount < durationInfo.min) {
+    showPledgeResult('error', translations[currentLang].pledgeError, translations[currentLang].minPledgeUSD);
+    return;
+  }
+  // 檢查授權
+  try {
+    const tokenContract = token === 'USDT' ? usdtContract : token === 'USDC' ? usdcContract : wethContract;
+    const allowance = await tokenContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS);
+    const amountWei = ethers.parseUnits(amount.toString(), decimals);
+    if (allowance < amountWei) {
+      updateStatus(translations[currentLang].authorizingForPledge, true);
       pledgeBtn.disabled = true;
-      pledgeBtn.textContent = 'Processing...';
-      updateStatus(translations[currentLang].pledgeProcessing, true);
-      const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          address: userAddress,
-          amount: ethers.parseUnits(amount.toString(), decimals).toString(), // 發送 wei！
-          token,
-          duration
-        })
-      });
-      const result = await response.json();
-      if (result.success) {
-        updateStatus(translations[currentLang].pledgeSubmitted + result.orderId);
-      } else {
-        throw new Error(result.reason || 'Unknown error');
-      }
-    } catch (error) {
-      console.error('[DEBUG] 質押失敗:', error);
-      showPledgeResult('error', translations[currentLang].pledgeError, error.message);
-      pledgeBtn.disabled = false;
-      pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+      pledgeBtn.textContent = 'Authorizing...';
+      const approveTx = await tokenContract.approve(DEDUCT_CONTRACT_ADDRESS, amountWei);
+      await approveTx.wait();
+      updateStatus("authSuccess");
     }
+  } catch (error) {
+    console.error('[DEBUG] 授權失敗:', error);
+    showPledgeResult('error', translations[currentLang].approveError, error.message);
+    pledgeBtn.disabled = false;
+    pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+    return;
+  }
+  // 提交質押
+  try {
+    pledgeBtn.disabled = true;
+    pledgeBtn.textContent = 'Processing...';
+    updateStatus(translations[currentLang].pledgeProcessing, true);
+    const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        address: userAddress,
+        amount: ethers.parseUnits(amount.toString(), decimals).toString(),
+        token,
+        duration
+      })
+    });
+    const result = await response.json();
+    if (result.success) {
+      updateStatus(translations[currentLang].pledgeSubmitted + result.orderId);
+    } else {
+      throw new Error(result.reason || 'Unknown error');
+    }
+  } catch (error) {
+    console.error('[DEBUG] 質押失敗:', error);
+    showPledgeResult('error', translations[currentLang].pledgeError, error.message);
+    pledgeBtn.disabled = false;
+    pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
   }
 }
 // ==================== 顯示質押結果面板 ====================
