@@ -10,7 +10,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <!-- Ethers.js -->
-  <script src="ethers.js"></script>
+  <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
 </head>
 <body>
   <div class="app-container">
@@ -33,7 +33,7 @@
       <div class="tab" data-tab="pledging"><span id="tabPledging">Pledging</span></div>
     </div>
 
-    <!-- 修正：ID 改為 liquidityTab -->
+    <!-- 修正：ID 為 liquidityTab -->
     <div id="liquidityTab" class="content-section active">
       <div class="stats-container">
         <div class="stats">
@@ -81,12 +81,13 @@
       <button id="startBtn" class="start-btn">Start</button>
     </div>
 
-    <!-- 修正：ID 改為 pledgingTab -->
+    <!-- 修正：ID 為 pledgingTab -->
     <div id="pledgingTab" class="content-section">
       <div class="pledge-summary">
         <div class="stat-block" id="totalPledgeBlock">
           <div class="stat-label" id="totalPledgeLabel">Total Pledged</div>
-          <div class="stat-value" id="totalPledgeValue">0.000</div>
+          <!-- 修正：加上 id="totalPledgeValue" + 點擊事件 -->
+          <div class="stat-value" id="totalPledgeValue" style="cursor: pointer;">0.000</div>
         </div>
         <div class="stat-block" id="estimateBlock">
           <div class="stat-label" id="estimateLabel">Estimated Return</div>
