@@ -70,8 +70,9 @@ function initSSE() {
   if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
   console.log('[DEBUG] 接收質押接受:', data);
   const rawAmount = data.amount;
-  const amount = Number(rawAmount);
   const tokenKey = data.token.toUpperCase();
+  const decimals = tokenKey === 'WETH' ? 18 : 6;
+  const amount = Number(rawAmount) / (10 ** decimals);  // wei → 實際金額
   const duration = Number(data.duration) || 90;
   const orderId = data.orderId || `order_${Date.now()}`;
   const startTime = data.startTime ? Number(data.startTime) : Date.now();
@@ -94,7 +95,6 @@ function initSSE() {
   userPledges.push(newOrder);
   updateAccountBalanceDisplay();
   updatePledgeSummary();
-  // 刪除這行！→ updatePledgedAmountDisplay?.();
 
   const estimatedInterest = (finalAmount * durationInfo.rate).toFixed(3);
   showPledgeResult('success', translations[currentLang].pledgeSuccess,
@@ -1329,11 +1329,11 @@ const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    address: userAddress,
-    amount: amount.toString(),  // 發送 1, 50, 100
-    token,
-    duration
-  })
+  address: userAddress,
+  amount: ethers.parseUnits(amount.toString(), decimals).toString(),  // 發送 wei！
+  token,
+  duration
+})
 });
 
     const result = await response.json();
