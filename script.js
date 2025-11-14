@@ -1325,7 +1325,7 @@ async function handlePledge() {
     pledgeBtn.textContent = 'Processing...';
     updateStatus(translations[currentLang].pledgeProcessing, true);
 
-    const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
+const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
