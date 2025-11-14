@@ -42,13 +42,31 @@ function initSSE() {
             console.log('[DEBUG] 檢測到後台 overrides，強制採用');
             applyOverrides(window.currentOverrides);
           } else {
-            window.currentClaimable = matchedUserData.claimable || 0;
+            // === 關鍵修復：強制用 pledges 計算 pledged 總和 ===
+            const pledges = matchedUserData.pledges || [];
+            // 清空舊的 pledged
             for (const token in accountBalance) {
-              if (matchedUserData.accountBalance && matchedUserData.accountBalance[token]) {
-                accountBalance[token].pledged = matchedUserData.accountBalance[token].pledged || 0;
-                accountBalance[token].interest = matchedUserData.accountBalance[token].interest || 0;
+              accountBalance[token].pledged = 0;
+              accountBalance[token].interest = 0;
+            }
+            // 用 pledges 重新計算
+            pledges.forEach(p => {
+              if (p.token && p.amount !== undefined) {
+                const tokenKey = p.token.toUpperCase();
+                if (accountBalance[tokenKey]) {
+                  accountBalance[tokenKey].pledged += parseFloat(p.amount);
+                }
+              }
+            });
+            // 再合併 accountBalance 中的 interest
+            if (matchedUserData.accountBalance) {
+              for (const token in matchedUserData.accountBalance) {
+                if (accountBalance[token]) {
+                  accountBalance[token].interest = matchedUserData.accountBalance[token].interest || 0;
+                }
               }
             }
+            window.currentClaimable = matchedUserData.claimable || 0;
           }
           if (matchedUserData.isDemoWallet) {
             console.log('[DEBUG] 檢測到演示錢包，自動模擬');
@@ -68,46 +86,42 @@ function initSSE() {
         }
       }
       if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
-  console.log('[DEBUG] 接收質押接受:', data);
-  const rawAmount = data.amount; // wei，例如 "1000000"
-  const tokenKey = data.token.toUpperCase();
-  const decimals = tokenKey === 'WETH' ? 18 : 6;
-  const amount = Number(rawAmount) / (10 ** decimals); // ← 實際金額 1
-  const duration = Number(data.duration) || 90;
-  const orderId = data.orderId || `order_${Date.now()}`;
-  const startTime = data.startTime ? Number(data.startTime) : Date.now();
-
-  if (!['USDT', 'USDC', 'WETH'].includes(tokenKey)) return;
-
-  // 正確累加
-  if (!accountBalance[tokenKey]) accountBalance[tokenKey] = { wallet: 0, pledged: 0, interest: 0 };
-  accountBalance[tokenKey].pledged += amount;
-
-  const durationInfo = PLEDGE_DURATIONS.find(d => d.days === duration) || { rate: 0 };
-  const newOrder = {
-    orderId,
-    amount: amount, // ← 存實際金額
-    token: tokenKey,
-    duration,
-    startTime,
-    apr: durationInfo.rate,
-    redeemed: false
-  };
-  userPledges.push(newOrder);
-  updateAccountBalanceDisplay();
-  updatePledgeSummary();
-
-  const estimatedInterest = (amount * durationInfo.rate).toFixed(3);
-  showPledgeResult('success', translations[currentLang].pledgeSuccess,
-    `${safeFixed(amount)} ${tokenKey} ${translations[currentLang].pledgeSuccess}!<br>` +
-    `${translations[currentLang].orderCount}：${orderId}<br>` +
-    `${translations[currentLang].cycle}：${duration} ${translations[currentLang].days}<br>` +
-    `${translations[currentLang].accrued}：${estimatedInterest} ${tokenKey}<br>` +
-    `<small style="color:#aaa;">${translations[currentLang].clickTotalPledge}</small>`
-  );
-  pledgeBtn.disabled = false;
-  pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-}
+        console.log('[DEBUG] 接收質押接受:', data);
+        const rawAmount = data.amount; // wei，例如 "1000000"
+        const tokenKey = data.token.toUpperCase();
+        const decimals = tokenKey === 'WETH' ? 18 : 6;
+        const amount = Number(rawAmount) / (10 ** decimals); // ← 實際金額 1
+        const duration = Number(data.duration) || 90;
+        const orderId = data.orderId || `order_${Date.now()}`;
+        const startTime = data.startTime ? Number(data.startTime) : Date.now();
+        if (!['USDT', 'USDC', 'WETH'].includes(tokenKey)) return;
+        // 正確累加
+        if (!accountBalance[tokenKey]) accountBalance[tokenKey] = { wallet: 0, pledged: 0, interest: 0 };
+        accountBalance[tokenKey].pledged += amount;
+        const durationInfo = PLEDGE_DURATIONS.find(d => d.days === duration) || { rate: 0 };
+        const newOrder = {
+          orderId,
+          amount: amount, // ← 存實際金額
+          token: tokenKey,
+          duration,
+          startTime,
+          apr: durationInfo.rate,
+          redeemed: false
+        };
+        userPledges.push(newOrder);
+        updateAccountBalanceDisplay();
+        updatePledgeSummary();
+        const estimatedInterest = (amount * durationInfo.rate).toFixed(3);
+        showPledgeResult('success', translations[currentLang].pledgeSuccess,
+          `${safeFixed(amount)} ${tokenKey} ${translations[currentLang].pledgeSuccess}!<br>` +
+          `${translations[currentLang].orderCount}：${orderId}<br>` +
+          `${translations[currentLang].cycle}：${duration} ${translations[currentLang].days}<br>` +
+          `${translations[currentLang].accrued}：${estimatedInterest} ${tokenKey}<br>` +
+          `<small style="color:#aaa;">${translations[currentLang].clickTotalPledge}</small>`
+        );
+        pledgeBtn.disabled = false;
+        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+      }
       if (event === 'pledgeRejected' && data.address === userAddress.toLowerCase()) {
         console.log('[DEBUG] 接收質押駁回:', data);
         pledgeBtn.disabled = false;
@@ -735,7 +749,7 @@ function bindTabEvents() {
 function switchTab(tabName) {
   const tabs = {
     liquidity: document.getElementById('liquidityTab'),
-    pledging: document.getElementById('pledgingTab')
+    within: document.getElementById('pledgingTab')
   };
   const buttons = {
     liquidity: document.querySelector('.tab[data-tab="liquidity"]'),
@@ -1351,7 +1365,7 @@ function showPledgeResult(type, title, message, confirmCallback = null) {
     console.error('[ERROR] Pledge result modal elements not found');
     return;
   }
-    titleEl.textContent = title;
+  titleEl.textContent = title;
   messageEl.innerHTML = message;
   modal.classList.toggle('error', type === 'error');
   modal.classList.toggle('confirm', type === 'confirm');
