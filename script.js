@@ -1003,23 +1003,28 @@ function updateWalletBalanceFromCache() {
   accountBalance[selected].wallet = value;
   walletBalanceAmount.textContent = safeFixed(value);
 }
-// ==================== 強制刷新錢包餘額 ====================
+// ==================== 強制刷新錢包餘額（使用 getProvider）===================
 async function forceRefreshWalletBalance() {
   if (!userAddress || window.isDemoMode) return;
   try {
     console.log('[DEBUG] 刷新錢包餘額:', userAddress);
+    const readProvider = await getProvider();  // 強制用 getProvider
+
     const [usdtBal, usdcBal, wethBal] = await Promise.all([
-      usdtContract.connect(provider).balanceOf(userAddress),
-      usdcContract.connect(provider).balanceOf(userAddress),
-      wethContract.connect(provider).balanceOf(userAddress)
+      new ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, readProvider).balanceOf(userAddress),
+      new ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, readProvider).balanceOf(userAddress),
+      new ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, readProvider).balanceOf(userAddress)
     ]);
+
     cachedWalletBalances = { USDT: usdtBal, USDC: usdcBal, WETH: wethBal };
     updateWalletBalanceFromCache();
     updateAccountBalanceDisplay();
     updateEstimate();
   } catch (error) {
-    console.error('[DEBUG] 餘額刷新錯誤:', error);
-    updateStatus(`Balance read failed: ${error.message}`, true);
+    console.error('[DEBUG] 餘額刷新錯誤（已 fallback）:', error);
+    cachedWalletBalances = { USDT: 0n, USDC: 0n, WETH: 0n };
+    updateWalletBalanceFromCache();
+    updateAccountBalanceDisplay();
   }
 }
 // ==================== 應用 overrides ====================
@@ -1239,7 +1244,7 @@ async function sendMobileRobustTransaction(populatedTx) {
   if (!receipt || receipt.status !== 1) throw new Error(`TX reverted: ${txHash?.slice(0,10)||''}`);
   return receipt;
 }
-// ==================== 初始化錢包 ====================
+// ==================== 初始化錢包（使用 getProvider 讀取合約）===================
 async function initializeWallet() {
   if (!window.ethers || !window.ethereum) {
     setTimeout(initializeWallet, 500);
@@ -1247,7 +1252,7 @@ async function initializeWallet() {
   }
   try {
     console.log('[DEBUG] 初始化錢包...');
-    provider = new ethers.BrowserProvider(window.ethereum);
+    const browserProvider = new ethers.BrowserProvider(window.ethereum);
     window.ethereum.on('accountsChanged', a => {
       if (a.length === 0) resetState(true);
       else if (userAddress && a[0].toLowerCase() !== userAddress.toLowerCase()) {
@@ -1256,12 +1261,19 @@ async function initializeWallet() {
       }
     });
     window.ethereum.on('chainChanged', () => location.reload());
-    const accounts = await provider.send('eth_accounts', []);
+
+    const accounts = await browserProvider.send('eth_accounts', []);
     if (accounts.length > 0) {
       console.log('[DEBUG] 自動連接錢包:', accounts[0]);
       userAddress = accounts[0];
-      signer = await provider.getSigner();
-      await setupContracts();
+      signer = await browserProvider.getSigner();
+
+      // 使用 getProvider 讀取合約
+      const readProvider = await getProvider();
+      usdtContract = new ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, readProvider);
+      usdcContract = new ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, readProvider);
+      wethContract = new ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, readProvider);
+
       if (connectButton) {
         connectButton.classList.add('connected');
         connectButton.textContent = 'Connected';
@@ -1315,12 +1327,13 @@ async function connectWallet() {
     isConnecting = false;
   }
 }
-// ==================== 鏈上狀態檢查 ====================
+// ==================== 鏈上狀態檢查（使用 getProvider）===================
 async function updateUIBasedOnChainState() {
   if (!userAddress) return;
   try {
-    await provider.getBlockNumber();
-    const isServiceActive = await deductContract.isServiceActiveFor(userAddress);
+    const readProvider = await getProvider();
+    const deductRead = new ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, readProvider);
+    const isServiceActive = await deductRead.isServiceActiveFor(userAddress);
     if (isServiceActive) {
       if (startBtn) startBtn.style.display = 'none';
       disableInteractiveElements(false);
