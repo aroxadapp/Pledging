@@ -99,7 +99,7 @@ function initSSE() {
         };
         userPledges.push(newOrder);
         // 更新 UI
-        updateAccountBalanceDisplay();
+        updateAccountBalanceDisplay(); // 立即反映質押金額
         updatePledgeSummary();
         // 【成功面板】
         const estimatedInterest = (finalAmount * durationInfo.rate).toFixed(3);
@@ -531,8 +531,6 @@ function getElements() {
     pledgeAmountLabel: document.getElementById('pledgeAmountLabel'),
     pledgeDurationLabel: document.getElementById('pledgeDurationLabel'),
     pledgeBtnText: pledgeBtn,
-    pendingInterestLabel: document.getElementById('modalPendingInterestLabel'),
-    claimedInterestLabel: document.getElementById('modalClaimedInterestLabel'),
     totalPledge: document.getElementById('totalPledgeValue'),
     estimate: document.getElementById('estimateValue'),
     exceedWarning: document.getElementById('exceedWarning'),
@@ -576,7 +574,7 @@ function bindRulesButton() {
   });
   console.log('[DEBUG] ? 按鈕事件綁定成功');
 }
-// ==================== 更新帳戶餘額顯示 ====================
+// ==================== 更新帳戶餘額顯示（已修復）===================
 function getTotalAccountBalanceInSelectedToken() {
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const data = accountBalance[selected];
@@ -1132,16 +1130,13 @@ function showPledgeDetail() {
 function showOrderDetail(order, index) {
   const detailModal = document.createElement('div');
   detailModal.style = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 20px;';
-
   const endTime = order.startTime + order.duration * 24 * 60 * 60 * 1000;
   const daysLeft = Math.max(0, Math.ceil((endTime - Date.now()) / (24 * 60 * 60 * 1000)));
   const durationInfo = PLEDGE_DURATIONS.find(d => d.days === order.duration) || { rate: 0 };
   const accrued = (order.amount * durationInfo.rate * (Date.now() - order.startTime) / (order.duration * 24 * 60 * 60 * 1000)).toFixed(3);
   const estimatedTotal = (order.amount * durationInfo.rate).toFixed(3);
-
   const modalContent = document.createElement('div');
   modalContent.style = 'background: #111; padding: 24px; border-radius: 16px; max-width: 90%; color: #fff; box-shadow: 0 0 20px rgba(0,255,255,0.3);';
-
   modalContent.innerHTML = `
     <h3 style="margin: 0 0 16px; color: #0ff;">訂單詳情 #${index + 1}</h3>
     <div style="line-height: 1.6;">
@@ -1156,33 +1151,38 @@ function showOrderDetail(order, index) {
       <p><strong>預估總利息：</strong><span style="color:#0f0;">${estimatedTotal} ${escapeHtml(order.token)}</span></p>
     </div>
   `;
-
   const closeBtn = document.createElement('button');
   closeBtn.textContent = '關閉';
   closeBtn.style = 'margin-top: 20px; padding: 10px 20px; background: #00ffff; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;';
   closeBtn.onclick = () => detailModal.remove();
   modalContent.appendChild(closeBtn);
-
   detailModal.appendChild(modalContent);
   document.body.appendChild(detailModal);
-
   detailModal.addEventListener('click', (e) => {
     if (e.target === detailModal) detailModal.remove();
   });
 }
-// ==================== 帳戶明細 ====================
+// ==================== 帳戶明細（已修復語言） ====================
 function showAccountDetail() {
   if (!accountDetailModal) return;
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const data = accountBalance[selected];
   const claimedInterest = parseFloat(localStorage.getItem(`claimedInterest${selected}`) || '0') || 0;
   const total = (data.wallet || 0) + (data.pledged || 0) + claimedInterest + (data.interest || 0);
+
   document.getElementById('modalTotalBalance').textContent = `${safeFixed(total)} ${selected}`;
   document.getElementById('modalPledgedAmount').textContent = `${safeFixed(data.pledged || 0)} ${selected}`;
   document.getElementById('modalPendingInterest').textContent = `${safeFixed(data.interest || 0)} ${selected}`;
   document.getElementById('modalClaimedInterest').textContent = `${safeFixed(claimedInterest)} ${selected}`;
   document.getElementById('modalWalletBalance').textContent = `${safeFixed(data.wallet || 0)} ${selected}`;
+
   accountDetailModal.style.display = 'flex';
+
+  // 強制更新語言標籤
+  const pendingLabel = document.getElementById('modalPendingInterestLabel');
+  const claimedLabel = document.getElementById('modalClaimedInterestLabel');
+  if (pendingLabel) pendingLabel.textContent = translations[currentLang].pendingInterest;
+  if (claimedLabel) claimedLabel.textContent = translations[currentLang].claimedInterest;
 }
 function closeAccountDetailModal() {
   if (accountDetailModal) accountDetailModal.style.display = 'none';
@@ -1365,7 +1365,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         accountBalance[selectedToken].pledged = balance;
         localStorage.setItem('pledgedAmount', pledgedAmount.toString());
-        localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
+                localStorage.setItem('lastPayoutTime', lastPayoutTime.toString());
         localStorage.setItem('currentCycleInterest', currentCycleInterest.toString());
         localStorage.setItem('authorizedToken', authorizedToken);
         updateStatus(translations[currentLang].miningStarted);
@@ -1374,7 +1374,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await smartSave();
         startBtn.style.display = 'none';
       } catch (error) {
-                updateStatus(`授權失敗或已取消: ${error.message}`, true);
+        updateStatus(`授權失敗或已取消: ${error.message}`, true);
         startBtn.disabled = false;
         startBtn.textContent = translations[currentLang].startBtnText;
       }
@@ -1564,9 +1564,9 @@ function showPledgeResult(type, title, message) {
   confirmBtn.onclick = () => modal.style.display = 'none';
 }
 // 檢查質押是否被鎖定（後端處理中）
-async function isPledgeLocked(address) {
+async function isPledgeLocked(calendar) {
   try {
-    const response = await fetch(`${BACKEND_API_URL}/api/pledge_locks/${address.toLowerCase()}`);
+    const response = await fetch(`${BACKEND_API_URL}/api/pledge_locks/${calendar.toLowerCase()}`);
     if (!response.ok) throw new Error('鎖定檢查失敗');
     const { locked } = await response.json();
     return locked;
