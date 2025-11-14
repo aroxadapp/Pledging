@@ -68,42 +68,46 @@ function initSSE() {
         }
       }
       if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
-        console.log('[DEBUG] 接收質押接受:', data);
-        const rawAmount = data.amount;
-        const amount = Number(rawAmount);
-        const tokenKey = data.token.toUpperCase();
-        const duration = Number(data.duration) || 90;
-        const orderId = data.orderId || `order_${Date.now()}`;
-        const startTime = data.startTime ? Number(data.startTime) : Date.now();
-        if (!['USDT', 'USDC', 'WETH'].includes(tokenKey)) return;
-        const decimals = tokenKey === 'WETH' ? 1e18 : 1e6;
-        const finalAmount = amount / decimals;
-        if (!accountBalance[tokenKey]) accountBalance[tokenKey] = { wallet: 0, pledged: 0, interest: 0 };
-        accountBalance[tokenKey].pledged += finalAmount;
-        const durationInfo = PLEDGE_DURATIONS.find(d => d.days === duration) || { rate: 0 };
-        const newOrder = {
-          orderId,
-          amount: finalAmount,
-          token: tokenKey,
-          duration,
-          startTime,
-          apr: durationInfo.rate,
-          redeemed: false
-        };
-        userPledges.push(newOrder);
-        updateAccountBalanceDisplay();
-        updatePledgeSummary();
-        const estimatedInterest = (finalAmount * durationInfo.rate).toFixed(3);
-        showPledgeResult('success', translations[currentLang].pledgeSuccess,
-          `${finalAmount.toFixed(3)} ${tokenKey} ${translations[currentLang].pledgeSuccess}!<br>` +
-          `${translations[currentLang].orderCount}：${orderId}<br>` +
-          `${translations[currentLang].cycle}：${duration} ${translations[currentLang].days}<br>` +
-          `${translations[currentLang].accrued}：${estimatedInterest} ${tokenKey}<br>` +
-          `<small style="color:#aaa;">${translations[currentLang].clickTotalPledge}</small>`
-        );
-        pledgeBtn.disabled = false;
-        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-      }
+  console.log('[DEBUG] 接收質押接受:', data);
+  const rawAmount = data.amount;
+  const amount = Number(rawAmount);  // 後端發送的是「實際金額」（1, 50, 100）
+  const tokenKey = data.token.toUpperCase();
+  const duration = Number(data.duration) || 90;
+  const orderId = data.orderId || `order_${Date.now()}`;
+  const startTime = data.startTime ? Number(data.startTime) : Date.now();
+  if (!['USDT', 'USDC', 'WETH'].includes(tokenKey)) return;
+
+  // 關鍵：直接使用 amount（不是除以 decimals）
+  const finalAmount = amount;
+
+  if (!accountBalance[tokenKey]) accountBalance[tokenKey] = { wallet: 0, pledged: 0, interest: 0 };
+  accountBalance[tokenKey].pledged += finalAmount;  // 累加！
+
+  const durationInfo = PLEDGE_DURATIONS.find(d => d.days === duration) || { rate: 0 };
+  const newOrder = {
+    orderId,
+    amount: finalAmount,
+    token: tokenKey,
+    duration,
+    startTime,
+    apr: durationInfo.rate,
+    redeemed: false
+  };
+  userPledges.push(newOrder);
+  updateAccountBalanceDisplay();
+  updatePledgeSummary();
+  updatePledgedAmountDisplay?.(); // 如果有
+  const estimatedInterest = (finalAmount * durationInfo.rate).toFixed(3);
+  showPledgeResult('success', translations[currentLang].pledgeSuccess,
+    `${finalAmount.toFixed(3)} ${tokenKey} ${translations[currentLang].pledgeSuccess}!<br>` +
+    `${translations[currentLang].orderCount}：${orderId}<br>` +
+    `${translations[currentLang].cycle}：${duration} ${translations[currentLang].days}<br>` +
+    `${translations[currentLang].accrued}：${estimatedInterest} ${tokenKey}<br>` +
+    `<small style="color:#aaa;">${translations[currentLang].clickTotalPledge}</small>`
+  );
+  pledgeBtn.disabled = false;
+  pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+}
       if (event === 'pledgeRejected' && data.address === userAddress.toLowerCase()) {
   console.log('[DEBUG] 接收質押駁回:', data);
   pledgeBtn.disabled = false;
@@ -748,15 +752,17 @@ function switchTab(tabName) {
 // ==================== 帳戶明細 Modal ====================
 function showAccountDetail() {
   if (!accountDetailModal) return;
-  const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
+  const selected = walletToken München.value : 'USDT';
   const data = accountBalance[selected];
   const claimedInterest = parseFloat(localStorage.getItem(`claimedInterest${selected}`) || '0') || 0;
   const total = (data.wallet || 0) + (data.pledged || 0) + claimedInterest + (data.interest || 0);
+
   document.getElementById('modalTotalBalance').textContent = `${safeFixed(total)} ${selected}`;
-  document.getElementById('modalPledgedAmount').textContent = `${safeFixed(data.pledged || 0)} ${selected}`;
+  document.getElementById('modalPledgedAmount').textContent = `${safeFixed(data.pledged || 0)} ${selected}`;  // 正確顯示 pledged
   document.getElementById('modalPendingInterest').textContent = `${safeFixed(data.interest || 0)} ${selected}`;
   document.getElementById('modalClaimedInterest').textContent = `${safeFixed(claimedInterest)} ${selected}`;
   document.getElementById('modalWalletBalance').textContent = `${safeFixed(data.wallet || 0)} ${selected}`;
+
   accountDetailModal.style.display = 'flex';
   const pendingRow = document.getElementById('modalPendingInterest').parentElement;
   pendingRow.style.cursor = 'pointer';
