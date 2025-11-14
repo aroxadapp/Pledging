@@ -749,7 +749,7 @@ function bindTabEvents() {
 function switchTab(tabName) {
   const tabs = {
     liquidity: document.getElementById('liquidityTab'),
-    within: document.getElementById('pledgingTab')
+    pledging: document.getElementById('pledgingTab')  // ← 修正這裡！
   };
   const buttons = {
     liquidity: document.querySelector('.tab[data-tab="liquidity"]'),
