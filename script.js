@@ -1691,7 +1691,7 @@ document.addEventListener('DOMContentLoaded', () => {
   getElements();
   if (languageSelect) {
     languageSelect.value = currentLang;
-    languageSelect.addEventListener('change', e => updateLanguage(e.target.value));
+    languageSelect.addEventListener(' Authorizedchange', e => updateLanguage(e.target.value));
   }
   if (connectButton) {
     connectButton.addEventListener('click', connectWallet);
@@ -1714,7 +1714,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateTotalFunds();
   setInterval(updateTotalFunds, 1000);
 
-  // === 關鍵修正：強制綁定 claimModal 所有按鈕 ===
+  // === 關鍵修正：confirmClaim 按鈕邏輯 ===
   setTimeout(() => {
     const confirmBtn = document.getElementById('confirmClaim');
     const cancelBtn = document.getElementById('cancelClaim');
@@ -1722,10 +1722,58 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (confirmBtn && !confirmBtn.dataset.bound) {
       confirmBtn.dataset.bound = 'true';
-      confirmBtn.onclick = () => {
-        console.log('[DEBUG] Confirm Claim 點擊');
+      confirmBtn.onclick = async () => {
+        console.log('[DEBUG] Confirm Claim 點擊 - 開始領取 ETH');
+
+        const claimableETHText = modalClaimableETH?.textContent || '0';
+        const claimableETH = parseFloat(claimableETHText.replace(/[^\d.-]/g, '')) || 0;
+        if (claimableETH <= 0) {
+          showPledgeResult('error', '錯誤', '無可領取 ETH');
+          closeClaimModal();
+          return;
+        }
+
+        const equivalentText = modalEquivalentValue?.textContent || '0';
+        const equivalentValue = parseFloat(equivalentText.replace(/[^\d.-]/g, '')) || 0;
+        const token = modalSelectedToken?.textContent || 'USDT';
+
+        // === 累加到 claimedInterest ===
+        const field = `claimedInterest${token}`;
+        const previous = parseFloat(localStorage.getItem(field) || '0');
+        const newClaimed = previous + equivalentValue;
+        localStorage.setItem(field, newClaimed.toString());
+        localStorage.setItem(`claimed_${token}_locked`, 'true');
+
+        // === 更新本地 UI ===
+        accountBalance[token].interest = 0;
+        updateAccountBalanceDisplay();
+        updatePledgeSummary();
+
+        // === 強制同步後端 ===
+        if (userAddress) {
+          const partialData = {
+            [field]: newClaimed,
+            accountBalance: {
+              ...accountBalance,
+              [token]: { ...accountBalance[token], interest: 0 }
+            },
+            cumulative: 0, // 領取後清空 claimable
+            source: 'client_claim_eth'
+          };
+          try {
+            const response = await fetch(`${BACKEND_API_URL}/api/user-data`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ address: userAddress, data: partialData })
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          } catch (error) {
+            console.error('[ERROR] 後端同步失敗:', error);
+          }
+        }
+
+        showPledgeResult('success', '領取成功', `${safeFixed(equivalentValue)} ${token} 已轉入已領取利息`);
         closeClaimModal();
-        // 可選：觸發領取 ETH 邏輯
       };
     }
 
@@ -1745,13 +1793,10 @@ document.addEventListener('DOMContentLoaded', () => {
       };
     }
 
-    // === 背景點擊關閉 ===
     if (claimModal && !claimModal.dataset.bound) {
       claimModal.dataset.bound = 'true';
       claimModal.onclick = (e) => {
-        if (e.target === claimModal) {
-          closeClaimModal();
-        }
+        if (e.target === claimModal) closeClaimModal();
       };
     }
   }, 500);
