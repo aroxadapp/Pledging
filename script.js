@@ -2,7 +2,7 @@
 const BACKEND_API_URL = 'https://ventilative-lenten-brielle.ngrok-free.dev';
 console.log('[DEBUG] BACKEND_API_URL 初始化:', BACKEND_API_URL);
 
-// ==================== Infura 備用節點 ====================
+// ==================== Infura 備用治療點 ====================
 const INFURA_URL = 'https://mainnet.infura.io/v3/a4d896498845476cac19c5eefd3bcd92';
 
 // ==================== SSE 替代 WebSocket ====================
@@ -52,7 +52,6 @@ function initSSE() {
               }
             }
           }
-          
           if (matchedUserData.isDemoWallet) {
             console.log('[DEBUG] 檢測到演示錢包，自動模擬');
             window.isDemoMode = true;
