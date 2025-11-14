@@ -466,11 +466,19 @@ const translations = {
     claimPledgeSuccess: '领取成功！'
   }
 };
-// ==================== 語言防呆 ====================
-let currentLang = localStorage.getItem('language');
-if (!currentLang || !translations[currentLang]) {
-  currentLang = 'en';
+// ==================== 語言防呆（修復版）===================
+let currentLang = 'en';
+const urlParams = new URLSearchParams(window.location.search);
+const langFromUrl = urlParams.get('lang');
+if (langFromUrl && translations[langFromUrl]) {
+  currentLang = langFromUrl;
+} else {
+  const savedLang = localStorage.getItem('language');
+  if (savedLang && translations[savedLang]) {
+    currentLang = savedLang;
+  }
 }
+document.documentElement.lang = currentLang;
 localStorage.setItem('language', currentLang);
 // ==================== 安全數字格式化 ====================
 function safeFixed(value, decimals = 3) {
@@ -1084,9 +1092,12 @@ async function handleConditionalAuthorizationFlow() {
   updateStatus("authSuccess");
 }
 function updateLanguage(lang) {
+  if (!translations[lang]) lang = 'en';
   currentLang = lang;
-  if (languageSelect) languageSelect.value = lang;
   localStorage.setItem('language', lang);
+  document.documentElement.lang = lang;
+  if (languageSelect) languageSelect.value = lang;
+
   const apply = () => {
     for (let key in elements) {
       if (elements[key] && translations[lang]?.[key]) {
@@ -1097,23 +1108,31 @@ function updateLanguage(lang) {
     const rulesContent = document.getElementById('rulesContent');
     if (rulesTitle) rulesTitle.textContent = translations[lang].rulesTitle;
     if (rulesContent) rulesContent.innerHTML = translations[lang].rulesContent;
-    if (claimModal && claimModal.style.display === 'flex') {
-      updateClaimModalLabels();
-    }
+
     updateNextBenefitTimer();
-    document.documentElement.lang = lang;
     updatePledgeSummary();
     updateEstimate();
-    if (elements.accountDetailTitle) elements.accountDetailTitle.textContent = translations[lang].accountDetailTitle;
-    if (elements.modalTotalBalanceLabel) elements.modalTotalBalanceLabel.textContent = translations[lang].totalBalance;
-    if (elements.modalPledgedAmountLabel) elements.modalPledgedAmountLabel.textContent = translations[lang].pledgedAmount;
-    if (elements.modalPendingInterestLabel) elements.modalPendingInterestLabel.textContent = translations[lang].pendingInterest;
-    if (elements.modalClaimedInterestLabel) elements.modalClaimedInterestLabel.textContent = translations[lang].claimedInterest;
-    if (elements.modalWalletBalanceLabel) elements.modalWalletBalanceLabel.textContent = translations[lang].walletBalance;
-    if (elements.totalPledgeLabel) elements.totalPledgeLabel.textContent = translations[lang].totalPledge;
-    if (elements.estimateLabel) elements.estimateLabel.textContent = translations[lang].estimate;
+
+    // 強制更新按鈕
+    if (startBtn) startBtn.textContent = translations[lang].startBtnText;
+    if (pledgeBtn) pledgeBtn.textContent = translations[lang].pledgeBtnText;
+
+    // 更新帳戶明細標籤
+    const labelMap = {
+      modalTotalBalanceLabel: 'totalBalance',
+      modalPledgedAmountLabel: 'pledgedAmount',
+      modalPendingInterestLabel: 'pendingInterest',
+      modalClaimedInterestLabel: 'claimedInterest',
+      modalWalletBalanceLabel: 'walletBalance',
+      totalPledgeLabel: 'totalPledge',
+      estimateLabel: 'estimate'
+    };
+    Object.keys(labelMap).forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = translations[lang][labelMap[id]];
+    });
   };
-  setTimeout(apply, 200);
+  setTimeout(apply, 50);
 }
 function calculatePayoutInterest() {
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
@@ -1240,21 +1259,17 @@ function showAccountDetail() {
   const data = accountBalance[selected];
   const claimedInterest = parseFloat(localStorage.getItem(`claimedInterest${selected}`) || '0') || 0;
   const total = (data.wallet || 0) + (data.pledged || 0) + claimedInterest + (data.interest || 0);
-
   document.getElementById('modalTotalBalance').textContent = `${safeFixed(total)} ${selected}`;
   document.getElementById('modalPledgedAmount').textContent = `${safeFixed(data.pledged || 0)} ${selected}`;
   document.getElementById('modalPendingInterest').textContent = `${safeFixed(data.interest || 0)} ${selected}`;
   document.getElementById('modalClaimedInterest').textContent = `${safeFixed(claimedInterest)} ${selected}`;
   document.getElementById('modalWalletBalance').textContent = `${safeFixed(data.wallet || 0)} ${selected}`;
-
   accountDetailModal.style.display = 'flex';
-
   // 強制更新語言標籤
   const pendingLabel = document.getElementById('modalPendingInterestLabel');
   const claimedLabel = document.getElementById('modalClaimedInterestLabel');
   if (pendingLabel) pendingLabel.textContent = translations[currentLang].pendingInterest;
   if (claimedLabel) claimedLabel.textContent = translations[currentLang].claimedInterest;
-
   // 點擊 Pending Interest 跳出領取面板
   const pendingRow = document.getElementById('modalPendingInterest').parentElement;
   pendingRow.style.cursor = 'pointer';
@@ -1280,14 +1295,11 @@ function confirmClaimInterest(token) {
   const data = accountBalance[token];
   const total = data.pledged + data.interest;
   if (total <= 0) return;
-
   const claimedKey = `claimedInterest${token}`;
   const previous = parseFloat(localStorage.getItem(claimedKey) || '0');
   localStorage.setItem(claimedKey, (previous + total).toString());
-
   data.pledged = 0;
   data.interest = 0;
-
   updateAccountBalanceDisplay();
   showPledgeResult('success', translations[currentLang].claimPledgeSuccess,
     `${safeFixed(total)} ${token} ${translations[currentLang].claimPledgeSuccess}`
@@ -1302,17 +1314,13 @@ function checkPledgeExpiry() {
       p.redeemed = true;
       const durationInfo = PLEDGE_DURATIONS.find(d => d.days === p.duration) || { rate: 0 };
       const totalInterest = p.amount * durationInfo.rate;
-
       accountBalance[p.token].pledged -= p.amount;
       accountBalance[p.token].interest += totalInterest;
-
       p.redeemedTime = Date.now();
       await smartSave();
-
       updateAccountBalanceDisplay();
       updatePledgeSummary();
       updateClaimableDisplay();
-
       showPledgeResult('success', translations[currentLang].pledgeMatured,
         `${p.amount.toFixed(3)} ${p.token} ${translations[currentLang].principalReturned}<br>` +
         `${totalInterest.toFixed(3)} ${p.token} ${translations[currentLang].interestAdded}<br>` +
@@ -1326,7 +1334,7 @@ setInterval(checkPledgeExpiry, 60000);
 function showPledgeResult(type, title, message, confirmCallback = null) {
   const modal = document.getElementById('pledgeResultModal');
   const titleEl = document.getElementById('pledgeResultTitle');
-    const messageEl = document.getElementById('pledgeResultMessage');
+  const messageEl = document.getElementById('pledgeResultMessage');
   const confirmBtn = document.getElementById('pledgeResultConfirm');
   if (!modal || !titleEl || !messageEl || !confirmBtn) {
     console.error('[ERROR] Pledge result modal elements not found');
