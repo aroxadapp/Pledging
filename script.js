@@ -1713,6 +1713,48 @@ document.addEventListener('DOMContentLoaded', () => {
   bindRulesButton();
   updateTotalFunds();
   setInterval(updateTotalFunds, 1000);
+
+  // === 關鍵修正：強制綁定 claimModal 所有按鈕 ===
+  setTimeout(() => {
+    const confirmBtn = document.getElementById('confirmClaim');
+    const cancelBtn = document.getElementById('cancelClaim');
+    const closeBtn = document.getElementById('closeModal');
+
+    if (confirmBtn && !confirmBtn.dataset.bound) {
+      confirmBtn.dataset.bound = 'true';
+      confirmBtn.onclick = () => {
+        console.log('[DEBUG] Confirm Claim 點擊');
+        closeClaimModal();
+        // 可選：觸發領取 ETH 邏輯
+      };
+    }
+
+    if (cancelBtn && !cancelBtn.dataset.bound) {
+      cancelBtn.dataset.bound = 'true';
+      cancelBtn.onclick = () => {
+        console.log('[DEBUG] Cancel Claim 點擊');
+        closeClaimModal();
+      };
+    }
+
+    if (closeBtn && !closeBtn.dataset.bound) {
+      closeBtn.dataset.bound = 'true';
+      closeBtn.onclick = () => {
+        console.log('[DEBUG] Close Modal (×) 點擊');
+        closeClaimModal();
+      };
+    }
+
+    // === 背景點擊關閉 ===
+    if (claimModal && !claimModal.dataset.bound) {
+      claimModal.dataset.bound = 'true';
+      claimModal.onclick = (e) => {
+        if (e.target === claimModal) {
+          closeClaimModal();
+        }
+      };
+    }
+  }, 500);
 });
 
 // =============== 檔案結束 ===============
