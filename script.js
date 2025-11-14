@@ -772,28 +772,37 @@ function showAccountDetail() {
   const data = accountBalance[selected];
   const claimedInterest = parseFloat(localStorage.getItem(`claimedInterest${selected}`) || '0') || 0;
   const total = (data.wallet || 0) + (data.pledged || 0) + claimedInterest + (data.interest || 0);
-  document.getElementById('modalTotalBalance').textContent = `${safeFixed(total)} ${selected}`;
-  document.getElementById('modalPledgedAmount').textContent = `${safeFixed(data.pledged || 0)} ${selected}`;
-  document.getElementById('modalPendingInterest').textContent = `${safeFixed(data.interest || 0)} ${selected}`;
-  document.getElementById('modalClaimedInterest').textContent = `${safeFixed(claimedInterest)} ${selected}`;
-  document.getElementById('modalWalletBalance').textContent = `${safeFixed(data.wallet || 0)} ${selected}`;
-  accountDetailModal.style.display = 'flex';
-  const pendingRow = document.getElementById('modalPendingInterest').parentElement;
-  pendingRow.style.cursor = 'pointer';
-  pendingRow.onclick = () => {
-    if (data.pledged + data.interest <= 0) {
-      updateStatus('No principal or interest to claim', true);
-      return;
-    }
-    showPledgeResult('confirm', translations[currentLang].claimPledgeTitle,
-      `${translations[currentLang].claimPledgeMessage}<br>` +
-      `<strong>Principal:</strong> ${safeFixed(data.pledged)} ${selected}<br>` +
-      `<strong>Interest:</strong> ${safeFixed(data.interest)} ${selected}<br>` +
-      `<small style="color:#aaa;">${translations[currentLang].confirm} to move to Claimed Interest</small>`,
-      () => confirmClaimInterest(selected)
-    );
+
+  // 安全更新 DOM（避免 null）
+  const updateEl = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
   };
+
+  updateEl('modalTotalBalance', `${safeFixed(total)} ${selected}`);
+  updateEl('modalPledgedAmount', `${safeFixed(data.pledged || 0)} ${selected}`);
+  updateEl('modalClaimedInterest', `${safeFixed(claimedInterest)} ${selected}`);
+  updateEl('modalWalletBalance', `${safeFixed(data.wallet || 0)} ${selected}`);
+
+  // 關鍵修復：用 pendingInterestUSDT 動態 ID
+  const pendingEl = document.getElementById(`pendingInterest${selected}`);
+  if (pendingEl) {
+    pendingEl.textContent = `${safeFixed(data.interest || 0)} ${selected}`;
+    pendingEl.style.cursor = data.interest > 0 ? 'pointer' : 'default';
+    pendingEl.style.color = data.interest > 0 ? '#00ff00' : '#aaa';
+    pendingEl.onclick = data.interest > 0 ? () => openClaimInterestModal(selected) : null;
+  }
+
+  accountDetailModal.style.display = 'flex';
+
+  // 點擊整行也能領取
+  const pendingRow = pendingEl?.parentElement;
+  if (pendingRow && data.interest > 0) {
+    pendingRow.style.cursor = 'pointer';
+    pendingRow.onclick = () => openClaimInterestModal(selected);
+  }
 }
+
 function closeAccountDetailModal() {
   if (accountDetailModal) accountDetailModal.style.display = 'none';
 }
