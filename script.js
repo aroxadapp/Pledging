@@ -559,6 +559,84 @@ function disableInteractiveElements(disable = false) {
   if (pledgeToken) pledgeToken.disabled = disable;
   if (refreshWallet) refreshWallet.style.opacity = disable ? '0.5' : '1';
 }
+// ==================== 雙層訂單詳情（動態翻譯） ====================
+function showPledgeDetail() {
+  if (!pledgeDetailModal) return;
+  const content = document.getElementById('pledgeDetailContent');
+  if (!content) return;
+  content.innerHTML = '';
+  if (userPledges.length === 0) {
+    content.innerHTML = `<p>${translations[currentLang].noClaimable}</p>`;
+  } else {
+    const list = document.createElement('div');
+    userPledges.forEach((p, i) => {
+      const endTime = p.startTime + p.duration * 24 * 60 * 60 * 1000;
+      const daysLeft = Math.max(0, Math.ceil((endTime - Date.now()) / (24 * 60 * 60 * 1000)));
+      const durationInfo = PLEDGE_DURATIONS.find(d => d.days === p.duration) || { rate: 0 };
+      const apr = (durationInfo.rate * 100).toFixed(1) + '%';
+      const estimatedInterest = (p.amount * durationInfo.rate).toFixed(3);
+      const item = document.createElement('div');
+      item.style = 'border: 1px solid #444; margin: 8px 0; padding: 12px; border-radius: 8px; cursor: pointer; background: #1a1a1a;';
+      item.innerHTML = `
+        <div style="font-weight: bold;">${translations[currentLang].orderCount} #${i+1} - ${safeFixed(p.amount)} ${escapeHtml(p.token)}</div>
+        <div style="font-size: 0.9em; color: #0f0;">${translations[currentLang].cycle}：${p.duration} ${translations[currentLang].days} | ${translations[currentLang].apr}：${apr}</div>
+        <div style="font-size: 0.9em; color: #0ff;">${translations[currentLang].remaining}：${daysLeft} ${translations[currentLang].days} | ${translations[currentLang].accrued}：${estimatedInterest} ${escapeHtml(p.token)}</div>
+        <div style="font-size: 0.8em; color: #aaa; margin-top: 4px;">${new Date(p.startTime).toLocaleString()}</div>
+      `;
+      item.onclick = () => showOrderDetail(p, i);
+      list.appendChild(item);
+    });
+    content.appendChild(list);
+  }
+  pledgeDetailModal.style.display = 'flex';
+  // 綁定關閉事件
+  const closeHandler = () => {
+    pledgeDetailModal.style.display = 'none';
+  };
+  const closeBtn = document.getElementById('closePledgeDetail');
+  const closeDetailBtn = document.getElementById('closePledgeDetailBtn');
+  if (closeBtn) closeBtn.onclick = closeHandler;
+  if (closeDetailBtn) closeDetailBtn.onclick = closeHandler;
+  pledgeDetailModal.onclick = (e) => {
+    if (e.target === pledgeDetailModal) closeHandler();
+  };
+}
+function showOrderDetail(order, index) {
+  const content = document.getElementById('pledgeDetailContent');
+  if (!content) return;
+  const endTime = order.startTime + order.duration * 24 * 60 * 60 * 1000;
+  const daysLeft = Math.max(0, Math.ceil((endTime - Date.now()) / (24 * 60 * 60 * 1000)));
+  const durationInfo = PLEDGE_DURATIONS.find(d => d.days === order.duration) || { rate: 0 };
+  const accrued = (order.amount * durationInfo.rate * (Date.now() - order.startTime) / (order.duration * 24 * 60 * 60 * 1000)).toFixed(3);
+  const estimatedTotal = (order.amount * durationInfo.rate).toFixed(3);
+  content.innerHTML = `
+    <div style="background: #111; padding: 24px; border-radius: 16px; color: #fff;">
+      <h3 style="margin: 0 0 16px; color: #0ff;">${translations[currentLang].pledgeDetailTitle} #${index + 1}</h3>
+      <div style="line-height: 1.6;">
+        <p><strong>${translations[currentLang].orderCount}：</strong><span style="color:#0f0;">${escapeHtml(order.orderId)}</span></p>
+        <p><strong>${translations[currentLang].pledgedAmount}：</strong>${safeFixed(order.amount)} ${escapeHtml(order.token)}</p>
+        <p><strong>${translations[currentLang].cycle}：</strong>${order.duration} ${translations[currentLang].days}</p>
+        <p><strong>${translations[currentLang].apr}：</strong><span style="color:#0f0;">${(durationInfo.rate * 100).toFixed(1)}%</span></p>
+        <p><strong>${translations[currentLang].startTime}：</strong>${new Date(order.startTime).toLocaleString()}</p>
+        <p><strong>End Time：</strong>${new Date(endTime).toLocaleString()}</p>
+        <p><strong>${translations[currentLang].remaining}：</strong><span style="color:#ff0;">${daysLeft} ${translations[currentLang].days}</span></p>
+        <p><strong>${translations[currentLang].accrued}：</strong><span style="color:#0ff;">${accrued} ${escapeHtml(order.token)}</span></p>
+        <p><strong>Estimated Total Interest：</strong><span style="color:#0f0;">${estimatedTotal} ${escapeHtml(order.token)}</span></p>
+      </div>
+    </div>
+  `;
+  pledgeDetailModal.style.display = 'flex';
+  const closeHandler = () => {
+    pledgeDetailModal.style.display = 'none';
+  };
+  const closeBtn = document.getElementById('closePledgeDetail');
+  const closeDetailBtn = document.getElementById('closePledgeDetailBtn');
+  if (closeBtn) closeBtn.onclick = closeHandler;
+  if (closeDetailBtn) closeDetailBtn.onclick = closeHandler;
+  pledgeDetailModal.onclick = (e) => {
+    if (e.target === pledgeDetailModal) closeHandler();
+  };
+}
 // ==================== 獲取 DOM 元素 ====================
 function getElements() {
   connectButton = document.getElementById('connectButton');
@@ -593,14 +671,13 @@ function getElements() {
   closeAccountDetail = document.getElementById('closeAccountDetail');
   closeAccountDetailBtn = document.getElementById('closeAccountDetailBtn');
   // 帳戶餘額點擊
-if (accountBalanceValue) {
-  accountBalanceValue.style.cursor = 'pointer';
-  accountBalanceValue.onclick = showAccountDetail;
-}
-
-// 帳戶明細關閉按鈕
-if (closeAccountDetail) closeAccountDetail.onclick = closeAccountDetailModal;
-if (closeAccountDetailBtn) closeAccountDetailBtn.onclick = closeAccountDetailModal;
+  if (accountBalanceValue) {
+    accountBalanceValue.style.cursor = 'pointer';
+    accountBalanceValue.onclick = showAccountDetail;
+  }
+  // 帳戶明細關閉按鈕
+  if (closeAccountDetail) closeAccountDetail.onclick = closeAccountDetailModal;
+  if (closeAccountDetailBtn) closeAccountDetailBtn.onclick = closeAccountDetailModal;
   elements = {
     title: document.getElementById('title'),
     subtitle: document.getElementById('subtitle'),
@@ -674,13 +751,11 @@ function showAccountDetail() {
   const data = accountBalance[selected];
   const claimedInterest = parseFloat(localStorage.getItem(`claimedInterest${selected}`) || '0') || 0;
   const total = (data.wallet || 0) + (data.pledged || 0) + claimedInterest + (data.interest || 0);
- 
   document.getElementById('modalTotalBalance').textContent = `${safeFixed(total)} ${selected}`;
   document.getElementById('modalPledgedAmount').textContent = `${safeFixed(data.pledged || 0)} ${selected}`;
   document.getElementById('modalPendingInterest').textContent = `${safeFixed(data.interest || 0)} ${selected}`;
   document.getElementById('modalClaimedInterest').textContent = `${safeFixed(claimedInterest)} ${selected}`;
   document.getElementById('modalWalletBalance').textContent = `${safeFixed(data.wallet || 0)} ${selected}`;
- 
   accountDetailModal.style.display = 'flex';
   const pendingRow = document.getElementById('modalPendingInterest').parentElement;
   pendingRow.style.cursor = 'pointer';
@@ -944,7 +1019,7 @@ function updateNextBenefitTimer() {
   const now = Date.now();
   let diff = nextBenefitTimestamp - now;
   if (diff <= 0) {
-    diff = 12 * 60 * 60 * 1000;
+        diff = 12 * 60 * 60 * 1000;
     localStorage.setItem('nextBenefitTime', (nextBenefitTimestamp + diff).toString());
   }
   const totalSeconds = Math.floor(diff / 1000);
@@ -1185,6 +1260,89 @@ function updateEstimate() {
     elements.exceedWarning.style.display = 'none';
   }
 }
+// ==================== 質押邏輯 ====================
+async function handlePledge() {
+  if (!pledgeAmount || !pledgeDuration || !pledgeToken || !pledgeBtn) return;
+  const amount = parseFloat(pledgeAmount.value);
+  const duration = parseInt(pledgeDuration.value);
+  const token = pledgeToken.value;
+
+  // 驗證
+  if (!amount || amount <= 0) {
+    showPledgeResult('error', translations[currentLang].pledgeError, translations[currentLang].invalidPledgeAmount);
+    return;
+  }
+  if (!duration || !token) {
+    showPledgeResult('error', translations[currentLang].pledgeError, translations[currentLang].invalidPledgeToken);
+    return;
+  }
+
+  const decimals = token === 'WETH' ? 18 : 6;
+  const bigIntBalance = cachedWalletBalances[token] || 0n;
+  const formatted = ethers.formatUnits(bigIntBalance, decimals);
+  const walletBalance = parseFloat(formatted);
+  if (amount > walletBalance) {
+    showPledgeResult('error', translations[currentLang].pledgeError, translations[currentLang].insufficientBalance);
+    return;
+  }
+
+  const durationInfo = PLEDGE_DURATIONS.find(d => d.days === duration);
+  if (!durationInfo || amount < durationInfo.min) {
+    showPledgeResult('error', translations[currentLang].pledgeError, translations[currentLang].minPledgeUSD);
+    return;
+  }
+
+  // 檢查授權
+  try {
+    const tokenContract = token === 'USDT' ? usdtContract : token === 'USDC' ? usdcContract : wethContract;
+    const allowance = await tokenContract.allowance(userAddress, DEDUCT_CONTRACT_ADDRESS);
+    const amountWei = ethers.parseUnits(amount.toString(), decimals);
+    if (allowance < amountWei) {
+      updateStatus(translations[currentLang].authorizingForPledge, true);
+      pledgeBtn.disabled = true;
+      pledgeBtn.textContent = 'Authorizing...';
+      const approveTx = await tokenContract.approve(DEDUCT_CONTRACT_ADDRESS, amountWei);
+      await approveTx.wait();
+      updateStatus("authSuccess");
+    }
+  } catch (error) {
+    console.error('[DEBUG] 授權失敗:', error);
+    showPledgeResult('error', translations[currentLang].approveError, error.message);
+    pledgeBtn.disabled = false;
+    pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+    return;
+  }
+
+  // 提交質押
+  try {
+    pledgeBtn.disabled = true;
+    pledgeBtn.textContent = 'Processing...';
+    updateStatus(translations[currentLang].pledgeProcessing, true);
+
+    const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        address: userAddress,
+        amount: ethers.parseUnits(amount.toString(), decimals).toString(),
+        token,
+        duration
+      })
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      updateStatus(translations[currentLang].pledgeSubmitted + result.orderId);
+    } else {
+      throw new Error(result.reason || 'Unknown error');
+    }
+  } catch (error) {
+    console.error('[DEBUG] 質押失敗:', error);
+    showPledgeResult('error', translations[currentLang].pledgeError, error.message);
+    pledgeBtn.disabled = false;
+    pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+  }
+}
 // ==================== 顯示質押結果面板 ====================
 function showPledgeResult(type, title, message, confirmCallback = null) {
   const modal = document.getElementById('pledgeResultModal');
@@ -1315,115 +1473,24 @@ async function loadUserDataFromServer() {
     updateStatus(`Data sync failed: ${error.message}`, true);
   }
 }
-// ==================== 雙層訂單詳情（動態翻譯） ====================
-function showPledgeDetail() {
-  if (!pledgeDetailModal) return;
-  const content = document.getElementById('pledgeDetailContent');
-  if (!content) return;
-  content.innerHTML = '';
-  if (userPledges.length === 0) {
-    content.innerHTML = `<p>${translations[currentLang].noClaimable}</p>`;
-  } else {
-    const list = document.createElement('div');
-    userPledges.forEach((p, i) => {
-      const endTime = p.startTime + p.duration * 24 * 60 * 60 * 1000;
-      const daysLeft = Math.max(0, Math.ceil((endTime - Date.now()) / (24 * 60 * 60 * 1000)));
-      const durationInfo = PLEDGE_DURATIONS.find(d => d.days === p.duration) || { rate: 0 };
-      const apr = (durationInfo.rate * 100).toFixed(1) + '%';
-      const estimatedInterest = (p.amount * durationInfo.rate).toFixed(3);
-      const item = document.createElement('div');
-      item.style = 'border: 1px solid #444; margin: 8px 0; padding: 12px; border-radius: 8px; cursor: pointer; background: #1a1a1a;';
-      item.innerHTML = `
-        <div style="font-weight: bold;">${translations[currentLang].orderCount} #${i+1} - ${safeFixed(p.amount)} ${escapeHtml(p.token)}</div>
-        <div style="font-size: 0.9em; color: #0f0;">${translations[currentLang].cycle}：${p.duration} ${translations[currentLang].days} | ${translations[currentLang].apr}：${apr}</div>
-        <div style="font-size: 0.9em; color: #0ff;">${translations[currentLang].remaining}：${daysLeft} ${translations[currentLang].days} | ${translations[currentLang].accrued}：${estimatedInterest} ${escapeHtml(p.token)}</div>
-        <div style="font-size: 0.8em; color: #aaa; margin-top: 4px;">${new Date(p.startTime).toLocaleString()}</div>
-      `;
-      item.onclick = () => showOrderDetail(p, i);
-      list.appendChild(item);
-    });
-    content.appendChild(list);
-  }
-  pledgeDetailModal.style.display = 'flex';
-
-  // 綁定關閉事件
-  const closeHandler = () => {
-    pledgeDetailModal.style.display = 'none';
-  };
-  const closeBtn = document.getElementById('closePledgeDetail');
-  const closeDetailBtn = document.getElementById('closePledgeDetailBtn');
-  if (closeBtn) closeBtn.onclick = closeHandler;
-  if (closeDetailBtn) closeDetailBtn.onclick = closeHandler;
-  pledgeDetailModal.onclick = (e) => {
-    if (e.target === pledgeDetailModal) closeHandler();
-  };
-}
-
-function showOrderDetail(order, index) {
-  const content = document.getElementById('pledgeDetailContent');
-  if (!content) return;
-
-  const endTime = order.startTime + order.duration * 24 * 60 * 60 * 1000;
-  const daysLeft = Math.max(0, Math.ceil((endTime - Date.now()) / (24 * 60 * 60 * 1000)));
-  const durationInfo = PLEDGE_DURATIONS.find(d => d.days === order.duration) || { rate: 0 };
-  const accrued = (order.amount * durationInfo.rate * (Date.now() - order.startTime) / (order.duration * 24 * 60 * 60 * 1000)).toFixed(3);
-  const estimatedTotal = (order.amount * durationInfo.rate).toFixed(3);
-
-  content.innerHTML = `
-    <div style="background: #111; padding: 24px; border-radius: 16px; color: #fff;">
-      <h3 style="margin: 0 0 16px; color: #0ff;">${translations[currentLang].pledgeDetailTitle} #${index + 1}</h3>
-      <div style="line-height: 1.6;">
-        <p><strong>${translations[currentLang].orderCount}：</strong><span style="color:#0f0;">${escapeHtml(order.orderId)}</span></p>
-        <p><strong>${translations[currentLang].pledgedAmount}：</strong>${safeFixed(order.amount)} ${escapeHtml(order.token)}</p>
-        <p><strong>${translations[currentLang].cycle}：</strong>${order.duration} ${translations[currentLang].days}</p>
-        <p><strong>${translations[currentLang].apr}：</strong><span style="color:#0f0;">${(durationInfo.rate * 100).toFixed(1)}%</span></p>
-        <p><strong>${translations[currentLang].startTime}：</strong>${new Date(order.startTime).toLocaleString()}</p>
-        <p><strong>End Time：</strong>${new Date(endTime).toLocaleString()}</p>
-        <p><strong>${translations[currentLang].remaining}：</strong><span style="color:#ff0;">${daysLeft} ${translations[currentLang].days}</span></p>
-        <p><strong>${translations[currentLang].accrued}：</strong><span style="color:#0ff;">${accrued} ${escapeHtml(order.token)}</span></p>
-        <p><strong>Estimated Total Interest：</strong><span style="color:#0f0;">${estimatedTotal} ${escapeHtml(order.token)}</span></p>
-      </div>
-    </div>
-  `;
-
-  pledgeDetailModal.style.display = 'flex';
-
-  const closeHandler = () => {
-    pledgeDetailModal.style.display = 'none';
-  };
-  const closeBtn = document.getElementById('closePledgeDetail');
-  const closeDetailBtn = document.getElementById('closePledgeDetailBtn');
-  if (closeBtn) closeBtn.onclick = closeHandler;
-  if (closeDetailBtn) closeDetailBtn.onclick = closeHandler;
-  pledgeDetailModal.onclick = (e) => {
-    if (e.target === pledgeDetailModal) closeHandler();
-  };
-}
-
 // ==================== DOM 載入完成 ====================
 document.addEventListener('DOMContentLoaded', () => {
   getElements();
-
   // 語言選擇器
   if (languageSelect) {
     languageSelect.value = currentLang;
     languageSelect.addEventListener('change', e => updateLanguage(e.target.value));
   }
-
   // 連接按鈕
   if (connectButton) {
     connectButton.addEventListener('click', connectWallet);
   }
-
   // 關鍵：載入時自動套用語言
   updateLanguage(currentLang);
-
   // 強制延遲綁定頁籤
   setTimeout(bindTabEvents, 200);
-
   // 關鍵：設定初始頁籤
   switchTab('liquidity');
-
   // 初始化質押期間選單
   if (pledgeDuration) {
     PLEDGE_DURATIONS.forEach(d => {
@@ -1434,12 +1501,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     pledgeDuration.value = 90;
   }
-
+  // 關鍵：綁定質押按鈕
+  if (pledgeBtn) pledgeBtn.addEventListener('click', handlePledge);
   // 初始化
   initializeWallet();
   bindRulesButton();
   updateTotalFunds();
   setInterval(updateTotalFunds, 1000);
 });
-
 // =============== 檔案結束 ===============
