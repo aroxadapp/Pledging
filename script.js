@@ -26,7 +26,6 @@ function initSSE() {
           }
           localStorage.setItem('dataVersion', data.version.toString());
         }
-
         // === 關鍵：領取鎖定，拒絕回滾 ===
         const lockedTokens = [];
         ['USDT', 'USDC', 'WETH'].forEach(token => {
@@ -37,9 +36,7 @@ function initSSE() {
         if (lockedTokens.length > 0) {
           console.log(`[LOCK] 以下代幣已領取，拒絕 SSE 回滾: ${lockedTokens.join(', ')}`);
         }
-
         window.currentOverrides = data.overrides?.[userAddress?.toLowerCase()] || {};
-
         // 過濾掉被鎖定的 interest
         lockedTokens.forEach(token => {
           if (window.currentOverrides[`interest${token}`] !== undefined) {
@@ -47,7 +44,15 @@ function initSSE() {
             delete window.currentOverrides[`interest${token}`];
           }
         });
-
+        // === 關鍵：pledged 也鎖定 ===
+        ['USDT', 'USDC', 'WETH'].forEach(token => {
+          if (localStorage.getItem(`pledged_${token}_locked`) === 'true') {
+            if (window.currentOverrides[`pledged${token}`] !== undefined) {
+              console.log(`[LOCK] 忽略後端 pledged${token} = ${window.currentOverrides[`pledged${token}`]}`);
+              delete window.currentOverrides[`pledged${token}`];
+            }
+          }
+        });
         let matchedUserData = null;
         for (let addr in data.users) {
           if (addr.toLowerCase() === userAddress?.toLowerCase()) {
@@ -114,6 +119,7 @@ function initSSE() {
         if (!['USDT', 'USDC', 'WETH'].includes(tokenKey)) return;
         if (!accountBalance[tokenKey]) accountBalance[tokenKey] = { wallet: 0, pledged: 0, interest: 0 };
         accountBalance[tokenKey].pledged += amount;
+        localStorage.setItem(`pledged_${tokenKey}_locked`, 'true'); // 鎖定 pledged
         const durationInfo = PLEDGE_DURATIONS.find(d => d.days === duration) || { rate: 0 };
         const newOrder = {
           orderId,
@@ -963,8 +969,16 @@ function applyOverrides(override) {
     const interestKey = `interest${token}`;
     const claimedKey = `claimedInterest${token}`;
     const walletKey = `wallet${token}`;
-    if (override[pledgedKey] != null) accountBalance[token].pledged = Number(override[pledgedKey]);
-    if (override[interestKey] != null && !localStorage.getItem(`claimed_${token}_locked`)) {
+    // === 關鍵：pledged 也鎖定 ===
+    if (localStorage.getItem(`pledged_${token}_locked`) === 'true') {
+      console.log(`[LOCK] pledged${token} 已鎖定，拒絕覆蓋`);
+    } else if (override[pledgedKey] != null) {
+      accountBalance[token].pledged = Number(override[pledgedKey]);
+    }
+    // === 關鍵：interest 鎖定 ===
+    if (localStorage.getItem(`claimed_${token}_locked`) === 'true') {
+      console.log(`[LOCK] interest${token} 已鎖定，拒絕覆蓋`);
+    } else if (override[interestKey] != null) {
       accountBalance[token].interest = Number(override[interestKey]);
     }
     if (override[claimedKey] != null) localStorage.setItem(claimedKey, String(override[claimedKey]));
@@ -1357,7 +1371,7 @@ async function handlePledge() {
     showPledgeResult('error', translations[currentLang].pledgeError, translations[currentLang].invalidPledgeAmount);
     return;
   }
-    if (!duration || !token) {
+  if (!duration || !token) {
     showPledgeResult('error', translations[currentLang].pledgeError, translations[currentLang].invalidPledgeToken);
     return;
   }
