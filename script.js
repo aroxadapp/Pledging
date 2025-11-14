@@ -734,7 +734,7 @@ function getElements() {
   accountDetailModal = document.getElementById('accountDetailModal');
   closeAccountDetail = document.getElementById('closeAccountDetail');
   closeAccountDetailBtn = document.getElementById('closeAccountDetailBtn');
-  claimButton = document.getElementById('claimButton'); // 關鍵
+  claimButton = document.getElementById('claimButton');
   if (accountBalanceValue) {
     accountBalanceValue.style.cursor = 'pointer';
     accountBalanceValue.onclick = showAccountDetail;
@@ -778,7 +778,6 @@ function getElements() {
       updateEstimate();
     });
   }
-  // === 關鍵：強制綁定 claimButton ===
   if (claimButton) {
     claimButton.onclick = () => claimInterest();
   }
@@ -882,7 +881,6 @@ setTimeout(() => {
     };
   }
 }, 500);
-
 // === 強制綁定關閉按鈕 ===
 setTimeout(() => {
   const closeBtn = document.getElementById('closeClaimInterestModal');
@@ -1011,7 +1009,7 @@ async function forceRefreshWalletBalance() {
   if (!userAddress || window.isDemoMode) return;
   try {
     console.log('[DEBUG] 刷新錢包餘額:', userAddress);
-    const readProvider = await getProvider(); // 強制用 getProvider
+    const readProvider = await getProvider();
     const [usdtBal, usdcBal, wethBal] = await Promise.all([
       new ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, readProvider).balanceOf(userAddress),
       new ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, readProvider).balanceOf(userAddress),
@@ -1087,6 +1085,7 @@ async function refreshEthPrice() {
     console.error('[DEBUG] ETH價格刷新錯誤:', error);
   }
 }
+体の
 function initializeMiningData() {
   localStorage.setItem('totalGrossOutput', '0');
   localStorage.setItem('claimable', '0');
@@ -1267,7 +1266,6 @@ async function initializeWallet() {
       console.log('[DEBUG] 自動連接錢包:', accounts[0]);
       userAddress = accounts[0];
       signer = await browserProvider.getSigner();
-      // 使用 getProvider 讀取合約
       const readProvider = await getProvider();
       usdtContract = new ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, readProvider);
       usdcContract = new ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, readProvider);
@@ -1698,10 +1696,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // === 更新本地 UI ===
         accountBalance[token].interest = 0;
-        window.currentClaimable = 0;  // 關鍵：清空 claimable
+        window.currentClaimable = 0;
         updateAccountBalanceDisplay();
         updatePledgeSummary();
-        updateClaimableDisplay();  // 立即更新 UI
+        updateClaimableDisplay();
 
         // === 強制同步後端 ===
         if (userAddress) {
@@ -1711,7 +1709,7 @@ document.addEventListener('DOMContentLoaded', () => {
               ...accountBalance,
               [token]: { ...accountBalance[token], interest: 0 }
             },
-            cumulative: 0, // 領取後清空 claimable
+            cumulative: 0,
             source: 'client_claim_eth'
           };
           try {
