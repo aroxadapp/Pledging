@@ -845,18 +845,24 @@ setTimeout(() => {
       try {
         const field = `claimedInterest${tokenKey}`;
         const claimed = (parseFloat(localStorage.getItem(field) || '0')) + interest;
-        const partialData = {
-          [field]: claimed,
-          accountBalance: {
-            ...accountBalance,
-            [tokenKey]: { ...accountBalance[tokenKey], interest: 0 }
-          },
-          source: 'client_claim'
-        };
         localStorage.setItem(field, claimed.toString());
         localStorage.setItem(`claimed_${tokenKey}_locked`, 'true');
+
+        // === 更新前端 ===
         accountBalance[tokenKey].interest = 0;
+        updateAccountBalanceDisplay();
+        updatePledgeSummary();
+
+        // === 同步後端：interest 歸零 + claimedInterest 更新 ===
         if (userAddress) {
+          const partialData = {
+            [field]: claimed,
+            accountBalance: {
+              ...accountBalance,
+              [tokenKey]: { ...accountBalance[tokenKey], interest: 0 }
+            },
+            source: 'client_claim_interest'
+          };
           const response = await fetch(`${BACKEND_API_URL}/api/user-data`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -864,8 +870,7 @@ setTimeout(() => {
           });
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
         }
-        updateAccountBalanceDisplay();
-        updatePledgeSummary();
+
         showPledgeResult('success', '領取成功', `${safeFixed(interest)} ${tokenKey} 已轉入已領取利息`);
         document.getElementById('claimInterestModal').style.display = 'none';
       } catch (error) {
@@ -877,6 +882,7 @@ setTimeout(() => {
     };
   }
 }, 500);
+
 // === 強制綁定關閉按鈕 ===
 setTimeout(() => {
   const closeBtn = document.getElementById('closeClaimInterestModal');
