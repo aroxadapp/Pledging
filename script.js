@@ -105,11 +105,12 @@ function initSSE() {
         pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
       }
       if (event === 'pledgeRejected' && data.address === userAddress.toLowerCase()) {
-        console.log('[DEBUG] 接收質押駁回:', data);
-        pledgeBtn.disabled = false;
-        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-        showPledgeResult('error', translations[currentLang].pledgeRejected, data.reason || 'Unknown reason');
-      }
+  console.log('[DEBUG] 接收質押駁回:', data);
+  pledgeBtn.disabled = false;
+  pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+  // 顯示駁回理由
+  showPledgeResult('error', translations[currentLang].pledgeRejected, data.reason || 'Unknown reason');
+}
     } catch (error) {
       console.error('[DEBUG] SSE 解析錯誤:', error);
     }
