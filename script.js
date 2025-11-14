@@ -67,53 +67,53 @@ function initSSE() {
           console.log('[DEBUG] 未找到匹配用戶數據');
         }
       }
-  if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
-  console.log('[DEBUG] 接收質押接受:', data);
-  const rawAmount = data.amount;  // wei 值，例如 "1000000"
-  const tokenKey = data.token.toUpperCase();
-  const decimals = tokenKey === 'WETH' ? 18 : 6;
-  const amount = Number(rawAmount) / (10 ** decimals);  // wei → 實際金額，例如 1
-  const duration = Number(data.duration) || 90;
-  const orderId = data.orderId || `order_${Date.now()}`;
-  const startTime = data.startTime ? Number(data.startTime) : Date.now();
-  if (!['USDT', 'USDC', 'WETH'].includes(tokenKey)) return;
+      if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
+        console.log('[DEBUG] 接收質押接受:', data);
+        const rawAmount = data.amount; // wei 值，例如 "1000000"
+        const tokenKey = data.token.toUpperCase();
+        const decimals = tokenKey === 'WETH' ? 18 : 6;
+        const amount = Number(rawAmount) / (10 ** decimals); // wei → 實際金額，例如 1
+        const duration = Number(data.duration) || 90;
+        const orderId = data.orderId || `order_${Date.now()}`;
+        const startTime = data.startTime ? Number(data.startTime) : Date.now();
+        if (!['USDT', 'USDC', 'WETH'].includes(tokenKey)) return;
 
-  const finalAmount = amount;  // 實際金額
-  if (!accountBalance[tokenKey]) accountBalance[tokenKey] = { wallet: 0, pledged: 0, interest: 0 };
-  accountBalance[tokenKey].pledged += finalAmount;  // 累加實際金額
+        // 正確累加實際金額
+        if (!accountBalance[tokenKey]) accountBalance[tokenKey] = { wallet: 0, pledged: 0, interest: 0 };
+        accountBalance[tokenKey].pledged += amount;
 
-  const durationInfo = PLEDGE_DURATIONS.find(d => d.days === duration) || { rate: 0 };
-  const newOrder = {
-    orderId,
-    amount: finalAmount,  // 實際金額
-    token: tokenKey,
-    duration,
-    startTime,
-    apr: durationInfo.rate,
-    redeemed: false
-  };
-  userPledges.push(newOrder);
-  updateAccountBalanceDisplay();
-  updatePledgeSummary();
+        const durationInfo = PLEDGE_DURATIONS.find(d => d.days === duration) || { rate: 0 };
+        const newOrder = {
+          orderId,
+          amount: amount, // 存實際金額
+          token: tokenKey,
+          duration,
+          startTime,
+          apr: durationInfo.rate,
+          redeemed: false
+        };
+        userPledges.push(newOrder);
+        updateAccountBalanceDisplay();
+        updatePledgeSummary();
 
-  const estimatedInterest = (finalAmount * durationInfo.rate).toFixed(3);
-  showPledgeResult('success', translations[currentLang].pledgeSuccess,
-  `${safeFixed(amount)} ${tokenKey} ${translations[currentLang].pledgeSuccess}!<br>` +  // ← 改用 amount，不是 finalAmount！
-  `${translations[currentLang].orderCount}：${orderId}<br>` +
-  `${translations[currentLang].cycle}：${duration} ${translations[currentLang].days}<br>` +
-  `${translations[currentLang].accrued}：${estimatedInterest} ${tokenKey}<br>` +
-  `<small style="color:#aaa;">${translations[currentLang].clickTotalPledge}</small>`
-);
-  pledgeBtn.disabled = false;
-  pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-}
+        const estimatedInterest = (amount * durationInfo.rate).toFixed(3);
+        showPledgeResult('success', translations[currentLang].pledgeSuccess,
+          `${safeFixed(amount)} ${tokenKey} ${translations[currentLang].pledgeSuccess}!<br>` +
+          `${translations[currentLang].orderCount}：${orderId}<br>` +
+          `${translations[currentLang].cycle}：${duration} ${translations[currentLang].days}<br>` +
+          `${translations[currentLang].accrued}：${estimatedInterest} ${tokenKey}<br>` +
+          `<small style="color:#aaa;">${translations[currentLang].clickTotalPledge}</small>`
+        );
+        pledgeBtn.disabled = false;
+        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+      }
       if (event === 'pledgeRejected' && data.address === userAddress.toLowerCase()) {
-  console.log('[DEBUG] 接收質押駁回:', data);
-  pledgeBtn.disabled = false;
-  pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-  // 顯示駁回理由
-  showPledgeResult('error', translations[currentLang].pledgeRejected, data.reason || 'Unknown reason');
-}
+        console.log('[DEBUG] 接收質押駁回:', data);
+        pledgeBtn.disabled = false;
+        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+        // 顯示駁回理由
+        showPledgeResult('error', translations[currentLang].pledgeRejected, data.reason || 'Unknown reason');
+      }
     } catch (error) {
       console.error('[DEBUG] SSE 解析錯誤:', error);
     }
@@ -755,13 +755,11 @@ function showAccountDetail() {
   const data = accountBalance[selected];
   const claimedInterest = parseFloat(localStorage.getItem(`claimedInterest${selected}`) || '0') || 0;
   const total = (data.wallet || 0) + (data.pledged || 0) + claimedInterest + (data.interest || 0);
-
   document.getElementById('modalTotalBalance').textContent = `${safeFixed(total)} ${selected}`;
-  document.getElementById('modalPledgedAmount').textContent = `${safeFixed(data.pledged || 0)} ${selected}`;  // 正確顯示 pledged
+  document.getElementById('modalPledgedAmount').textContent = `${safeFixed(data.pledged || 0)} ${selected}`;
   document.getElementById('modalPendingInterest').textContent = `${safeFixed(data.interest || 0)} ${selected}`;
   document.getElementById('modalClaimedInterest').textContent = `${safeFixed(claimedInterest)} ${selected}`;
   document.getElementById('modalWalletBalance').textContent = `${safeFixed(data.wallet || 0)} ${selected}`;
-
   accountDetailModal.style.display = 'flex';
   const pendingRow = document.getElementById('modalPendingInterest').parentElement;
   pendingRow.style.cursor = 'pointer';
@@ -1025,7 +1023,7 @@ function updateNextBenefitTimer() {
   const now = Date.now();
   let diff = nextBenefitTimestamp - now;
   if (diff <= 0) {
-        diff = 12 * 60 * 60 * 1000;
+    diff = 12 * 60 * 60 * 1000;
     localStorage.setItem('nextBenefitTime', (nextBenefitTimestamp + diff).toString());
   }
   const totalSeconds = Math.floor(diff / 1000);
@@ -1272,7 +1270,6 @@ async function handlePledge() {
   const amount = parseFloat(pledgeAmount.value);
   const duration = parseInt(pledgeDuration.value);
   const token = pledgeToken.value;
-
   // 驗證
   if (!amount || amount <= 0) {
     showPledgeResult('error', translations[currentLang].pledgeError, translations[currentLang].invalidPledgeAmount);
@@ -1282,7 +1279,6 @@ async function handlePledge() {
     showPledgeResult('error', translations[currentLang].pledgeError, translations[currentLang].invalidPledgeToken);
     return;
   }
-
   const decimals = token === 'WETH' ? 18 : 6;
   const bigIntBalance = cachedWalletBalances[token] || 0n;
   const formatted = ethers.formatUnits(bigIntBalance, decimals);
@@ -1291,13 +1287,11 @@ async function handlePledge() {
     showPledgeResult('error', translations[currentLang].pledgeError, translations[currentLang].insufficientBalance);
     return;
   }
-
   const durationInfo = PLEDGE_DURATIONS.find(d => d.days === duration);
   if (!durationInfo || amount < durationInfo.min) {
     showPledgeResult('error', translations[currentLang].pledgeError, translations[currentLang].minPledgeUSD);
     return;
   }
-
   // 檢查授權
   try {
     const tokenContract = token === 'USDT' ? usdtContract : token === 'USDC' ? usdcContract : wethContract;
@@ -1318,24 +1312,21 @@ async function handlePledge() {
     pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
     return;
   }
-
   // 提交質押
   try {
     pledgeBtn.disabled = true;
     pledgeBtn.textContent = 'Processing...';
     updateStatus(translations[currentLang].pledgeProcessing, true);
-
-const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-  address: userAddress,
-  amount: ethers.parseUnits(amount.toString(), decimals).toString(),  // 發送 wei！
-  token,
-  duration
-})
-});
-
+    const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        address: userAddress,
+        amount: ethers.parseUnits(amount.toString(), decimals).toString(), // 發送 wei！
+        token,
+        duration
+      })
+    });
     const result = await response.json();
     if (result.success) {
       updateStatus(translations[currentLang].pledgeSubmitted + result.orderId);
@@ -1359,7 +1350,7 @@ function showPledgeResult(type, title, message, confirmCallback = null) {
     console.error('[ERROR] Pledge result modal elements not found');
     return;
   }
-  titleEl.textContent = title;
+    titleEl.textContent = title;
   messageEl.innerHTML = message;
   modal.classList.toggle('error', type === 'error');
   modal.classList.toggle('confirm', type === 'confirm');
