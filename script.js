@@ -773,7 +773,6 @@ function showAccountDetail() {
   const claimedInterest = parseFloat(localStorage.getItem(`claimedInterest${selected}`) || '0') || 0;
   const total = (data.wallet || 0) + (data.pledged || 0) + claimedInterest + (data.interest || 0);
 
-  // 安全更新 DOM（避免 null）
   const updateEl = (id, value) => {
     const el = document.getElementById(id);
     if (el) el.textContent = value;
@@ -784,7 +783,6 @@ function showAccountDetail() {
   updateEl('modalClaimedInterest', `${safeFixed(claimedInterest)} ${selected}`);
   updateEl('modalWalletBalance', `${safeFixed(data.wallet || 0)} ${selected}`);
 
-  // 關鍵修復：用 pendingInterestUSDT 動態 ID
   const pendingEl = document.getElementById(`pendingInterest${selected}`);
   if (pendingEl) {
     pendingEl.textContent = `${safeFixed(data.interest || 0)} ${selected}`;
@@ -795,14 +793,12 @@ function showAccountDetail() {
 
   accountDetailModal.style.display = 'flex';
 
-  // 點擊整行也能領取
   const pendingRow = pendingEl?.parentElement;
   if (pendingRow && data.interest > 0) {
     pendingRow.style.cursor = 'pointer';
     pendingRow.onclick = () => openClaimInterestModal(selected);
   }
 }
-
 function closeAccountDetailModal() {
   if (accountDetailModal) accountDetailModal.style.display = 'none';
 }
@@ -1346,7 +1342,7 @@ async function handlePledge() {
     pledgeBtn.disabled = true;
     pledgeBtn.textContent = 'Processing...';
     updateStatus(translations[currentLang].pledgeProcessing, true);
-        const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
+    const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1363,7 +1359,7 @@ async function handlePledge() {
       throw new Error(result.reason || 'Unknown error');
     }
   } catch (error) {
-    console.error('[DEBUG] 質押失敗:', error);
+        console.error('[DEBUG] 質押失敗:', error);
     showPledgeResult('error', translations[currentLang].pledgeError, error.message);
     pledgeBtn.disabled = false;
     pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
@@ -1499,6 +1495,81 @@ async function loadUserDataFromServer() {
     updateStatus(`Data sync failed: ${error.message}`, true);
   }
 }
+// ==================== 領取利息面板 ====================
+let currentClaimToken = '';
+
+function openClaimInterestModal(tokenKey) {
+  const interest = accountBalance[tokenKey]?.interest || 0;
+  if (interest <= 0) {
+    showPledgeResult('info', '無可領取', '目前沒有可領取的利息。');
+    return;
+  }
+
+  currentClaimToken = tokenKey;
+  document.getElementById('claimableAmount').textContent = safeFixed(interest);
+  document.getElementById('claimToken').textContent = tokenKey;
+
+  const confirmBtn = document.getElementById('confirmClaimInterestBtn');
+  confirmBtn.disabled = false;
+  confirmBtn.textContent = '確認領取';
+
+  document.getElementById('claimInterestModal').style.display = 'flex';
+}
+
+document.getElementById('closeClaimInterestModal').onclick = () => {
+  document.getElementById('claimInterestModal').style.display = 'none';
+};
+
+document.getElementById('confirmClaimInterestBtn').onclick = async () => {
+  const tokenKey = currentClaimToken;
+  const interest = accountBalance[tokenKey].interest;
+
+  const btn = document.getElementById('confirmClaimInterestBtn');
+  btn.disabled = true;
+  btn.textContent = '處理中...';
+
+  try {
+    const field = `claimedInterest${tokenKey}`;
+    const claimed = (parseFloat(localStorage.getItem(field) || '0')) + interest;
+
+    await fetch(`${BACKEND_API_URL}/api/user-data`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-address': userAddress
+      },
+      body: JSON.stringify({
+        address: userAddress,
+        data: {
+          [field]: claimed,
+          accountBalance: {
+            ...accountBalance,
+            [tokenKey]: {
+              ...accountBalance[tokenKey],
+              interest: 0
+            }
+          }
+        }
+      })
+    });
+
+    // 更新本地
+    localStorage.setItem(field, claimed.toString());
+    accountBalance[tokenKey].interest = 0;
+
+    updateAccountBalanceDisplay();
+    updatePledgeSummary();
+    showPledgeResult('success', '領取成功', `${safeFixed(interest)} ${tokenKey} 已轉入已領取利息`);
+
+    document.getElementById('claimInterestModal').style.display = 'none';
+  } catch (error) {
+    console.error('領取失敗:', error);
+    showPledgeResult('error', '領取失敗', error.message || '請稍後再試');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '確認領取';
+  }
+};
 // ==================== DOM 載入完成 ====================
 document.addEventListener('DOMContentLoaded', () => {
   getElements();
