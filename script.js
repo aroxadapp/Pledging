@@ -954,7 +954,7 @@ async function initializeWallet() {
     const accounts = await provider.send('eth_accounts', []);
     if (accounts.length > 0) {
       console.log('[DEBUG] 自動連線錢包');
-      await connectWallet();
+      await connectWallet(); // 自動連接
       await updateUIBasedOnChainState();
     } else {
       disableInteractiveElements(true);
