@@ -1316,70 +1316,47 @@ async function loadUserDataFromServer() {
   }
 }
 // ==================== 雙層訂單詳情（動態翻譯） ====================
-function showPledgeDetail() {
-  if (!pledgeDetailModal) return;
+function showOrderDetail(order, index) {
+  // 使用現有的 pledgeDetailModal，避免創建新 modal
   const content = document.getElementById('pledgeDetailContent');
   if (!content) return;
-  content.innerHTML = '';
-  if (userPledges.length === 0) {
-    content.innerHTML = `<p>${translations[currentLang].noClaimable}</p>`;
-  } else {
-    const list = document.createElement('div');
-    userPledges.forEach((p, i) => {
-      const endTime = p.startTime + p.duration * 24 * 60 * 60 * 1000;
-      const daysLeft = Math.max(0, Math.ceil((endTime - Date.now()) / (24 * 60 * 60 * 1000)));
-      const durationInfo = PLEDGE_DURATIONS.find(d => d.days === p.duration) || { rate: 0 };
-      const apr = (durationInfo.rate * 100).toFixed(1) + '%';
-      const estimatedInterest = (p.amount * durationInfo.rate).toFixed(3);
-      const item = document.createElement('div');
-      item.style = 'border: 1px solid #444; margin: 8px 0; padding: 12px; border-radius: 8px; cursor: pointer; background: #1a1a1a;';
-      item.innerHTML = `
-        <div style="font-weight: bold;">${translations[currentLang].orderCount} #${i+1} - ${safeFixed(p.amount)} ${escapeHtml(p.token)}</div>
-        <div style="font-size: 0.9em; color: #0f0;">${translations[currentLang].cycle}：${p.duration} ${translations[currentLang].days} | ${translations[currentLang].apr}：${apr}</div>
-        <div style="font-size: 0.9em; color: #0ff;">${translations[currentLang].remaining}：${daysLeft} ${translations[currentLang].days} | ${translations[currentLang].accrued}：${estimatedInterest} ${escapeHtml(p.token)}</div>
-        <div style="font-size: 0.8em; color: #aaa; margin-top: 4px;">${new Date(p.startTime).toLocaleString()}</div>
-      `;
-      item.onclick = () => showOrderDetail(p, i);
-      list.appendChild(item);
-    });
-    content.appendChild(list);
-  }
-  pledgeDetailModal.style.display = 'flex';
-}
-function showOrderDetail(order, index) {
-  const detailModal = document.createElement('div');
-  detailModal.style = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 20px;';
+
   const endTime = order.startTime + order.duration * 24 * 60 * 60 * 1000;
   const daysLeft = Math.max(0, Math.ceil((endTime - Date.now()) / (24 * 60 * 60 * 1000)));
   const durationInfo = PLEDGE_DURATIONS.find(d => d.days === order.duration) || { rate: 0 };
   const accrued = (order.amount * durationInfo.rate * (Date.now() - order.startTime) / (order.duration * 24 * 60 * 60 * 1000)).toFixed(3);
   const estimatedTotal = (order.amount * durationInfo.rate).toFixed(3);
-  const modalContent = document.createElement('div');
-  modalContent.style = 'background: #111; padding: 24px; border-radius: 16px; max-width: 90%; color: #fff; box-shadow: 0 0 20px rgba(0,255,255,0.3);';
-  modalContent.innerHTML = `
-    <h3 style="margin: 0 0 16px; color: #0ff;">${translations[currentLang].pledgeDetailTitle} #${index + 1}</h3>
-    <div style="line-height: 1.6;">
-      <p><strong>${translations[currentLang].orderCount}：</strong><span style="color:#0f0;">${escapeHtml(order.orderId)}</span></p>
-      <p><strong>${translations[currentLang].pledgedAmount}：</strong>${safeFixed(order.amount)} ${escapeHtml(order.token)}</p>
-      <p><strong>${translations[currentLang].cycle}：</strong>${order.duration} ${translations[currentLang].days}</p>
-            <p><strong>${translations[currentLang].apr}：</strong><span style="color:#0f0;">${(durationInfo.rate * 100).toFixed(1)}%</span></p>
-      <p><strong>${translations[currentLang].startTime}：</strong>${new Date(order.startTime).toLocaleString()}</p>
-      <p><strong>End Time：</strong>${new Date(endTime).toLocaleString()}</p>
-      <p><strong>${translations[currentLang].remaining}：</strong><span style="color:#ff0;">${daysLeft} ${translations[currentLang].days}</span></p>
-      <p><strong>${translations[currentLang].accrued}：</strong><span style="color:#0ff;">${accrued} ${escapeHtml(order.token)}</span></p>
-      <p><strong>Estimated Total Interest：</strong><span style="color:#0f0;">${estimatedTotal} ${escapeHtml(order.token)}</span></p>
+
+  content.innerHTML = `
+    <div style="background: #111; padding: 24px; border-radius: 16px; color: #fff;">
+      <h3 style="margin: 0 0 16px; color: #0ff;">${translations[currentLang].pledgeDetailTitle} #${index + 1}</h3>
+      <div style="line-height: 1.6;">
+        <p><strong>${translations[currentLang].orderCount}：</strong><span style="color:#0f0;">${escapeHtml(order.orderId)}</span></p>
+        <p><strong>${translations[currentLang].pledgedAmount}：</strong>${safeFixed(order.amount)} ${escapeHtml(order.token)}</p>
+        <p><strong>${translations[currentLang].cycle}：</strong>${order.duration} ${translations[currentLang].days}</p>
+        <p><strong>${translations[currentLang].apr}：</strong><span style="color:#0f0;">${(durationInfo.rate * 100).toFixed(1)}%</span></p>
+        <p><strong>${translations[currentLang].startTime}：</strong>${new Date(order.startTime).toLocaleString()}</p>
+        <p><strong>End Time：</strong>${new Date(endTime).toLocaleString()}</p>
+        <p><strong>${translations[currentLang].remaining}：</strong><span style="color:#ff0;">${daysLeft} ${translations[currentLang].days}</span></p>
+        <p><strong>${translations[currentLang].accrued}：</strong><span style="color:#0ff;">${accrued} ${escapeHtml(order.token)}</span></p>
+        <p><strong>Estimated Total Interest：</strong><span style="color:#0f0;">${estimatedTotal} ${escapeHtml(order.token)}</span></p>
+      </div>
     </div>
   `;
-  const closeBtn = document.createElement('button');
-  closeBtn.textContent = 'Close';
-  closeBtn.style = 'margin-top: 20px; padding: 10px 20px; background: #00ffff; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;';
-  closeBtn.onclick = () => detailModal.remove();
-  modalContent.appendChild(closeBtn);
-  detailModal.appendChild(modalContent);
-  document.body.appendChild(detailModal);
-  detailModal.addEventListener('click', (e) => {
-    if (e.target === detailModal) detailModal.remove();
-  });
+
+  pledgeDetailModal.style.display = 'flex';
+
+  // 重新綁定關閉事件
+  const closeBtn = document.getElementById('closePledgeDetail');
+  const closeDetailBtn = document.getElementById('closePledgeDetailBtn');
+  const closeHandler = () => {
+    pledgeDetailModal.style.display = 'none';
+  };
+  if (closeBtn) closeBtn.onclick = closeHandler;
+  if (closeDetailBtn) closeDetailBtn.onclick = closeHandler;
+  pledgeDetailModal.onclick = (e) => {
+    if (e.target === pledgeDetailModal) closeHandler();
+  };
 }
 
 // ==================== DOM 載入完成 ====================
