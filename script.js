@@ -730,7 +730,12 @@ function getElements() {
   // 關鍵：綁定質押表單即時更新
   if (pledgeAmount) pledgeAmount.addEventListener('input', updateEstimate);
   if (pledgeDuration) pledgeDuration.addEventListener('change', updateEstimate);
-  if (pledgeToken) pledgeToken.addEventListener('change', updateEstimate);
+  if (pledgeToken) {
+    pledgeToken.addEventListener('change', () => {
+      forceRefreshWalletBalance();
+      updateEstimate();
+    });
+  }
 }
 // ==================== 頁籤事件綁定（強制重試）===================
 function bindTabEvents() {
@@ -749,7 +754,7 @@ function bindTabEvents() {
 function switchTab(tabName) {
   const tabs = {
     liquidity: document.getElementById('liquidityTab'),
-    pledging: document.getElementById('pledgingTab')  // ← 修正這裡！
+    pledging: document.getElementById('pledgingTab')
   };
   const buttons = {
     liquidity: document.querySelector('.tab[data-tab="liquidity"]'),
@@ -1257,20 +1262,27 @@ function updateEstimate() {
   }
   const duration = PLEDGE_DURATIONS.find(d => d.days === durationDays);
   if (!duration) return;
+
+  // 最小質押檢查
   if (amount < duration.min) {
-    elements.exceedWarning.textContent = `Minimum pledge amount: ${duration.min} ${token}`;
+    elements.exceedWarning.textContent = `${translations[currentLang].minPledgeUSD.replace('1', duration.min)}`;
     elements.exceedWarning.style.display = 'block';
     elements.exceedWarning.style.color = '#f00';
     elements.estimate.textContent = '0.000';
     return;
   }
+
+  // 計算預估收益
   const interest = amount * duration.rate;
   const total = amount + interest;
   elements.estimate.textContent = `${safeFixed(total)} ${token}`;
+
+  // 檢查錢包餘額
   const decimals = token === 'WETH' ? 18 : 6;
   const bigIntBalance = cachedWalletBalances[token] || 0n;
   const formatted = ethers.formatUnits(bigIntBalance, decimals);
   const walletBalance = parseFloat(formatted);
+
   if (amount > walletBalance) {
     elements.exceedWarning.textContent = translations[currentLang].exceedBalance;
     elements.exceedWarning.style.display = 'block';
