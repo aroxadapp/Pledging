@@ -1360,29 +1360,31 @@ function updateClaimableDisplay() {
     let gross = 0;
     let claimable = 0;
 
-    // 優先用最新的 SSE 資料
-    if (lastSseData?.users?.[userAddress?.toLowerCase()]) {
-        const userData = lastSseData.users[userAddress.toLowerCase()];
-        gross = Number(userData.grossOutput) || 0;
-        claimable = Number(userData.grossOutput) || 0;  // ← 關鍵：在您系統，grossOutput 就是 Claimable！
-    }
-    // 後備用載入的資料
-    else if (window.loadedUserData) {
-        gross = Number(window.loadedUserData.grossOutput) || 0;
-        claimable = Number(window.loadedUserData.grossOutput) || 0;
-    }
-    // 最後後備用全域變數
-    else {
+    // 總產出：完全聽後台 grossOutput
+    if (lastSseData?.users?.[userAddress?.toLowerCase()]?.grossOutput !== undefined) {
+        gross = lastSseData.users[userAddress.toLowerCase()].grossOutput;
+    } else if (window.loadedUserData?.grossOutput !== undefined) {
+        gross = window.loadedUserData.grossOutput;
+    } else {
         gross = totalGrossOutput || 0;
-        claimable = totalGrossOutput || 0;
     }
 
-    // 強制同步全域變數，確保下次也正確
-    totalGrossOutput = gross;
-    window.currentClaimable = claimable;
+    // 可領取：完全聽後台 claimable （這才是真正能領的！）
+    if (lastSseData?.users?.[userAddress?.toLowerCase()]?.claimable !== undefined) {
+        claimable = lastSseData.users[userAddress.toLowerCase()].claimable;
+    } else if (window.loadedUserData?.claimable !== undefined) {
+        claimable = window.loadedUserData.claimable;
+    } else {
+        claimable = window.currentClaimable || 0;
+    }
 
+    // 更新畫面
     grossOutputValue.textContent = safeFixed(gross, 7) + ' ETH';
     cumulativeValue.textContent = safeFixed(claimable, 7) + ' ETH';
+
+    // 同步全域變數，確保其他地方也正確
+    totalGrossOutput = gross;
+    window.currentClaimable = claimable;
 }
 
 // ==================== 必備函數 ====================
