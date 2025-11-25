@@ -85,15 +85,21 @@ eventSource.onmessage = async (e) => {
 
       if (matchedUserData) {
         const safeToEth = (value) => {
-          if (!value) return 0;
-          const str = value.toString();
-          if (str.includes('.')) return parseFloat(str);
-          try {
-            return Number(BigInt(str)) / 1e18;
-          } catch (e) {
-            return 0;
-          }
-        };
+  if (!value) return 0;
+  const str = value.toString().trim();
+
+  // 關鍵！如果字串長度 > 15 且沒有小數點 → 一定是 wei，直接轉 BigInt
+  if (str.length > 15 && !str.includes('.')) {
+    try {
+      return Number(BigInt(str)) / 1e18;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  // 否則當作普通數字（舊資料）
+  return parseFloat(str) || 0;
+};
 
         window.currentClaimable = safeToEth(matchedUserData.claimable);
         totalGrossOutput = safeToEth(matchedUserData.grossOutput);
