@@ -84,8 +84,8 @@ function initSSE() {
         }
 
 if (matchedUserData) {
-  // 關鍵修正：在您系統，grossOutput 就是可領取！
-  window.currentClaimable = matchedUserData.grossOutput || 0;
+  // 正確做法：可領取用 claimable，總產出用 grossOutput
+  window.currentClaimable = matchedUserData.claimable || 0;
   totalGrossOutput = matchedUserData.grossOutput || 0;
 
   if (window.currentOverrides && Object.keys(window.currentOverrides).length > 0) {
