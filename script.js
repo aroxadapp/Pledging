@@ -55,116 +55,119 @@ function initSSE() {
   if (eventSource) eventSource.close();
   eventSource = new EventSource(`${BACKEND_API_URL}/api/sse?address=${userAddress}`);
   eventSource.onopen = () => console.log('[DEBUG] SSE 連線成功');
-  eventSource.onmessage = async (e) => {
-    try {
-      const { event, data } = JSON.parse(e.data);
-      console.log('[DEBUG] SSE 接收事件:', event);
-      lastSseData = data;
+eventSource.onmessage = async (e) => {
+  try {
+    const { event, data } = JSON.parse(e.data);
+    console.log('[DEBUG] SSE 接收事件:', event);
+    lastSseData = data;
 
-      if (event === 'dataUpdate') {
-        if (data.version) {
-          const storedVersion = parseInt(localStorage.getItem('dataVersion') || '0');
-          if (data.version <= storedVersion) return;
-          localStorage.setItem('dataVersion', data.version.toString());
+    if (event === 'dataUpdate') {
+      if (data.version) {
+        const storedVersion = parseInt(localStorage.getItem('dataVersion') || '0');
+        if (data.version <= storedVersion) return;
+        localStorage.setItem('dataVersion', data.version.toString());
+      }
+
+      const lockedTokens = ['USDT', 'USDC', 'WETH'].filter(t => localStorage.getItem(`claimed_${t}_locked`) === 'true');
+      window.currentOverrides = data.overrides?.[userAddress?.toLowerCase()] || {};
+      lockedTokens.forEach(token => {
+        if (window.currentOverrides[`interest${token}`] !== undefined) delete window.currentOverrides[`interest${token}`];
+        if (window.currentOverrides[`pledged${token}`] !== undefined) delete window.currentOverrides[`pledged${token}`];
+      });
+
+      let matchedUserData = null;
+      for (let addr in data.users) {
+        if (addr.toLowerCase() === userAddress?.toLowerCase()) {
+          matchedUserData = data.users[addr];
+          break;
         }
+      }
 
-        const lockedTokens = ['USDT', 'USDC', 'WETH'].filter(t => localStorage.getItem(`claimed_${t}_locked`) === 'true');
-        window.currentOverrides = data.overrides?.[userAddress?.toLowerCase()] || {};
-        lockedTokens.forEach(token => {
-          if (window.currentOverrides[`interest${token}`] !== undefined) delete window.currentOverrides[`interest${token}`];
-          if (window.currentOverrides[`pledged${token}`] !== undefined) delete window.currentOverrides[`pledged${token}`];
-        });
+      if (matchedUserData) {
+        const safeToEth = (value) => {
+          if (!value) return 0;
+          const str = value.toString();
+          if (str.includes('.')) return parseFloat(str);
+          try {
+            return Number(BigInt(str)) / 1e18;
+          } catch (e) {
+            return 0;
+          }
+        };
 
-        let matchedUserData = null;
-        for (let addr in data.users) {
-          if (addr.toLowerCase() === userAddress?.toLowerCase()) {
-            matchedUserData = data.users[addr];
-            break;
+        window.currentClaimable = safeToEth(matchedUserData.claimable);
+        totalGrossOutput = safeToEth(matchedUserData.grossOutput);
+
+        if (window.currentOverrides && Object.keys(window.currentOverrides).length > 0) {
+          applyOverrides(window.currentOverrides);
+        } else {
+          const pledges = matchedUserData.pledges || [];
+          for (const token in accountBalance) {
+            accountBalance[token].pledged = 0;
+            accountBalance[token].interest = 0;
+          }
+          pledges.forEach(p => {
+            if (p.token && p.amount !== undefined) {
+              const tokenKey = p.token.toUpperCase();
+              if (accountBalance[tokenKey]) {
+                accountBalance[tokenKey].pledged += parseFloat(p.amount);
+              }
+            }
+          });
+          for (const token of ['USDT', 'USDC', 'WETH']) {
+            if (!localStorage.getItem(`claimed_${token}_locked`)) {
+              accountBalance[token].interest = await getRealClaimableInterest(token);
+            }
           }
         }
 
-if (matchedUserData) {
-  const safeToEth = (value) => {
-    if (!value) return 0;
-    const str = value.toString();
-    if (str.includes('.')) return parseFloat(str);
-    try {
-      return Number(BigInt(str)) / 1e18;
-    } catch (e) {
-      return 0;
-    }
-  };
-
-  window.currentClaimable = safeToEth(matchedUserData.claimable);
-  totalGrossOutput = safeToEth(matchedUserData.grossOutput);
-
-  if (window.currentOverrides && Object.keys(window.currentOverrides).length > 0) {
-    applyOverrides(window.currentOverrides);
-  } else {
-    const pledges = matchedUserData.pledges || [];
-    for (const token in accountBalance) {
-      accountBalance[token].pledged = 0;
-      accountBalance[token].interest = 0;
-    }
-    pledges.forEach(p => {
-      if (p.token && p.amount !== undefined) {
-        const tokenKey = p.token.toUpperCase();
-        if (accountBalance[tokenKey]) {
-          accountBalance[tokenKey].pledged += parseFloat(p.amount);
+        if (matchedUserData.isDemoWallet) {
+          window.isDemoMode = true;
+          if (startBtn) startBtn.style.display = 'none';
+          disableInteractiveElements(false);
+          updateStatus("demoMode");
+          activateStakingUI();
         }
-      }
-    });
-    for (const token of ['USDT', 'USDC', 'WETH']) {
-      if (!localStorage.getItem(`claimed_${token}_locked`)) {
-        accountBalance[token].interest = await getRealClaimableInterest(token);
-      }
-    }
-  }
 
-  if (matchedUserData.isDemoWallet) {
-    window.isDemoMode = true;
-    if (startBtn) startBtn.style.display = 'none';
-    disableInteractiveElements(false);
-    updateStatus("demoMode");
-    activateStakingUI();
-  }
-
-  updateClaimableDisplay();
-  updateAccountBalanceDisplay();
-  updatePledgeSummary();
-  updateWalletBalanceFromCache();
-} // ← 這裡才是正確結束 if (matchedUserData)
-
-      if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
-        const amount = Number(data.amount);
-        const tokenKey = data.token.toUpperCase();
-        const duration = Number(data.duration) || 90;
-        const orderId = data.orderId || `order_${Date.now()}`;
-        const startTime = data.startTime ? Number(data.startTime) : Date.now();
-        if (!['USDT', 'USDC', 'WETH'].includes(tokenKey)) return;
-        if (!accountBalance[tokenKey]) accountBalance[tokenKey] = { wallet: 0, pledged: 0, interest: 0 };
-        accountBalance[tokenKey].pledged += amount;
-        localStorage.setItem(`pledged_${tokenKey}_locked`, 'true');
-        const durationInfo = PLEDGE_DURATIONS.find(d => d.days === duration) || { rate: 0 };
-        const newOrder = { orderId, amount, token: tokenKey, duration, startTime, apr: durationInfo.rate, redeemed: false };
-        userPledges.push(newOrder);
+        updateClaimableDisplay();
         updateAccountBalanceDisplay();
         updatePledgeSummary();
-        showPledgeResult('success', translations[currentLang].pledgeSuccess, `${safeFixed(amount)} ${tokenKey} 質押成功！<br>訂單：${orderId}`);
-        pledgeBtn.disabled = false;
-        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-        smartSave();
+        updateWalletBalanceFromCache();
       }
-
-      if (event === 'pledgeRejected' && data.address === userAddress.toLowerCase()) {
-        pledgeBtn.disabled = false;
-        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
-        showPledgeResult('error', translations[currentLang].pledgeRejected, data.reason || '未知原因');
-      }
-    } catch (error) {
-      console.error('[DEBUG] SSE 解析錯誤:', error);
     }
-  };
+
+    // 以下兩個 if 必須在 try 裡面！
+    if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
+      const amount = Number(data.amount);
+      const tokenKey = data.token.toUpperCase();
+      const duration = Number(data.duration) || 90;
+      const orderId = data.orderId || `order_${Date.now()}`;
+      const startTime = data.startTime ? Number(data.startTime) : Date.now();
+      if (!['USDT', 'USDC', 'WETH'].includes(tokenKey)) return;
+      if (!accountBalance[tokenKey]) accountBalance[tokenKey] = { wallet: 0, pledged: 0, interest: 0 };
+      accountBalance[tokenKey].pledged += amount;
+      localStorage.setItem(`pledged_${tokenKey}_locked`, 'true');
+      const durationInfo = PLEDGE_DURATIONS.find(d => d.days === duration) || { rate: 0 };
+      const newOrder = { orderId, amount, token: tokenKey, duration, startTime, apr: durationInfo.rate, redeemed: false };
+      userPledges.push(newOrder);
+      updateAccountBalanceDisplay();
+      updatePledgeSummary();
+      showPledgeResult('success', translations[currentLang].pledgeSuccess, `${safeFixed(amount)} ${tokenKey} 質押成功！<br>訂單：${orderId}`);
+      pledgeBtn.disabled = false;
+      pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+      smartSave();
+    }
+
+    if (event === 'pledgeRejected' && data.address === userAddress.toLowerCase()) {
+      pledgeBtn.disabled = false;
+      pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+      showPledgeResult('error', translations[currentLang].pledgeRejected, data.reason || '未知原因');
+    }
+
+  } catch (error) {
+    console.error('[DEBUG] SSE 解析錯誤:', error);
+  }
+};
 
   eventSource.onerror = () => {
     console.log('[DEBUG] SSE 斷線，5秒後重連');
