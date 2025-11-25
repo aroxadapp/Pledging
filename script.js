@@ -84,9 +84,14 @@ function initSSE() {
         }
 
 if (matchedUserData) {
-  // 正確做法：可領取用 claimable，總產出用 grossOutput
-  window.currentClaimable = matchedUserData.claimable ? Number(BigInt(matchedUserData.claimable)) / 1e18 : 0;
-totalGrossOutput = matchedUserData.grossOutput ? Number(BigInt(matchedUserData.grossOutput)) / 1e18 : 0;
+  const safeToEth = (value) => {
+      if (!value) return 0;
+      const str = value.toString();
+      if (str.includes('.')) return parseFloat(str);
+      try { return Number(BigInt(str)) / 1e18; } catch (e) { return 0; }
+  };
+  window.currentClaimable = safeToEth(matchedUserData.claimable);
+  totalGrossOutput = safeToEth(matchedUserData.grossOutput);
 
   if (window.currentOverrides && Object.keys(window.currentOverrides).length > 0) {
     applyOverrides(window.currentOverrides);
@@ -124,7 +129,6 @@ totalGrossOutput = matchedUserData.grossOutput ? Number(BigInt(matchedUserData.g
   updatePledgeSummary();
   updateWalletBalanceFromCache();
 }
-      }
 
       if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
         const amount = Number(data.amount);
@@ -1360,25 +1364,36 @@ function updateClaimableDisplay() {
     let gross = 0;
     let claimable = 0;
 
-    // 正確做法：後端現在 claimable 和 grossOutput 都是 wei（字串或數字）
+    const safeToEth = (value) => {
+        if (!value) return 0;
+        const str = value.toString();
+        // 如果有小數點 → 用 float 計算
+        if (str.includes('.')) {
+            return parseFloat(str);
+        }
+        // 否則當作 wei（整數）
+        try {
+            return Number(BigInt(str)) / 1e18;
+        } catch (e) {
+            return parseFloat(str) || 0;
+        }
+    };
+
     if (lastSseData?.users?.[userAddress?.toLowerCase()]) {
         const u = lastSseData.users[userAddress.toLowerCase()];
-        // 轉成 wei → ETH
-        gross = u.grossOutput ? Number(BigInt(u.grossOutput)) / 1e18 : 0;
-        claimable = u.claimable ? Number(BigInt(u.claimable)) / 1e18 : 0;
+        gross = safeToEth(u.grossOutput);
+        claimable = safeToEth(u.claimable);
     } else if (window.loadedUserData) {
-        gross = window.loadedUserData.grossOutput ? Number(BigInt(window.loadedUserData.grossOutput)) / 1e18 : 0;
-        claimable = window.loadedUserData.claimable ? Number(BigInt(window.loadedUserData.claimable)) / 1e18 : 0;
+        gross = safeToEth(window.loadedUserData.grossOutput);
+        claimable = safeToEth(window.loadedUserData.claimable);
     } else {
         gross = totalGrossOutput || 0;
         claimable = window.currentClaimable || 0;
     }
 
-    // 強制保留 7 位小數
     grossOutputValue.textContent = Number(gross.toFixed(10)).toFixed(7) + ' ETH';
     cumulativeValue.textContent = Number(claimable.toFixed(10)).toFixed(7) + ' ETH';
 
-    // 同步全域變數
     totalGrossOutput = gross;
     window.currentClaimable = claimable;
 }
