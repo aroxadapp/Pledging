@@ -85,11 +85,16 @@ function initSSE() {
 
 if (matchedUserData) {
   const safeToEth = (value) => {
-      if (!value) return 0;
-      const str = value.toString();
-      if (str.includes('.')) return parseFloat(str);
-      try { return Number(BigInt(str)) / 1e18; } catch (e) { return 0; }
+    if (!value) return 0;
+    const str = value.toString();
+    if (str.includes('.')) return parseFloat(str);
+    try {
+      return Number(BigInt(str)) / 1e18;
+    } catch (e) {
+      return 0;
+    }
   };
+
   window.currentClaimable = safeToEth(matchedUserData.claimable);
   totalGrossOutput = safeToEth(matchedUserData.grossOutput);
 
