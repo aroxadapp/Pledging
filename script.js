@@ -1521,19 +1521,19 @@ document.addEventListener('DOMContentLoaded', () => {
   window.pendingWithdrawAmount = 0;
 
   window.openWithdrawClaimedModal = async function(token) {
-    const claimed = await getRealClaimedInterest(token);
-    if (claimed <= 0) {
-      showPledgeResult('info', translations[currentLang].withdrawClaimedTitle || '無法提領', '已領取利息為 0');
-      return;
-    }
-    window.pending ssWithdrawToken = token;
-    window.pendingWithdrawAmount = claimed;
-    if (withdrawAmountSpan) WithdrawAmountSpan.textContent = safeFixed(claimed);
-    if (withdrawTokenSpan) withdrawTokenSpan.textContent = token;
-    const claimedEl = document.getElementById('modalClaimedInterest');
-    if (claimedEl) claimedEl.textContent = translations[currentLang].withdrawProcessing || '處理中...';
-    if (withdrawClaimedModal) withdrawClaimedModal.style.display = 'flex';
-  };
+  const claimed = await getRealClaimedInterest(token);
+  if (claimed <= 0) {
+    showPledgeResult('info', translations[currentLang].withdrawClaimedTitle || '無法提領', '已領取利息為 0');
+    return;
+  }
+  window.pendingWithdrawToken = token;      // ← 修正這裡
+  window.pendingWithdrawAmount = claimed;   // ← 正確
+  if (withdrawAmountSpan) withdrawAmountSpan.textContent = safeFixed(claimed);  // ← 修正這裡
+  if (withdrawTokenSpan) withdrawTokenSpan.textContent = token;
+  const claimedEl = document.getElementById('modalClaimedInterest');
+  if (claimedEl) claimedEl.textContent = translations[currentLang].withdrawProcessing || '處理中...';
+  if (withdrawClaimedModal) withdrawClaimedModal.style.display = 'flex';
+};
 
   function closeWithdrawClaimedModal() {
     if (withdrawClaimedModal) withdrawClaimedModal.style.display = 'none';
