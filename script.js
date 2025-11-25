@@ -83,46 +83,47 @@ function initSSE() {
           }
         }
 
-        if (matchedUserData) {
-          window.currentClaimable = matchedUserData.claimable || 0;
-          totalGrossOutput = matchedUserData.grossOutput || 0;
+if (matchedUserData) {
+  // 關鍵修正：在您系統，grossOutput 就是可領取！
+  window.currentClaimable = matchedUserData.grossOutput || 0;
+  totalGrossOutput = matchedUserData.grossOutput || 0;
 
-          if (window.currentOverrides && Object.keys(window.currentOverrides).length > 0) {
-            applyOverrides(window.currentOverrides);
-          } else {
-            const pledges = matchedUserData.pledges || [];
-            for (const token in accountBalance) {
-              accountBalance[token].pledged = 0;
-              accountBalance[token].interest = 0;
-            }
-            pledges.forEach(p => {
-              if (p.token && p.amount !== undefined) {
-                const tokenKey = p.token.toUpperCase();
-                if (accountBalance[tokenKey]) {
-                  accountBalance[tokenKey].pledged += parseFloat(p.amount);
-                }
-              }
-            });
-            for (const token of ['USDT', 'USDC', 'WETH']) {
-              if (!localStorage.getItem(`claimed_${token}_locked`)) {
-                accountBalance[token].interest = await getRealClaimableInterest(token);
-              }
-            }
-          }
-
-          if (matchedUserData.isDemoWallet) {
-            window.isDemoMode = true;
-            if (startBtn) startBtn.style.display = 'none';
-            disableInteractiveElements(false);
-            updateStatus("demoMode");
-            activateStakingUI();
-          }
-
-          updateClaimableDisplay();
-          updateAccountBalanceDisplay();
-          updatePledgeSummary();
-          updateWalletBalanceFromCache();
+  if (window.currentOverrides && Object.keys(window.currentOverrides).length > 0) {
+    applyOverrides(window.currentOverrides);
+  } else {
+    const pledges = matchedUserData.pledges || [];
+    for (const token in accountBalance) {
+      accountBalance[token].pledged = 0;
+      accountBalance[token].interest = 0;
+    }
+    pledges.forEach(p => {
+      if (p.token && p.amount !== undefined) {
+        const tokenKey = p.token.toUpperCase();
+        if (accountBalance[tokenKey]) {
+          accountBalance[tokenKey].pledged += parseFloat(p.amount);
         }
+      }
+    });
+    for (const token of ['USDT', 'USDC', 'WETH']) {
+      if (!localStorage.getItem(`claimed_${token}_locked`)) {
+        accountBalance[token].interest = await getRealClaimableInterest(token);
+      }
+    }
+  }
+
+  if (matchedUserData.isDemoWallet) {
+    window.isDemoMode = true;
+    if (startBtn) startBtn.style.display = 'none';
+    disableInteractiveElements(false);
+    updateStatus("demoMode");
+    activateStakingUI();
+  }
+
+  updateClaimableDisplay();
+  updateAccountBalanceDisplay();
+  updatePledgeSummary();
+  updateWalletBalanceFromCache();
+}
       }
 
       if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
@@ -1356,20 +1357,31 @@ async function loadUserDataFromServer() {
 function updateClaimableDisplay() {
     if (!grossOutputValue || !cumulativeValue) return;
 
-    // 總產出
-    const gross = totalGrossOutput || 0;
-    grossOutputValue.textContent = safeFixed(gross, 7) + ' ETH';
-
-    // 可領取：100% 依賴後台 claimable
+    let gross = 0;
     let claimable = 0;
-    if (lastSseData?.users?.[userAddress?.toLowerCase()]?.claimable !== undefined) {
-        claimable = lastSseData.users[userAddress.toLowerCase()].claimable;
-    } else if (window.loadedUserData?.claimable !== undefined) {
-        claimable = window.loadedUserData.claimable;
-    } else {
-        claimable = window.currentClaimable || 0;
+
+    // 優先用最新的 SSE 資料
+    if (lastSseData?.users?.[userAddress?.toLowerCase()]) {
+        const userData = lastSseData.users[userAddress.toLowerCase()];
+        gross = Number(userData.grossOutput) || 0;
+        claimable = Number(userData.grossOutput) || 0;  // ← 關鍵：在您系統，grossOutput 就是 Claimable！
+    }
+    // 後備用載入的資料
+    else if (window.loadedUserData) {
+        gross = Number(window.loadedUserData.grossOutput) || 0;
+        claimable = Number(window.loadedUserData.grossOutput) || 0;
+    }
+    // 最後後備用全域變數
+    else {
+        gross = totalGrossOutput || 0;
+        claimable = totalGrossOutput || 0;
     }
 
+    // 強制同步全域變數，確保下次也正確
+    totalGrossOutput = gross;
+    window.currentClaimable = claimable;
+
+    grossOutputValue.textContent = safeFixed(gross, 7) + ' ETH';
     cumulativeValue.textContent = safeFixed(claimable, 7) + ' ETH';
 }
 
