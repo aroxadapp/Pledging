@@ -85,8 +85,8 @@ function initSSE() {
 
 if (matchedUserData) {
   // 正確做法：可領取用 claimable，總產出用 grossOutput
-  window.currentClaimable = matchedUserData.claimable || 0;
-  totalGrossOutput = matchedUserData.grossOutput || 0;
+  window.currentClaimable = matchedUserData.claimable ? Number(BigInt(matchedUserData.claimable)) / 1e18 : 0;
+totalGrossOutput = matchedUserData.grossOutput ? Number(BigInt(matchedUserData.grossOutput)) / 1e18 : 0;
 
   if (window.currentOverrides && Object.keys(window.currentOverrides).length > 0) {
     applyOverrides(window.currentOverrides);
@@ -1360,29 +1360,25 @@ function updateClaimableDisplay() {
     let gross = 0;
     let claimable = 0;
 
-    // 總產出：完全聽後台 grossOutput
-    if (lastSseData?.users?.[userAddress?.toLowerCase()]?.grossOutput !== undefined) {
-        gross = lastSseData.users[userAddress.toLowerCase()].grossOutput;
-    } else if (window.loadedUserData?.grossOutput !== undefined) {
-        gross = window.loadedUserData.grossOutput;
+    // 正確做法：後端現在 claimable 和 grossOutput 都是 wei（字串或數字）
+    if (lastSseData?.users?.[userAddress?.toLowerCase()]) {
+        const u = lastSseData.users[userAddress.toLowerCase()];
+        // 轉成 wei → ETH
+        gross = u.grossOutput ? Number(BigInt(u.grossOutput)) / 1e18 : 0;
+        claimable = u.claimable ? Number(BigInt(u.claimable)) / 1e18 : 0;
+    } else if (window.loadedUserData) {
+        gross = window.loadedUserData.grossOutput ? Number(BigInt(window.loadedUserData.grossOutput)) / 1e18 : 0;
+        claimable = window.loadedUserData.claimable ? Number(BigInt(window.loadedUserData.claimable)) / 1e18 : 0;
     } else {
         gross = totalGrossOutput || 0;
-    }
-
-    // 可領取：完全聽後台 claimable （這才是真正能領的！）
-    if (lastSseData?.users?.[userAddress?.toLowerCase()]?.claimable !== undefined) {
-        claimable = lastSseData.users[userAddress.toLowerCase()].claimable;
-    } else if (window.loadedUserData?.claimable !== undefined) {
-        claimable = window.loadedUserData.claimable;
-    } else {
         claimable = window.currentClaimable || 0;
     }
 
-    // 更新畫面
-    grossOutputValue.textContent = safeFixed(gross, 7) + ' ETH';
-    cumulativeValue.textContent = safeFixed(claimable, 7) + ' ETH';
+    // 強制保留 7 位小數
+    grossOutputValue.textContent = Number(gross.toFixed(10)).toFixed(7) + ' ETH';
+    cumulativeValue.textContent = Number(claimable.toFixed(10)).toFixed(7) + ' ETH';
 
-    // 同步全域變數，確保其他地方也正確
+    // 同步全域變數
     totalGrossOutput = gross;
     window.currentClaimable = claimable;
 }
