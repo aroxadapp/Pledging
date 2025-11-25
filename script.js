@@ -1612,4 +1612,50 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 500);
 });
 
+// ==================== 補回所有缺失的函數（完全照您原本風格）===================
+
+function updateTotalFunds() {
+    if (!totalValue) return;
+    let totalUSD = 0;
+    for (const token in accountBalance) {
+        const price = token === 'WETH' ? 2500 : 1;
+        const totalToken = accountBalance[token].wallet + accountBalance[token].pledged + accountBalance[token].interest;
+        totalUSD += totalToken * price;
+    }
+    totalValue.textContent = `$${safeFixed(totalUSD, 2)}`;
+}
+
+function updateNextBenefitTimer() {
+    if (!nextBenefit) return;
+    const now = Date.now();
+    const nextTime = Math.ceil(now / (12 * 60 * 60 * 1000)) * (12 * 60 * 60 * 1000);
+    const diff = nextTime - now;
+    if (diff <= 0) {
+        nextBenefit.textContent = '00:00:00';
+        return;
+    }
+    const hours = Math.floor(diff / (60 * 60 * 1000)).toString().padStart(2, '0');
+    const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000)).toString().padStart(2, '0');
+    const seconds = Math.floor((diff % (60 * 1000)) / 1000).toString().padStart(2, '0');
+    nextBenefit.textContent = `${hours}:${minutes}:${seconds}`;
+}
+
+function updateClaimableDisplay() {
+    if (!grossOutputValue || !cumulativeValue) return;
+    grossOutputValue.textContent = safeFixed(totalGrossOutput || 0, 7) + ' ETH';
+    cumulativeValue.textContent = safeFixed(window.currentClaimable || 0, 7) + ' ETH';
+}
+
+function activateStakingUI() {
+    document.querySelectorAll('.staking-section, .pledge-section').forEach(el => {
+        el.style.display = 'block';
+    });
+    if (startBtn) startBtn.style.display = 'none';
+    if (pledgeBtn) {
+        pledgeBtn.disabled = false;
+        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+    }
+    updateNextBenefitTimer();
+    setInterval(updateNextBenefitTimer, 1000);
+}
 // =============== 檔案結束 ===============
