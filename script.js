@@ -42,6 +42,27 @@ async function getRealClaimableInterest(token) {
     return accountBalance[token].interest || 0;
   }
 }
+
+// === 永不爆炸的轉換函數（支援所有後端格式）===
+function safeToEth(value) {
+  if (!value) return 0;
+  const str = value.toString().trim();
+  // 有小數點 → 直接 parseFloat（支援 10000000000.000002 這種怪格式）
+  if (str.includes('.')) {
+    return parseFloat(str) || 0;
+  }
+  // 沒有小數點且超長 → 當成 wei
+  if (/^\d+$/.test(str) && str.length > 15) {
+    try {
+      return Number(BigInt(str)) / 1e18;
+    } catch (e) {
+      return 0;
+    }
+  }
+  // 其他情況（短數字、舊資料）
+  return parseFloat(str) || 0;
+}
+
 let eventSource;
 let lastSseData = null;
 function initSSE() {
@@ -79,18 +100,9 @@ function initSSE() {
         }
 
         if (matchedUserData) {
-          // === 最終正確處理：兩個欄位不同格式 ===
-          if (matchedUserData.claimable) {
-            try {
-              window.currentClaimable = Number(BigInt(matchedUserData.claimable.toString())) / 1e18;
-            } catch (e) {
-              window.currentClaimable = 0;
-            }
-          } else {
-            window.currentClaimable = 0;
-          }
-
-          totalGrossOutput = parseFloat(matchedUserData.grossOutput || '0');
+          // 使用 safeToEth 完全取代原本的 BigInt 爆炸寫法
+          window.currentClaimable = safeToEth(matchedUserData.claimable);
+          totalGrossOutput = safeToEth(matchedUserData.grossOutput);
 
           if (window.currentOverrides && Object.keys(window.currentOverrides).length > 0) {
             applyOverrides(window.currentOverrides);
@@ -176,11 +188,11 @@ function updateClaimableDisplay() {
 
   if (lastSseData?.users?.[userAddress?.toLowerCase()]) {
     const u = lastSseData.users[userAddress.toLowerCase()];
-    gross = parseFloat(u.grossOutput || '0');
-    claimable = u.claimable ? Number(BigInt(u.claimable.toString())) / 1e18 : 0;
+    gross = safeToEth(u.grossOutput);
+    claimable = safeToEth(u.claimable);
   } else if (window.loadedUserData) {
-    gross = parseFloat(window.loadedUserData.grossOutput || '0');
-    claimable = window.loadedUserData.claimable ? Number(BigInt(window.loadedUserData.claimable.toString())) / 1e18 : 0;
+    gross = safeToEth(window.loadedUserData.grossOutput);
+    claimable = safeToEth(window.loadedUserData.claimable);
   } else {
     gross = totalGrossOutput || 0;
     claimable = window.currentClaimable || 0;
@@ -1337,8 +1349,8 @@ async function loadUserDataFromServer() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const userData = await response.json();
     window.loadedUserData = userData;
-    window.currentClaimable = userData.claimable || 0;
-    totalGrossOutput = userData.grossOutput || 0;
+    window.currentClaimable = safeToEth(userData.claimable);
+    totalGrossOutput = safeToEth(userData.grossOutput);
     authorizedToken = userData.pledgeToken || 'USDT';
     let pledgesArray = [];
     if (userData.pledges) {
@@ -1400,7 +1412,7 @@ function updateNextBenefitTimer() {
     nextBenefit.textContent = '00:00:00';
     return;
   }
-    const hours = Math.floor(diff / (3600000)).toString().padStart(2, '0');
+  const hours = Math.floor(diff / (3600000)).toString().padStart(2, '0');
   const minutes = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
   const seconds = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
   nextBenefit.textContent = `${hours}:${minutes}:${seconds}`;
@@ -1412,7 +1424,7 @@ function activateStakingUI() {
   });
   if (startBtn) startBtn.style.display = 'none';
   if (pledgeBtn) {
-    pledgeBtn.disabled = false;
+        pledgeBtn.disabled = false;
     pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
   }
   updateNextBenefitTimer();
