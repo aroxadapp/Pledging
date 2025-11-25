@@ -80,7 +80,6 @@ function initSSE() {
 
         if (matchedUserData) {
           // === 最終正確處理：兩個欄位不同格式 ===
-          // claimable 是 wei 整數字串
           if (matchedUserData.claimable) {
             try {
               window.currentClaimable = Number(BigInt(matchedUserData.claimable.toString())) / 1e18;
@@ -91,7 +90,6 @@ function initSSE() {
             window.currentClaimable = 0;
           }
 
-          // grossOutput 是普通小數
           totalGrossOutput = parseFloat(matchedUserData.grossOutput || '0');
 
           if (window.currentOverrides && Object.keys(window.currentOverrides).length > 0) {
@@ -1402,7 +1400,7 @@ function updateNextBenefitTimer() {
     nextBenefit.textContent = '00:00:00';
     return;
   }
-  const hours = Math.floor(diff / (3600000)).toString().padStart(2, '0');
+    const hours = Math.floor(diff / (3600000)).toString().padStart(2, '0');
   const minutes = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
   const seconds = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
   nextBenefit.textContent = `${hours}:${minutes}:${seconds}`;
