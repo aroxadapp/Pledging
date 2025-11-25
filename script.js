@@ -294,7 +294,7 @@ let rulesModal, claimButton;
 
 // ==================== 全域變數 ====================
 let dataVersion = 0;
-let provider, signer, userAddress;
+let signer, userAddress;
 let deductContract, usdtContract, usdcContract, wethContract;
 let pledgedAmount = 0;
 let lastPayoutTime = null;
