@@ -135,7 +135,7 @@ if (matchedUserData) {
   updateWalletBalanceFromCache();
 }
 
-      if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
+        if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
         const amount = Number(data.amount);
         const tokenKey = data.token.toUpperCase();
         const duration = Number(data.duration) || 90;
@@ -165,6 +165,7 @@ if (matchedUserData) {
       console.error('[DEBUG] SSE 解析錯誤:', error);
     }
   };
+
   eventSource.onerror = () => {
     console.log('[DEBUG] SSE 斷線，5秒後重連');
     eventSource.close();
