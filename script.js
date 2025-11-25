@@ -133,9 +133,9 @@ if (matchedUserData) {
   updateAccountBalanceDisplay();
   updatePledgeSummary();
   updateWalletBalanceFromCache();
-}
+} // ← 這裡才是正確結束 if (matchedUserData)
 
-        if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
+      if (event === 'pledgeAccepted' && data.address === userAddress.toLowerCase()) {
         const amount = Number(data.amount);
         const tokenKey = data.token.toUpperCase();
         const duration = Number(data.duration) || 90;
