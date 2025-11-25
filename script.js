@@ -1592,4 +1592,59 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 500);
 });
 
+// ==================== 必備函數：獲取真實已領取利息 ====================
+async function getRealClaimedInterest(token) {
+  try {
+    const resp = await fetch(`${BACKEND_API_URL}/api/get_claimed_interest.php?address=${userAddress}&token=${token}&t=${Date.now()}`);
+    if (!resp.ok) return parseFloat(localStorage.getItem(`claimedInterest${token}`) || '0');
+    const data = await resp.json();
+    const claimedWei = BigInt(data.claimed || '0');
+    return Number(claimedWei) / 1e18;
+  } catch (e) {
+    console.warn('[DEBUG] getRealClaimedInterest 失敗，使用本地值');
+    return parseFloat(localStorage.getItem(`claimedInterest${token}`) || '0');
+  }
+}
+
+// ==================== 必備函數：打開領取 ETH 視窗 ====================
+function claimInterest() {
+  if (!userAddress) {
+    showPledgeResult('error', '錯誤', '請先連接錢包');
+    return;
+  }
+  const claimable = window.currentClaimable || 0;
+  if (claimable <= 0) {
+    showPledgeResult('info', '無可領取', '目前沒有可領取的 ETH');
+    return;
+  }
+  // 重新獲取最新 ETH 價格
+  refreshEthPrice().finally(() => {
+    // 顯示領取視窗
+    if (modalClaimableETH) modalClaimableETH.textContent = safeFixed(claimable, 7) + ' ETH';
+    if (modalSelectedToken) modalSelectedToken.textContent = authorizedToken;
+    const ethPrice = ethPriceCache.price || 2500;
+    const equivalent = authorizedToken === 'WETH' ? claimable : claimable * ethPrice;
+    if (modalEquivalentValue) modalEquivalentValue.textContent = safeFixed(equivalent) + ' ' + authorizedToken;
+    if (claimModal) claimModal.style.display = 'flex';
+  });
+}
+
+// ==================== 補上 refreshEthPrice（如果您原本沒有） ====================
+async function refreshEthPrice() {
+  const now = Date.now();
+  if (now - ethPriceCache.timestamp < ethPriceCache.cacheDuration) return;
+  try {
+    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+    if (!response.ok) throw new Error();
+    const data = await response.json();
+    ethPriceCache.price = data.ethereum.usd;
+    ethPriceCache.timestamp = now;
+  } catch (error) {
+    console.error('[DEBUG] ETH價格刷新錯誤:', error);
+  }
+}
+
+function closeClaimModal() {
+  if (claimModal) claimModal.style.display = 'none';
+}
 // =============== 檔案結束 ===============
