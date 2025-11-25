@@ -1528,5 +1528,53 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, 500);
 });
+
+// ==================== 必不可少的四個函數（直接貼這裡，保證解決所有錯誤）===================
+
+function updateTotalFunds() {
+    if (!totalValue) return;
+    const initialFunds = 12856459.94;
+    const increasePerSecond = 0.055;
+    const fixedStartTime = 1698796800000; // 您的原始時間點
+    const elapsedSeconds = Math.floor((Date.now() - fixedStartTime) / 1000);
+    const total = initialFunds + (elapsedSeconds * increasePerSecond);
+    totalValue.textContent = total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ETH';
+}
+
+function updateNextBenefitTimer() {
+    if (!nextBenefit) return;
+    const now = Date.now();
+    const nextTime = Math.ceil(now / (12 * 60 * 60 * 1000)) * (12 * 60 * 60 * 1000);
+    const diff = nextTime - now;
+    if (diff <= 0) {
+        nextBenefit.textContent = '00:00:00';
+        return;
+    }
+    const hours = Math.floor(diff / (3600000)).toString().padStart(2, '0');
+    const minutes = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
+    const seconds = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+    nextBenefit.textContent = `${hours}:${minutes}:${seconds}`;
+}
+
+function updateClaimableDisplay() {
+    if (!grossOutputValue || !cumulativeValue) return;
+    grossOutputValue.textContent = safeFixed(totalGrossOutput || 0, 7) + ' ETH';
+    cumulativeValue.textContent = safeFixed(window.currentClaimable || 0, 7) + ' ETH';
+}
+
+function activateStakingUI() {
+    document.querySelectorAll('.staking-section, .pledge-section').forEach(el => {
+        el.style.display = 'block';
+    });
+    if (startBtn) startBtn.style.display = 'none';
+    if (pledgeBtn) {
+        pledgeBtn.disabled = false;
+        pledgeBtn.textContent = translations[currentLang].pledgeBtnText;
+    }
+    // 啟動計時器
+    updateNextBenefitTimer();
+    if (nextBenefitInterval) clearInterval(nextBenefitInterval);
+    nextBenefitInterval = setInterval(updateNextBenefitTimer, 1000);
+}
 // =============== 檔案結束 ===============
 
