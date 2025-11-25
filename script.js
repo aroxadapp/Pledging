@@ -373,7 +373,7 @@ const translations = {
       <p>3. 年化利率：28.3% ~ 31.5%。</p>
       <p>4. 每 12 小時發放一次（美西時間 00:00 與 12:00）。</p>
       <p>5. 質押也會一併計算流動性挖礦利息。</p>
-    ",
+    `,
     modalClaimableLabel: '可領取',
     modalSelectedTokenLabel: '選擇代幣',
     modalEquivalentValueLabel: '等值金額',
