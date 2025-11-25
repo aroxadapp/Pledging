@@ -88,8 +88,8 @@ eventSource.onmessage = async (e) => {
   if (!value) return 0;
   const str = value.toString().trim();
 
-  // 關鍵！如果字串長度 > 15 且沒有小數點 → 一定是 wei，直接轉 BigInt
-  if (str.length > 15 && !str.includes('.')) {
+  // 關鍵修法：必須是「純數字」且長度 > 15 才當成 wei
+  if (/^\d+$/.test(str) && str.length > 15) {
     try {
       return Number(BigInt(str)) / 1e18;
     } catch (e) {
@@ -97,7 +97,7 @@ eventSource.onmessage = async (e) => {
     }
   }
 
-  // 否則當作普通數字（舊資料）
+  // 其他情況（有小數點、短數字、舊資料）都用 parseFloat
   return parseFloat(str) || 0;
 };
 
